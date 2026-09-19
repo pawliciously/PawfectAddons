@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "pawfectaddons",
+  "version": "${version}",
+  "name": "PawfectAddons",
+  "description": "Quality of life additions for Hypixel SkyBlock.",
+  "authors": [
+    "pawliciously"
+  ],
+  "contact": {},
+  "license": "GPL-3.0-only",
+  "icon": "assets/pawfectaddons/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      {
+        "adapter": "kotlin",
+        "value": "dev.pawfect.addons.PawfectAddons"
+      }
+    ]
+  },
+  "mixins": [
+    "pawfectaddons.mixins.json"
+  ],
+  "depends": {
+    "minecraft": "${minecraft_dependency}",
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "fabric-language-kotlin": ">=${flk_version}"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "pawfectaddons:jetbrainsmono_medium.ttf",
+      "shift": [
+        0.0,
+        0.0
+      ],
+      "size": 8.5,
+      "oversample": 4.0
+    },
+    {
+      "type": "ttf",
+      "file": "pawfectaddons:pawfect_icons.ttf",
+      "shift": [
+        0.0,
+        0.0
+      ],
+      "size": 9.0,
+      "oversample": 4.0
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:default"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "pawfectaddons:outfit_medium.ttf",
+      "shift": [
+        0.0,
+        0.0
+      ],
+      "size": 27.0,
+      "oversample": 2.0
+    }
+  ]
+}
