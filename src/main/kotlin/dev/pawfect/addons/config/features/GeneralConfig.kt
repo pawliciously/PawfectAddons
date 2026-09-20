@@ -21,4 +21,7 @@ class GeneralConfig {
 
     @Expose
     var notificationSeconds: Float = 5f
+
+    @Expose
+    var updateNotice: Boolean = true
 }

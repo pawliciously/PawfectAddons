@@ -498,7 +498,7 @@ object PawfectSettings {
                 "general",
                 "General",
                 Icons.SLIDERS,
-                "0.60.0",
+                "0.79.0",
                 group(
                     "Sacks",
                     ToggleSetting("Track Sacks", "Read your sack contents and keep them updated from chat.", general::trackSacks),
@@ -515,6 +515,7 @@ object PawfectSettings {
                     ButtonSetting("Preview", "Fire a sample notification. Fire it again to watch them stack.", "Show") {
                         Notifications.preview()
                     },
+                    ToggleSetting("Update Notice", "Tell me once per launch when a newer version is out.", general::updateNotice),
                 ),
                 group(
                     "Advanced",

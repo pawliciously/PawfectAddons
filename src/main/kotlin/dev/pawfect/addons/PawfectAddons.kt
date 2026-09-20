@@ -19,6 +19,7 @@ import dev.pawfect.addons.features.cosmetics.Ripples
 import dev.pawfect.addons.features.cosmetics.Trails
 import dev.pawfect.addons.features.cosmetics.Cosmetics
 import dev.pawfect.addons.data.SkyBlockData
+import dev.pawfect.addons.data.UpdateCheck
 import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.stats.ActionBarStats
 import dev.pawfect.addons.features.stats.LowHealthAlert
@@ -272,6 +273,7 @@ object PawfectAddons : ClientModInitializer {
             runCatching {
                 SkyBlockData.refreshProfile()
                 BazaarApi.onTick()
+                UpdateCheck.onTick()
                 Cosmetics.onTick()
                 checkVisualSettings()
             }.onFailure { logger.error("Error during the one-second tick", it) }

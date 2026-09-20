@@ -36,9 +36,10 @@ object Notifications {
         body: String,
         glyph: String = Icons.SPARKLE,
         accent: Int = Theme.accent,
+        lifetime: Long? = null,
     ) {
         val seconds = config.notificationSeconds.coerceIn(1.5f, 12f)
-        active.add(Toast(title, body, glyph, accent, (seconds * 1000f).toLong()))
+        active.add(Toast(title, body, glyph, accent, lifetime ?: (seconds * 1000f).toLong()))
         while (active.size > MAX_VISIBLE) active.removeAt(0)
     }
 

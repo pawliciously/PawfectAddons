@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.79.0
+- Tells you once per launch when a newer version is out. Turn it off under General.
+
 ## 0.78.0
 - Nametags, trails, ripples and motes now draw over the custom sky instead of being painted out.
 
