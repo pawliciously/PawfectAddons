@@ -2,9 +2,9 @@ package dev.pawfect.addons.data
 
 import com.google.gson.JsonParser
 import dev.pawfect.addons.PawfectAddons
-import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.ui.Icons
 import dev.pawfect.addons.ui.Notifications
+import dev.pawfect.addons.utils.McCompat
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
@@ -17,7 +17,7 @@ object UpdateCheck {
     private val logger = LoggerFactory.getLogger("PawfectAddons/UpdateCheck")
 
     private const val ENDPOINT = "https://pawfectaddons.net/v1/version.json"
-    private const val NOTICE_MS = 10_000L
+    private const val NOTICE_MS = 30_000L
 
     private val client: HttpClient by lazy {
         HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
@@ -26,9 +26,12 @@ object UpdateCheck {
     @Volatile
     private var checked = false
 
+    @Volatile
+    private var pending: String? = null
+
     fun onTick() {
+        flush()
         if (checked) return
-        if (!ConfigManager.features.general.updateNotice) return
         checked = true
 
         Thread({
@@ -38,6 +41,19 @@ object UpdateCheck {
                 logger.warn("Could not check for a newer version.", e)
             }
         }, "PawfectAddons Update").apply { isDaemon = true }.start()
+    }
+
+    private fun flush() {
+        val latest = pending ?: return
+        if (McCompat.hideGui || McCompat.mc.screen != null) return
+        pending = null
+
+        Notifications.push(
+            "PawfectAddons " + latest,
+            "You are on " + PawfectAddons.VERSION + ". Update at pawfectaddons.net",
+            Icons.PACKAGE,
+            lifetime = NOTICE_MS,
+        )
     }
 
     private fun check() {
@@ -56,17 +72,20 @@ object UpdateCheck {
             .asJsonObject
             .get("version")
             ?.asString
-            ?: return
+
+        if (latest == null) {
+            logger.warn("Version reply carried no version field.")
+            return
+        }
 
         val current = PawfectAddons.VERSION
-        if (!isNewer(latest, current)) return
+        if (!isNewer(latest, current)) {
+            logger.info("Running {}, which is the latest.", current)
+            return
+        }
 
-        Notifications.push(
-            "PawfectAddons " + latest,
-            "You are on " + current + ". Update at pawfectaddons.net",
-            Icons.PACKAGE,
-            lifetime = NOTICE_MS,
-        )
+        logger.info("Running {}, but {} is out.", current, latest)
+        pending = latest
     }
 
     private fun isNewer(remote: String, local: String): Boolean {

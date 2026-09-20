@@ -1,6 +1,7 @@
 package dev.pawfect.addons.ui
 
 import dev.pawfect.addons.config.settings.SoundListSetting
+import dev.pawfect.addons.features.combat.HitsoundLibrary
 import dev.pawfect.addons.ui.Draw.pill
 import dev.pawfect.addons.ui.Draw.roundPanel
 import dev.pawfect.addons.ui.Draw.roundRect
@@ -65,10 +66,13 @@ class SoundListWidget(private val sound: SoundListSetting) : Widget(sound) {
         val listWidth = width - LABEL_INSET - RIGHT_INSET
         val searchY = y + ROW_HEIGHT
 
+        val folderWidth = folderWidth()
+        val searchWidth = listWidth - folderWidth - 4f
+
         graphics.roundPanel(
             listX,
             searchY,
-            listWidth,
+            searchWidth,
             SEARCH_HEIGHT,
             FIELD_RADIUS,
             Theme.surface(Theme.background, 235),
@@ -77,16 +81,34 @@ class SoundListWidget(private val sound: SoundListSetting) : Widget(sound) {
         val shown = if (query.isEmpty() && !searchFocused) "Search sounds..." else query
         val caretMark = if (searchFocused && (System.currentTimeMillis() / 500) % 2 == 0L) "_" else ""
         graphics.string(
-            Draw.truncate(shown + caretMark, listWidth - 26f),
+            Draw.truncate(shown + caretMark, searchWidth - 26f),
             listX + 6f,
             searchY + (SEARCH_HEIGHT - Draw.LINE_HEIGHT) / 2f,
             if (query.isEmpty() && !searchFocused) Theme.opaque(Theme.textDim) else Theme.opaque(Theme.text),
         )
         graphics.stringRight(
             Icons.SEARCH,
-            listX + listWidth - 6f,
+            listX + searchWidth - 6f,
             searchY + (SEARCH_HEIGHT - Draw.LINE_HEIGHT) / 2f,
             Theme.opaque(Theme.textDim),
+        )
+
+        val folderX = listX + searchWidth + 4f
+        val folderHovered = Draw.inside(mouseX, mouseY, folderX, searchY, folderWidth, SEARCH_HEIGHT)
+        graphics.roundPanel(
+            folderX,
+            searchY,
+            folderWidth,
+            SEARCH_HEIGHT,
+            FIELD_RADIUS,
+            Theme.withAlpha(Theme.accent, if (folderHovered) 70 else 30),
+            if (folderHovered) Theme.opaque(Theme.accent) else Theme.opaque(Theme.border),
+        )
+        graphics.string(
+            FOLDER_LABEL,
+            folderX + 6f,
+            searchY + (SEARCH_HEIGHT - Draw.LINE_HEIGHT) / 2f,
+            Theme.opaque(Theme.accent),
         )
 
         val listY = searchY + SEARCH_HEIGHT + 4f
@@ -169,7 +191,19 @@ class SoundListWidget(private val sound: SoundListSetting) : Widget(sound) {
         val listWidth = width - LABEL_INSET - RIGHT_INSET
         val searchY = y + ROW_HEIGHT
 
-        if (Draw.inside(mouseX, mouseY, listX, searchY, listWidth, SEARCH_HEIGHT)) {
+        val folderWidth = folderWidth()
+        val searchWidth = listWidth - folderWidth - 4f
+
+        if (Draw.inside(mouseX, mouseY, listX + searchWidth + 4f, searchY, folderWidth, SEARCH_HEIGHT)) {
+            searchFocused = false
+            UiSound.click()
+            HitsoundLibrary.openFolder()
+            all = emptyList()
+            cachedQuery = null
+            return true
+        }
+
+        if (Draw.inside(mouseX, mouseY, listX, searchY, searchWidth, SEARCH_HEIGHT)) {
             searchFocused = true
             UiSound.click()
             return true
@@ -253,7 +287,10 @@ class SoundListWidget(private val sound: SoundListSetting) : Widget(sound) {
         return floatArrayOf(x + LABEL_INSET, listY, width - LABEL_INSET - RIGHT_INSET, listHeight())
     }
 
+    private fun folderWidth(): Float = Draw.width(FOLDER_LABEL) + 12f
+
     companion object {
+        const val FOLDER_LABEL = "Folder"
         const val ENTRY_HEIGHT = 13f
         const val MAX_ROWS = 9
         const val SEARCH_HEIGHT = 14f

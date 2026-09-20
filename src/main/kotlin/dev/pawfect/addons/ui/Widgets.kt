@@ -8,6 +8,7 @@ import dev.pawfect.addons.config.settings.GuideSetting
 import dev.pawfect.addons.config.settings.IntSliderSetting
 import dev.pawfect.addons.config.settings.PacketLogSetting
 import dev.pawfect.addons.config.settings.PositionSetting
+import dev.pawfect.addons.config.settings.PresetListSetting
 import dev.pawfect.addons.config.settings.Setting
 import dev.pawfect.addons.config.settings.TextSetting
 import dev.pawfect.addons.config.settings.ToggleSetting
@@ -817,6 +818,7 @@ object WidgetFactory {
         is WaypointListSetting -> WaypointListWidget(setting)
         is SoundListSetting -> SoundListWidget(setting)
         is PacketLogSetting -> PacketLogWidget(setting)
+        is PresetListSetting -> PresetListWidget(setting)
         is GuideSetting -> GuideWidget(setting)
         is PositionSetting -> ActionWidget(setting, setting.label, setting.action)
         else -> null

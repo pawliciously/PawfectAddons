@@ -18,10 +18,4 @@ class GeneralConfig {
 
     @Expose
     var debug: Boolean = false
-
-    @Expose
-    var notificationSeconds: Float = 5f
-
-    @Expose
-    var updateNotice: Boolean = true
 }

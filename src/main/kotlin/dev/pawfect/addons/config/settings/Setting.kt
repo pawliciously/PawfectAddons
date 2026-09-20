@@ -239,6 +239,16 @@ class SoundListSetting(
     val preview: () -> Unit,
 ) : BoundSetting<String>(name, description, property)
 
+class PresetListSetting(
+    name: String,
+    description: String,
+) : Setting<Unit>(name, description) {
+
+    override var value: Unit
+        get() = Unit
+        set(_) {}
+}
+
 class PacketLogSetting(
     name: String,
     description: String,

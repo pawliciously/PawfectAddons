@@ -1,12 +1,12 @@
 package dev.pawfect.addons.ui
 
-import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.ui.Draw.dropShadow
 import dev.pawfect.addons.ui.Draw.roundRect
 import dev.pawfect.addons.ui.Draw.string
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.RenderContext
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import java.util.concurrent.CopyOnWriteArrayList
 
 object Notifications {
 
@@ -16,8 +16,7 @@ object Notifications {
     private const val MARGIN = 10f
     private const val MAX_VISIBLE = 6
     private const val BADGE_LOGO = 16f
-
-    private val config get() = ConfigManager.features.general
+    private const val DEFAULT_MS = 5_000L
 
     class Toast(
         val title: String,
@@ -29,7 +28,7 @@ object Notifications {
         val born: Long = System.currentTimeMillis()
     }
 
-    private val active = ArrayList<Toast>()
+    private val active = CopyOnWriteArrayList<Toast>()
 
     fun push(
         title: String,
@@ -38,18 +37,8 @@ object Notifications {
         accent: Int = Theme.accent,
         lifetime: Long? = null,
     ) {
-        val seconds = config.notificationSeconds.coerceIn(1.5f, 12f)
-        active.add(Toast(title, body, glyph, accent, lifetime ?: (seconds * 1000f).toLong()))
+        active.add(Toast(title, body, glyph, accent, lifetime ?: DEFAULT_MS))
         while (active.size > MAX_VISIBLE) active.removeAt(0)
-    }
-
-    fun preview() {
-        push(
-            "PawfectAddons 1.0.0",
-            "A new version is ready to install.",
-            Icons.PACKAGE,
-            Theme.accent,
-        )
     }
 
     fun clear() {
@@ -83,7 +72,7 @@ object Notifications {
 
         var top = MARGIN + 18f
 
-        for (toast in ArrayList(active)) {
+        for (toast in active) {
             val age = (now - toast.born).toFloat()
             val enter = easeOut((age / IN_MS).coerceIn(0f, 1f))
             val leaving = age - toast.lifetime

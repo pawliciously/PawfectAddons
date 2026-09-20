@@ -3,6 +3,7 @@ package dev.pawfect.addons.config.settings
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.ConfigGuiManager
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.config.ConfigPresets
 import dev.pawfect.addons.config.core.GuiEditManager
 import dev.pawfect.addons.config.features.SecretWaypointsConfig
 import dev.pawfect.addons.config.features.InventoryConfig.PlateStyle
@@ -510,14 +511,6 @@ object PawfectSettings {
                     ToggleSetting("Count Storage", "Also count your ender chest and backpacks.", general::countStorage),
                 ),
                 group(
-                    "Notifications",
-                    FloatSliderSetting("Duration", "How long a notification stays on screen.", general::notificationSeconds, 1.5f, 12f, 0.5f),
-                    ButtonSetting("Preview", "Fire a sample notification. Fire it again to watch them stack.", "Show") {
-                        Notifications.preview()
-                    },
-                    ToggleSetting("Update Notice", "Tell me once per launch when a newer version is out.", general::updateNotice),
-                ),
-                group(
                     "Advanced",
                     ToggleSetting("Debug Logging", "Log extra detail about parsing and repo loading.", general::debug),
                 ),
@@ -526,7 +519,7 @@ object PawfectSettings {
                 "hitsounds",
                 "Hitsounds",
                 Icons.SWORD,
-                "0.46.0",
+                "0.79.0",
                 group(
                     "Hitsound",
                     ToggleSetting("Hitsounds", "Play a sound of your choice whenever you land a hit.", hitsounds::enabled),
@@ -792,7 +785,7 @@ object PawfectSettings {
                 "theme",
                 "Theme",
                 Icons.PALETTE,
-                "0.59.0",
+                "0.79.0",
                 group(
                     "Preset",
                     DropdownSetting("Theme", "Colour preset for this menu.", theme::preset, ThemePreset.entries.toList()),
@@ -816,6 +809,24 @@ object PawfectSettings {
                     ToggleSetting("Player Card", "Show the player card above the menu.", theme::showPlayerIsland),
                     ToggleSetting("Animations", "Animate hovers, toggles and scrolling.", theme::animations),
                     ToggleSetting("Click Sounds", "Play a click when you change a setting.", theme::clickSounds),
+                ),
+                group(
+                    "Configs",
+                    PresetListSetting("Saved Configs", "Every toggle and value in the mod, saved under a name. Click one to load it."),
+                    TextSetting("Name", "What to call the config you are about to save.", ConfigPresets::draftName, "my config"),
+                    ButtonSetting("Save Config", "Write your current settings out under that name.", "Save") {
+                        ConfigPresets.save(ConfigPresets.draftName)
+                            .onSuccess { saved ->
+                                ConfigPresets.draftName = ""
+                                ChatUtils.success("Saved the config $saved.")
+                                PawfectAddons.queueScreen { ConfigGuiManager.open("theme") }
+                            }
+                            .onFailure { ChatUtils.error(it.message ?: "Could not save that config.") }
+                    },
+                    ButtonSetting("Configs Folder", "Open the folder your saved configs live in, ready to share.", "Open") {
+                        ConfigPresets.openFolder()
+                            .onFailure { ChatUtils.error("Could not open the configs folder.") }
+                    },
                 ),
             ),
             if (isDev()) devCategory() else null,

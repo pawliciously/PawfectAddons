@@ -12,6 +12,7 @@ import net.minecraft.client.resources.sounds.Sound
 import net.minecraft.client.sounds.JOrbisAudioStream
 import net.minecraft.client.sounds.WeighedSoundEvents
 import net.minecraft.resources.Identifier
+import net.minecraft.util.Util
 import net.minecraft.util.valueproviders.ConstantFloat
 import org.slf4j.LoggerFactory
 import java.io.BufferedInputStream
@@ -22,6 +23,7 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
+import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.extension
 import kotlin.io.path.nameWithoutExtension
@@ -37,12 +39,27 @@ object HitsoundLibrary {
     val directory: Path get() = ConfigManager.configDirectory.resolve("hitsounds")
 
     private val installed = mutableListOf<String>()
+
+    @Volatile
+    private var rescan = false
     private var probe: Identifier? = null
 
     fun ids(): List<String> {
+        if (rescan) {
+            rescan = false
+            reload()
+            return installed
+        }
         ensureInstalled()
         return installed
     }
+
+    fun openFolder(): Result<Unit> = runCatching {
+        val folder = directory
+        folder.createDirectories()
+        rescan = true
+        Util.getPlatform().openPath(folder)
+    }.onFailure { logger.warn("Could not open the hitsounds folder", it) }
 
     fun ensureInstalled() {
         val marker = probe

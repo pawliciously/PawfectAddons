@@ -1,7 +1,10 @@
 # Changelog
 
 ## 0.79.0
-- Tells you once per launch when a newer version is out. Turn it off under General.
+- Save your settings as named configs under Theme and share the files with anyone.
+- Every sound dropdown now has a Folder button that opens the hitsounds folder, so your own files are one drop away.
+- Tells you once per launch when a newer version is out, once you are actually looking at the game.
+- Dropped the notification settings; durations are fixed now.
 
 ## 0.78.0
 - Nametags, trails, ripples and motes now draw over the custom sky instead of being painted out.

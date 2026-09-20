@@ -694,6 +694,7 @@ class PawfectConfigScreen(
                     is WaypointListWidget -> widget.listBounds()
                     is SoundListWidget -> widget.listBounds()
                     is PacketLogWidget -> widget.listBounds()
+                    is PresetListWidget -> widget.listBounds()
                     else -> continue
                 }
                 if (!Draw.inside(mx, my, bounds[0], bounds[1], bounds[2], bounds[3])) continue
@@ -701,6 +702,7 @@ class PawfectConfigScreen(
                     is WaypointListWidget -> widget.scrollBy(verticalAmount.toFloat() * SCROLL_STEP)
                     is SoundListWidget -> widget.scrollBy(verticalAmount.toFloat() * SCROLL_STEP)
                     is PacketLogWidget -> widget.scrollBy(verticalAmount.toFloat() * SCROLL_STEP)
+                    is PresetListWidget -> widget.scrollBy(verticalAmount.toFloat() * SCROLL_STEP)
                     else -> false
                 }
                 if (handled) return true
