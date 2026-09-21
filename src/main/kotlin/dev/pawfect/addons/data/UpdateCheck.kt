@@ -18,21 +18,24 @@ object UpdateCheck {
 
     private const val ENDPOINT = "https://pawfectaddons.net/v1/version.json"
     private const val NOTICE_MS = 30_000L
+    private const val RECHECK_MS = 30 * 60 * 1000L
 
     private val client: HttpClient by lazy {
         HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
     }
 
     @Volatile
-    private var checked = false
+    private var lastCheck = 0L
 
     @Volatile
     private var pending: String? = null
 
     fun onTick() {
         flush()
-        if (checked) return
-        checked = true
+
+        val now = System.currentTimeMillis()
+        if (now - lastCheck < RECHECK_MS) return
+        lastCheck = now
 
         Thread({
             try {

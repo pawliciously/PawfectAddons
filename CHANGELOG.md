@@ -6,6 +6,7 @@
 - `/pa emoji <search>` finds a shortcode by name.
 - Voidgloom Seraph now shows hits remaining while the Malevolent Hitshield is up, instead of the health line going blank. Toggle under Slayers.
 - Fixed water drawing over trails, motes and ripples.
+- The update notice now comes back every 30 minutes instead of only once per launch.
 - `/pa stands` lists the named armour stands around you.
 
 ## 0.79.0
