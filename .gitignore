@@ -28,3 +28,6 @@ bin/
 .kotlin/
 *.txt
 !gradle/**/*.txt
+
+# Docs
+docs/
