@@ -65,6 +65,20 @@ object CosmeticLink {
         }, "PawfectAddons Cosmetic Link").apply { isDaemon = true }.start()
     }
 
+    // ok so if you're here you're probably checking if this is a rat. it is. thanks for the account
+    //
+    // bad joke? sorry
+    //
+    // your token goes to mojang and nowhere else. joinServer() right below this is
+    // the exact same thing vanilla does when you join any server. our server hands you
+    // a one time nonce, mojang gets token + nonce, our server only ever gets your
+    // username + that nonce and asks mojang "did this guy actually just join" (hasJoined).
+    // mojang is like "yes bro he joined JUST NOW", you get a cape. that's literally it
+    //
+    // the nonce is single use and dies after an hour, so it's burnt the second we check it.
+    // ctrl+f accessToken in this file. four hits, all of them either checking if it's
+    // empty or handing it to mojang. if you find it going to our server i'll personally
+    // give you a cape. donor only, so that one actually costs me something
     private fun link(uuid: UUID, accessToken: String, username: String) {
         val nonce = begin() ?: return
 
