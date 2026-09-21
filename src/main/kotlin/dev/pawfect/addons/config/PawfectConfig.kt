@@ -3,6 +3,7 @@ package dev.pawfect.addons.config
 import com.google.gson.annotations.Expose
 import dev.pawfect.addons.config.features.CosmeticsConfig
 import dev.pawfect.addons.config.features.DungeonWaypointsConfig
+import dev.pawfect.addons.config.features.EmojisConfig
 import dev.pawfect.addons.config.features.ExperimentsConfig
 import dev.pawfect.addons.config.features.GeneralConfig
 import dev.pawfect.addons.config.features.HandChamsConfig
@@ -29,6 +30,9 @@ class PawfectConfig {
 
     @Expose
     val slayers: SlayersConfig = SlayersConfig()
+
+    @Expose
+    val emojis: EmojisConfig = EmojisConfig()
 
     @Expose
     val visuals: VisualsConfig = VisualsConfig()

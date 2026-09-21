@@ -13,6 +13,7 @@
     "BufferBuilderInvoker",
     "ChestBlockEntityMixin",
     "ClientPacketListenerMixin",
+    "CommandSuggestionsMixin",
     "ContainerArtMixin",
     "ContainerScreenAccessor",
     "ContainerPlateMixin",

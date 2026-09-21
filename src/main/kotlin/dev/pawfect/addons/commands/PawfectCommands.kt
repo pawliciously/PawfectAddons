@@ -17,6 +17,8 @@ import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.features.FeatureRegistry
 import dev.pawfect.addons.features.recipetracker.RecipeTracker
 import dev.pawfect.addons.features.debug.ActionBarDebug
+import dev.pawfect.addons.features.chat.Emojis
+import dev.pawfect.addons.features.debug.StandDebug
 import dev.pawfect.addons.features.visual.handchams.HandChams
 import dev.pawfect.addons.features.recipetracker.RecipeTrackerOverlay
 import dev.pawfect.addons.utils.ChatUtils
@@ -31,6 +33,7 @@ object PawfectCommands {
 
     private const val SUCCESS = 1
     private const val CLEAR_CONFIRM_WINDOW_MS = 15_000L
+    private const val EMOJI_LIST_LIMIT = 60
 
     private var craftableNamesCache: List<String> = emptyList()
     private var clearRequestedAt = 0L
@@ -50,6 +53,30 @@ object PawfectCommands {
                     ClientCommands.literal("actionbar").executes {
                         if (ActionBarDebug.toggle()) ChatUtils.success("Action bar logging on. Check the game log.")
                         else ChatUtils.chat("Action bar logging off.")
+                        SUCCESS
+                    },
+                )
+                .then(
+                    ClientCommands.literal("emoji")
+                        .executes {
+                            ChatUtils.chat("${Emojis.names().size} emojis. Type them like :fire: in chat, or /pa emoji <search>.")
+                            SUCCESS
+                        }
+                        .then(
+                            ClientCommands.argument("search", StringArgumentType.greedyString())
+                                .suggests { _, builder ->
+                                    SharedSuggestionProvider.suggest(Emojis.names(), builder)
+                                }
+                                .executes { context ->
+                                    showEmojis(StringArgumentType.getString(context, "search"))
+                                    SUCCESS
+                                },
+                        ),
+                )
+                .then(
+                    ClientCommands.literal("stands").executes {
+                        ChatUtils.chat("Named armour stands nearby:")
+                        StandDebug.dump().forEach { ChatUtils.chat("  $it") }
                         SUCCESS
                     },
                 )
@@ -304,6 +331,22 @@ object PawfectCommands {
         val count = RecipeTracker.clear()
         RecipeTrackerOverlay.invalidate()
         ChatUtils.success("Cleared $count tracked recipe${if (count == 1) "" else "s"}.")
+    }
+
+    private fun showEmojis(query: String) {
+        val trimmed = query.trim()
+        val matches = Emojis.search(trimmed)
+        if (matches.isEmpty()) {
+            ChatUtils.error("No emoji matching \"$trimmed\".")
+            return
+        }
+        ChatUtils.chat("${matches.size} match${if (matches.size == 1) "" else "es"} for \"$trimmed\":")
+        matches.take(EMOJI_LIST_LIMIT).chunked(6).forEach { row ->
+            ChatUtils.chat("  §7" + row.joinToString(" ") { ":$it:" })
+        }
+        if (matches.size > EMOJI_LIST_LIMIT) {
+            ChatUtils.chat("  §8and ${matches.size - EMOJI_LIST_LIMIT} more.")
+        }
     }
 
     private fun toggleFeature(query: String) {

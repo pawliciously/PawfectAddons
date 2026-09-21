@@ -48,6 +48,7 @@ object PawfectSettings {
     fun build(): List<SettingCategory> {
         val tracker = config.recipeTracker
         val slayers = config.slayers
+        val emojis = config.emojis
         val visuals = config.visuals
         val chams = config.handChams
         val players = config.playerChams
@@ -96,7 +97,7 @@ object PawfectSettings {
                 "slayers",
                 "Slayers",
                 Icons.FIRE,
-                "0.52.0",
+                "0.80.0",
                 group(
                     "Boss Health",
                     ToggleSetting("Enabled", "Track your slayer boss and show its health.", slayers::enabled),
@@ -107,6 +108,7 @@ object PawfectSettings {
                     "Readout",
                     ToggleSetting("Show Boss Name", "Show the boss name and tier above its health.", slayers::showName),
                     ToggleSetting("Show Percentage", "Show remaining health as a percentage.", slayers::showPercent),
+                    ToggleSetting("Show Hit Phase", "Show hits left while the Voidgloom Seraph shield is up.", slayers::showHitPhase),
                 ),
                 group(
                     "World Text",
@@ -453,7 +455,7 @@ object PawfectSettings {
                 "cosmetics",
                 "Cosmetics",
                 Icons.USER,
-                "0.78.0",
+                "0.80.0",
                 group(
                     "Account",
                     GuideSetting(
@@ -499,7 +501,7 @@ object PawfectSettings {
                 "general",
                 "General",
                 Icons.SLIDERS,
-                "0.79.0",
+                "0.80.0",
                 group(
                     "Sacks",
                     ToggleSetting("Track Sacks", "Read your sack contents and keep them updated from chat.", general::trackSacks),
@@ -509,6 +511,10 @@ object PawfectSettings {
                     "Item Sources",
                     ToggleSetting("Count Inventory", "Also count your inventory and equipped gear.", general::countInventory),
                     ToggleSetting("Count Storage", "Also count your ender chest and backpacks.", general::countStorage),
+                ),
+                group(
+                    "Emojis",
+                    ToggleSetting("Chat Emojis", "Draw :shortcodes: in chat as real emojis. Only you see them, everyone else sees the text.", emojis::enabled),
                 ),
                 group(
                     "Advanced",

@@ -28,6 +28,7 @@ bin/
 .kotlin/
 *.txt
 !gradle/**/*.txt
+!src/main/resources/licenses/*.txt
 
 # Docs
 docs/

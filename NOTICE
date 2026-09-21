@@ -1,0 +1,19 @@
+PawfectAddons
+Copyright 2025 pawliciously
+
+Licensed under GPL-3.0-only. See LICENSE.
+
+This product bundles third party assets:
+
+Twemoji
+  Copyright 2019 Twitter, Inc and other contributors
+  https://github.com/jdecked/twemoji
+  Licensed under CC-BY 4.0. Full text at src/main/resources/licenses/Twemoji-CC-BY-4.0.txt
+
+Inter
+  Copyright 2020 The Inter Project Authors
+  https://github.com/rsms/inter
+  Licensed under the SIL Open Font License 1.1. Full text at src/main/resources/licenses/Inter-OFL.txt
+
+Refract
+  Licensed under the MIT License. Full text at src/main/resources/licenses/Refract-MIT.txt

@@ -22,6 +22,9 @@ class SlayersConfig {
     var showPercent: Boolean = true
 
     @Expose
+    var showHitPhase: Boolean = true
+
+    @Expose
     var worldScale: Float = 1f
 
     @Expose

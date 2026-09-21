@@ -2,7 +2,9 @@ package dev.pawfect.addons.features.cosmetics
 
 import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.ColorTargetState
+import com.mojang.blaze3d.pipeline.DepthStencilState
 import com.mojang.blaze3d.pipeline.RenderPipeline
+import com.mojang.blaze3d.platform.CompareOp
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.mixin.RenderTypeInvoker
 import net.minecraft.client.renderer.RenderPipelines
@@ -20,7 +22,7 @@ object TrailRenderTypes {
         source.samplers,
         source.uniforms,
         ColorTargetState(blend),
-        source.depthStencilState,
+        DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true),
         source.polygonMode,
         source.isCull,
         source.vertexFormat,

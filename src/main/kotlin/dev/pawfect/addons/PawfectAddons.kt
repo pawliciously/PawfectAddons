@@ -12,6 +12,7 @@ import dev.pawfect.addons.data.BazaarApi
 import dev.pawfect.addons.data.ItemSources
 import dev.pawfect.addons.data.NeuRepo
 import dev.pawfect.addons.data.SackApi
+import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.cosmetics.Capes
 import dev.pawfect.addons.features.cosmetics.CosmeticEnroll
 import dev.pawfect.addons.features.cosmetics.Motes
@@ -186,7 +187,7 @@ object PawfectAddons : ClientModInitializer {
 
     private fun registerChat() {
         ClientReceiveMessageEvents.MODIFY_GAME.register { message, overlay ->
-            if (!overlay) message
+            if (!overlay) runCatching { Emojis.apply(message) }.getOrDefault(message)
             else runCatching {
                 ActionBarStats.withoutIcons(message, hiddenStatIcons()) ?: message
             }.getOrDefault(message)

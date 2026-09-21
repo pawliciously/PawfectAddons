@@ -14,6 +14,8 @@ object SlayerManager {
 
     private const val SEARCH_RADIUS = 32.0
     private const val OWNER_SEARCH_Y = 2.0
+    private const val HITS_SEARCH_XZ = 1.0
+    private const val HITS_SEARCH_Y = 3.0
 
     private val bossRegex = Regex(
         "(Revenant Horror|Atoned Horror|Tarantula Broodfather|Conjoined Brood|Sven Packmaster|" +
@@ -21,6 +23,10 @@ object SlayerManager {
     )
 
     private val healthRegex = Regex("(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?[kKmM]?)(?=❤)")
+
+    private val hitsRegex = Regex("(\\d+) Hits?")
+
+    private val hitsPerTier = listOf(15, 30, 60, 100)
 
     enum class SlayerType(val displayName: String, private val tierHealth: List<Int>) {
         REVENANT("Revenant Horror", listOf(500, 20_000, 400_000, 1_500_000, 10_000_000)),
@@ -93,10 +99,16 @@ object SlayerManager {
                 return (health.toDouble() / maxHealth * 100.0).coerceIn(0.0, 100.0)
             }
 
+        var hits: Int? = null
+            internal set
+
+        val maxHits: Int
+            get() = if (type == SlayerType.VOIDGLOOM) hitsPerTier.getOrNull(tier.ordinal) ?: hitsPerTier.last() else 0
+
         val position: Vec3 get() = stand.position()
 
         val alive: Boolean
-            get() = stand.isAlive && (currentHealth ?: 0) > 0
+            get() = stand.isAlive && ((currentHealth ?: 0) > 0 || hits != null)
     }
 
     private val config get() = ConfigManager.features.slayers
@@ -115,6 +127,7 @@ object SlayerManager {
         }
 
         val current = boss
+        if (current != null) current.hits = findHits(current)
         if (current != null && current.alive && matchesTarget(current)) {
             checkLowHealth(current)
             return
@@ -124,6 +137,7 @@ object SlayerManager {
         boss = findBoss()
 
         val found = boss ?: return
+        found.hits = findHits(found)
         if (found.stand.id == alertedStand) return
         alertedStand = found.stand.id
         lowAlerted = false
@@ -168,7 +182,7 @@ object SlayerManager {
         for (stand in stands) {
             val name = stand.name.string.removeColor()
             val match = bossRegex.find(name) ?: continue
-            if (parseHealth(stand.name.string) == null) continue
+            if (parseHealth(stand.name.string) == null && parseHits(stand.name.string) == null) continue
 
             val bossName = match.groupValues[1]
             val type = SlayerType.fromBossName(bossName) ?: continue
@@ -186,6 +200,30 @@ object SlayerManager {
         }
 
         return best
+    }
+
+    private fun findHits(boss: Boss): Int? {
+        if (boss.type != SlayerType.VOIDGLOOM) return null
+        val level = McCompat.mc.level ?: return null
+
+        parseHits(boss.stand.name.string)?.let { return it }
+
+        val stands = level.getEntitiesOfClass(
+            ArmorStand::class.java,
+            boss.stand.boundingBox.inflate(HITS_SEARCH_XZ, HITS_SEARCH_Y, HITS_SEARCH_XZ),
+        ) { it.hasCustomName() }
+
+        for (stand in stands) {
+            parseHits(stand.name.string)?.let { return it }
+        }
+
+        return null
+    }
+
+    private fun parseHits(name: String): Int? {
+        val plain = name.removeColor()
+        if (!plain.contains("Hit")) return null
+        return hitsRegex.find(plain)?.groupValues?.get(1)?.toIntOrNull()
     }
 
     private fun isOwnedBy(stand: ArmorStand, username: String): Boolean {

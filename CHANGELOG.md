@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.80.0
+- Chat emojis. Type `:fire:` and your client draws the real thing in full colour, with 1,922 Discord shortcodes to pick from. Anyone without PawfectAddons just sees the text you typed.
+- Emoji names complete as you type them. Start a word with `:`, keep going, and the suggestion list narrows.
+- `/pa emoji <search>` finds a shortcode by name.
+- Voidgloom Seraph now shows hits remaining while the Malevolent Hitshield is up, instead of the health line going blank. Toggle under Slayers.
+- Fixed water drawing over trails, motes and ripples.
+- `/pa stands` lists the named armour stands around you.
+
 ## 0.79.0
 - Save your settings as named configs under Theme and share the files with anyone.
 - Every sound dropdown now has a Folder button that opens the hitsounds folder, so your own files are one drop away.
