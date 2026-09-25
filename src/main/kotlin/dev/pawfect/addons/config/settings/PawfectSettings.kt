@@ -370,7 +370,9 @@ object PawfectSettings {
                 group(
                     "Outline",
                     ToggleSetting("Outline", "Draw a border that traces your hand's silhouette.", chams::outlineEnabled),
-                    ColorSetting("Outline Colour", "Colour of the border.", chams::outlineColor)
+                    ToggleSetting("Match Item Rarity", "Colour the border by the rarity of the item you're holding.", chams::outlineRarityColor)
+                        .showIf { chams.outlineEnabled },
+                    ColorSetting("Outline Colour", "Colour of the border. With Match Item Rarity on, used when the held item has no rarity.", chams::outlineColor)
                         .showIf { chams.outlineEnabled },
                     FloatSliderSetting("Thickness", "Width of the line in pixels.", chams::outlineThickness, 0.5f, 6f, 0.5f)
                         .showIf { chams.outlineEnabled },

@@ -9,13 +9,11 @@ import dev.pawfect.addons.ui.Draw.roundOutline
 import dev.pawfect.addons.ui.Draw.roundRect
 import dev.pawfect.addons.ui.Theme
 import dev.pawfect.addons.ui.UiFont
+import dev.pawfect.addons.utils.ItemUtil.rarityColor
 import net.minecraft.client.gui.GuiGraphicsExtractor
-import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
-import net.minecraft.network.chat.Style
 import net.minecraft.world.item.ItemStack
-import java.util.Optional
 
 object TooltipStyle {
 
@@ -138,25 +136,9 @@ object TooltipStyle {
     }
 
     private fun borderColor(): Int = when (config.border) {
-        BorderSource.RARITY -> rarityColor() ?: Theme.accent
+        BorderSource.RARITY -> item.rarityColor() ?: Theme.accent
         BorderSource.ACCENT -> Theme.accent
         BorderSource.BORDER -> Theme.border
         BorderSource.NONE -> Theme.border
     }
-
-    private fun rarityColor(): Int? {
-        val stack = item
-        if (stack.isEmpty) return null
-        stack.get(DataComponents.LORE)?.lines()?.asReversed()?.forEach { line ->
-            if (line.string.isBlank()) return@forEach
-            return colorOf(line) ?: colorOf(stack.hoverName)
-        }
-        return colorOf(stack.hoverName)
-    }
-
-    private fun colorOf(component: Component): Int? =
-        component.visit<Int>(
-            { style, _ -> style.color?.let { Optional.of(it.value) } ?: Optional.empty() },
-            Style.EMPTY,
-        ).orElse(null)
 }

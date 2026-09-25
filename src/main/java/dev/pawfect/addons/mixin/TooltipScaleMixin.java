@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import dev.pawfect.addons.features.visual.menu.InventoryStyle;
 import dev.pawfect.addons.features.visual.tooltip.TooltipStyle;
 
 @Mixin(GuiGraphicsExtractor.class)
@@ -30,6 +31,7 @@ public class TooltipScaleMixin {
         Identifier style,
         CallbackInfo callback
     ) {
+        InventoryStyle.beginTooltip();
         pawfectaddons$scaled = TooltipStyle.pushScale((GuiGraphicsExtractor) (Object) this, x, y);
     }
 
@@ -45,5 +47,6 @@ public class TooltipScaleMixin {
     ) {
         TooltipStyle.popScale((GuiGraphicsExtractor) (Object) this, pawfectaddons$scaled);
         pawfectaddons$scaled = false;
+        InventoryStyle.endTooltip();
     }
 }

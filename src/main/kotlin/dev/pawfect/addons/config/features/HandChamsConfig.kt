@@ -38,6 +38,9 @@ class HandChamsConfig {
     var outlineColor: Int = 0x9D4EDD
 
     @Expose
+    var outlineRarityColor: Boolean = false
+
+    @Expose
     var outlineThickness: Float = 1.5f
 
     @Expose

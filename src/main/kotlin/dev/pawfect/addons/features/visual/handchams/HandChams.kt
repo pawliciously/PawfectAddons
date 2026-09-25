@@ -11,6 +11,7 @@ import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.HandChamsConfig
 import dev.pawfect.addons.utils.ChatUtils
 import dev.pawfect.addons.utils.ColorInt
+import dev.pawfect.addons.utils.ItemUtil.rarityColor
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.resources.Identifier
 import org.slf4j.LoggerFactory
@@ -296,7 +297,7 @@ object HandChams {
 
         scratch.clear()
         putColor(config.tintColor, config.tintStrength.coerceIn(0f, 1f) * ColorInt.alpha(config.tintColor))
-        putColor(config.outlineColor, config.outlineOpacity.coerceIn(0f, 1f) * ColorInt.alpha(config.outlineColor))
+        putColor(outlineColor(), config.outlineOpacity.coerceIn(0f, 1f) * ColorInt.alpha(config.outlineColor))
         scratch.putFloat(if (config.bodyActive) 1f else 0f)
         scratch.putFloat(config.opacity.coerceIn(0f, 1f))
         scratch.putFloat(if (config.saturationEnabled) config.saturation.coerceIn(0f, 3f) else 1f)
@@ -328,6 +329,12 @@ object HandChams {
         pad()
 
         encoder.writeToBuffer(buffer.slice(offset, UNIFORM_STRIDE.toLong()), scratch)
+    }
+
+    private fun outlineColor(): Int {
+        if (!config.outlineRarityColor) return config.outlineColor
+        val player = McCompat.mc.player ?: return config.outlineColor
+        return player.mainHandItem.rarityColor() ?: player.offhandItem.rarityColor() ?: config.outlineColor
     }
 
     private fun putColor(value: Int, alpha: Float) {

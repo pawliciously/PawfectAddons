@@ -23,6 +23,10 @@ object InventoryStyle {
 
     private var drawnThisFrame = false
 
+    // Other mods draw container art inside tooltips (Skyblocker's compactor/deletor preview blits
+    // generic_54 for its slot grid). Anything drawn while a tooltip is open is left alone.
+    private var tooltipDepth = 0
+
     @JvmStatic
     fun draws(screen: Any): Boolean = config.enabled && screen is AbstractContainerScreen<*>
 
@@ -32,6 +36,17 @@ object InventoryStyle {
     @JvmStatic
     fun endFrame() {
         drawnThisFrame = false
+        tooltipDepth = 0
+    }
+
+    @JvmStatic
+    fun beginTooltip() {
+        tooltipDepth++
+    }
+
+    @JvmStatic
+    fun endTooltip() {
+        if (tooltipDepth > 0) tooltipDepth--
     }
 
     @JvmStatic
@@ -43,7 +58,7 @@ object InventoryStyle {
         width: Int,
         height: Int,
     ): Boolean {
-        if (!active()) return false
+        if (!active() || tooltipDepth > 0) return false
         val screen = McCompat.mc.screen as? AbstractContainerScreen<*> ?: return false
         val geometry = screen as ContainerScreenAccessor
         val left = geometry.`pawfectaddons$leftPos`()
@@ -51,7 +66,10 @@ object InventoryStyle {
         val panelWidth = geometry.`pawfectaddons$imageWidth`()
         val panelHeight = geometry.`pawfectaddons$imageHeight`()
         val fits = x == left && y == top && width == panelWidth && height == panelHeight
-        val named = id.path.startsWith("textures/gui/container/")
+        // Chests draw their panel in pieces, so a container texture counts when it lands inside
+        // the panel. The same texture drawn anywhere else belongs to another mod's overlay.
+        val named = id.path.startsWith("textures/gui/container/") &&
+            x >= left && y >= top && x + width <= left + panelWidth && y + height <= top + panelHeight
         if (!fits && !named) return false
         if (drawnThisFrame) return true
         drawnThisFrame = true
@@ -61,7 +79,7 @@ object InventoryStyle {
 
     @JvmStatic
     fun hidesSprite(id: Identifier): Boolean =
-        active() && config.hideSlotIcons && id.path.startsWith("container/slot/")
+        active() && tooltipDepth == 0 && config.hideSlotIcons && id.path.startsWith("container/slot/")
 
     @JvmStatic
     fun hidesSlotHighlight(): Boolean = active() && config.hideSlotHighlight
