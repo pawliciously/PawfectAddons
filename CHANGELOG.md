@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.81.0
+- Hand chams outline can take the rarity colour of the item you're holding. Turn on Match Item Rarity under Chams, Outline. Items without a rarity keep your outline colour.
+- Fixed the custom inventory hiding or covering other mods' compactor and deletor previews, like Skyblocker's.
+- Compactor and deletor previews from other mods now use the custom tooltip font too.
+
 ## 0.80.0
 - Chat emojis. Type `:fire:` and your client draws the real thing in full colour, with 1,922 Discord shortcodes to pick from. Anyone without PawfectAddons just sees the text you typed.
 - Emoji names complete as you type them. Start a word with `:`, keep going, and the suggestion list narrows.

@@ -348,7 +348,7 @@ object PawfectSettings {
                 "chams",
                 "Chams",
                 Icons.CHAMELEON,
-                "0.56.0",
+                "0.81.0",
                 sectionGroup(
                     "Hand Chams",
                     "Core",
@@ -578,7 +578,7 @@ object PawfectSettings {
                 "inventory",
                 "Inventory",
                 Icons.TAG,
-                "0.59.0",
+                "0.81.0",
                 sectionGroup(
                     "Inventory",
                     "Plate",
