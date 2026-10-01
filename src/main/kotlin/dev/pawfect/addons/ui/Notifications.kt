@@ -6,6 +6,7 @@ import dev.pawfect.addons.ui.Draw.string
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.RenderContext
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.screens.ChatScreen
 import java.util.concurrent.CopyOnWriteArrayList
 
 object Notifications {
@@ -47,7 +48,10 @@ object Notifications {
 
     fun render() {
         if (active.isEmpty()) return
-        if (McCompat.hideGui || McCompat.mc.screen != null) return
+        // Under most screens a toast would sit behind their background; chat has none, so it
+        // still shows there (right click to copy confirms with one).
+        val screen = McCompat.mc.screen
+        if (McCompat.hideGui || (screen != null && screen !is ChatScreen)) return
         if (!RenderContext.isActive) return
         val graphics = RenderContext.graphics
         UiScale.minWidth = 0f

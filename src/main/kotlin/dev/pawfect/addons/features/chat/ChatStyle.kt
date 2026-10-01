@@ -100,19 +100,47 @@ object ChatStyle {
         for (i in 1..sorted.size) {
             val breaks = i == sorted.size || sorted[i].top > sorted[i - 1].bottom || sorted[i].left != sorted[start].left
             if (!breaks) continue
-            val first = sorted[start]
-            val last = sorted[i - 1]
-            val opacity = config.opacity.coerceIn(0f, 1f)
-            panel(
-                graphics,
-                first.left.toFloat(),
-                first.top.toFloat(),
-                (first.right - first.left).toFloat(),
-                (last.bottom - first.top).toFloat(),
-                first.alpha * opacity,
-                last.alpha * opacity,
-            )
+            drawBlock(graphics, sorted.subList(start, i))
             start = i
+        }
+    }
+
+    /**
+     * One block of lines. Each line keeps its own fade, the way vanilla fades lines one at a
+     * time, but they're all slices of the same rounded panel, so the edges and outline stay
+     * continuous. A line's top edge sits just out of sight above it while the line above is
+     * solid and slides into place as that line fades, so corners and outline never pop in.
+     */
+    private fun drawBlock(graphics: GuiGraphicsExtractor, block: List<Row>) {
+        val opacity = config.opacity.coerceIn(0f, 1f)
+        val radius = config.radius.coerceIn(0f, 8f)
+        val tuck = radius + 2f
+        val rgb = if (config.customColor) config.color else Theme.palette.background
+        val left = block[0].left.toFloat()
+        val width = (block[0].right - block[0].left).toFloat()
+
+        for ((index, row) in block.withIndex()) {
+            val alpha = row.alpha * opacity
+            if (alpha <= 0.003f) continue
+            val above = if (index == 0) 0f else block[index - 1].alpha.coerceIn(0f, 1f)
+            val edgeTop = row.top - tuck * above
+            val edgeBottom = if (index == block.lastIndex) row.bottom.toFloat() else row.bottom + tuck
+            val border = if (config.outline) argb(Theme.accent, alpha * 0.45f) else 0
+
+            Shapes.pushScissor(graphics, left - 1f, row.top.toFloat(), width + 2f, (row.bottom - row.top).toFloat())
+            Shapes.rect(
+                graphics,
+                left,
+                edgeTop,
+                width,
+                edgeBottom - edgeTop,
+                radius,
+                argb(rgb, alpha),
+                argb(rgb, alpha),
+                if (config.outline) 1f else 0f,
+                border,
+            )
+            Shapes.popScissor(graphics)
         }
     }
 
