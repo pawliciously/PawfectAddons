@@ -1,6 +1,7 @@
 package dev.pawfect.addons.features.chat
 
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.utils.McCompat
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FormattedText
@@ -10,21 +11,23 @@ import net.minecraft.network.chat.TextColor
 import net.minecraft.util.FormattedCharSequence
 import java.util.IdentityHashMap
 import java.util.Optional
-import kotlin.math.exp
 
 /**
- * Prestige styling for SkyBlock levels past 480, where Hypixel stops adding colours and
- * everything is dark red. Each 40 levels adds something on top of that red:
+ * Prestige for SkyBlock levels past 480, where Hypixel stops adding colours and everything is
+ * dark red. Each 40 levels gets a symbol after the number, in Hypixel's own colours, and the
+ * top tiers warm the number up too:
  *
- *  520  bronze brackets
- *  560  silver brackets
- *  600  platinum brackets, obsidian digits (near-black with a red shadow)
- *  640  platinum brackets, a highlight sweeping across the digits
+ *  520  [520✧]   dark red, dark red ✧
+ *  560  [560✦]   dark red, dark red ✦
+ *  600  [600✯]   red, gold ✯
+ *  640  [640✪]   gold, yellow ✪
+ *  680  [680❂]   a digit-by-digit rainbow with coloured brackets, like Bed Wars' top prestige
  *
- * It's purely how text is drawn on this client: nothing is sent, and the visible letters
- * never change, so mods reading chat or the tab list see exactly what they did before. Only
- * a "[NNN]" whose digits Hypixel coloured dark red counts, which rules out pet levels,
- * counts and anything else in brackets.
+ * Nothing is sent and the text itself never changes, so mods reading chat or the tab list (Odin's
+ * party commands parse "[520] Name: !cmd", for instance) see exactly what they did before. Only
+ * colours are restyled; the symbol is drawn in at render time. The number's last digit carries a
+ * colour one step off its real one, which [decorate] (drawing) and [extraWidth] (measuring) look
+ * for. Only a "[NNN]" whose digits Hypixel coloured dark red counts.
  */
 object LevelPrestige {
 
@@ -33,21 +36,40 @@ object LevelPrestige {
     private val enabled get() = ConfigManager.features.chat.levelPrestige
 
     private const val DARK_RED = 0xAA0000
-    private const val BRONZE = 0xCD7F32
-    private const val SILVER = 0xC8D0DC
-    private const val PLATINUM = 0xB9F2FF
-    private const val OBSIDIAN = 0x1A0F12
-    private const val OBSIDIAN_SHADOW = 0xFFAA0000.toInt()
+    private const val RED = 0xFF5555
+    private const val GOLD = 0xFFAA00
+    private const val YELLOW = 0xFFFF55
+    private const val GREEN = 0x55FF55
+    private const val AQUA = 0x55FFFF
+    private const val LIGHT_PURPLE = 0xFF55FF
 
-    /**
-     * Digits that shine carry this colour. It's one step off dark red, so it looks right even
-     * if nothing animates it; [animate] swaps it for the moving highlight while drawing.
-     */
-    private const val SHINE_MARKER = 0xAA0001
+    /** A marker colour on the last digit: the colour it really is, and the symbol drawn after it. */
+    private class Symbol(val realColor: Int, val glyph: String, val color: Int)
+
+    private val SYMBOLS = mapOf(
+        0xAA0001 to Symbol(DARK_RED, "✧", DARK_RED),
+        0xAA0002 to Symbol(DARK_RED, "✦", DARK_RED),
+        0xFF5556 to Symbol(RED, "✯", GOLD),
+        0xFFAA01 to Symbol(GOLD, "✪", YELLOW),
+        0x55FF56 to Symbol(GREEN, "❂", AQUA),
+    )
+
+    private class Tier(val digits: IntArray, val marker: Int, val open: Int? = null, val close: Int? = null)
+
+    private fun tierOf(level: Int): Tier = when {
+        level >= 680 -> Tier(intArrayOf(GOLD, YELLOW, GREEN), 0x55FF56, RED, LIGHT_PURPLE)
+        level >= 640 -> Tier(intArrayOf(GOLD), 0xFFAA01)
+        level >= 600 -> Tier(intArrayOf(RED), 0xFF5556)
+        level >= 560 -> Tier(intArrayOf(DARK_RED), 0xAA0002)
+        else -> Tier(intArrayOf(DARK_RED), 0xAA0001)
+    }
 
     private val LEVEL = Regex("""\[(\d{3})]""")
 
     private class Run(val style: Style, val text: String)
+
+    /** One character of a level: which level, and its place (0 opening bracket, then digits, then closing). */
+    private class Mark(val level: Int, val position: Int, val length: Int)
 
     /** The level in [source] restyled, or null when there's nothing to change. */
     @JvmStatic
@@ -55,7 +77,7 @@ object LevelPrestige {
 
     /** [restyle] without the setting check, for the dev preview. */
     @JvmStatic
-    fun styleLevels(source: Component, where: Where): Component? {
+    fun styleLevels(source: Component, @Suppress("UNUSED_PARAMETER") where: Where): Component? {
         val runs = ArrayList<Run>()
         source.visit(
             object : FormattedText.StyledContentConsumer<Unit> {
@@ -89,17 +111,17 @@ object LevelPrestige {
             }
         }
 
-        // Visible index to the tier of the level it belongs to, and where in it.
         val marks = HashMap<Int, Mark>()
         for (match in LEVEL.findAll(visible)) {
             val level = match.groupValues[1].toInt()
             if (level < 520) continue
             val digits = match.range.first + 1..match.range.last - 1
             if (digits.any { colours[it] != DARK_RED }) continue
-            for (index in match.range) marks[index] = Mark(level, index in digits)
+            val length = match.range.last - match.range.first + 1
+            for (index in match.range) marks[index] = Mark(level, index - match.range.first, length)
         }
         if (marks.isEmpty()) return null
-        if (marks.values.any { it.level >= 640 }) shineSeenAt = System.nanoTime()
+        seenAt = System.nanoTime()
 
         val out = Component.empty()
         var visibleIndex = 0
@@ -121,7 +143,9 @@ object LevelPrestige {
                 } else {
                     if (buffer.isNotEmpty()) out.append(Component.literal(buffer.toString()).setStyle(run.style))
                     buffer.setLength(0)
-                    out.append(Component.literal(c.toString()).setStyle(styleFor(run.style, mark, where)))
+                    val colour = colourFor(mark) ?: colours[visibleIndex]
+                    val style = if (colour == null) run.style else run.style.withColor(TextColor.fromRgb(colour))
+                    out.append(Component.literal(c.toString()).setStyle(style))
                     // Codes seen so far in this run still apply to what follows.
                     buffer.append(codes)
                 }
@@ -135,24 +159,15 @@ object LevelPrestige {
         return out
     }
 
-    private class Mark(val level: Int, val digit: Boolean)
-
-    private fun styleFor(base: Style, mark: Mark, where: Where): Style {
-        val level = mark.level
-        if (!mark.digit) {
-            val metal = when {
-                level >= 600 -> PLATINUM
-                level >= 560 -> SILVER
-                else -> BRONZE
-            }
-            return base.withColor(TextColor.fromRgb(metal))
-        }
-        return when {
-            level >= 640 -> base.withColor(TextColor.fromRgb(SHINE_MARKER))
-            // Nametags sit on a dark backing and have no shadow, so obsidian would vanish there.
-            level >= 600 && where != Where.NAMETAG ->
-                base.withColor(TextColor.fromRgb(OBSIDIAN)).withShadowColor(OBSIDIAN_SHADOW)
-            else -> base.withColor(TextColor.fromRgb(DARK_RED))
+    /** Null keeps the character's own colour (Hypixel's dark grey brackets). */
+    private fun colourFor(mark: Mark): Int? {
+        val tier = tierOf(mark.level)
+        val last = mark.length - 1
+        return when (mark.position) {
+            0 -> tier.open
+            last -> tier.close
+            last - 1 -> tier.marker
+            else -> tier.digits[(mark.position - 1) % tier.digits.size]
         }
     }
 
@@ -167,48 +182,71 @@ object LevelPrestige {
         synchronized(tabCache) {
             tabCache[original]?.let { return if (it === UNCHANGED) original else it }
             if (tabCache.size > 512) tabCache.clear()
-            val styled = restyle(original, Where.TAB)
+            val styled = styleLevels(original, Where.TAB)
             tabCache[original] = styled ?: UNCHANGED
             return styled ?: original
         }
     }
 
-    // The shine: drawn text with marker-coloured digits gets a highlight sweeping across them.
+    // Drawing and measuring: put the symbol after the marked digit, and count its width.
 
     @Volatile
-    private var shineSeenAt = 0L
-    private val startedAt = System.nanoTime()
+    private var seenAt = 0L
 
-    /** Only wrap text while a 640+ level was seen recently; otherwise drawing is untouched. */
+    /** Nothing is wrapped unless a prestige level was seen recently, so drawing is untouched otherwise. */
+    private val active: Boolean get() = System.nanoTime() - seenAt < IDLE_NANOS
+
     @JvmStatic
-    fun animate(text: FormattedCharSequence): FormattedCharSequence {
-        if (System.nanoTime() - shineSeenAt > SHINE_IDLE_NANOS) return text
-        if (!enabled) return text
+    fun decorate(text: FormattedCharSequence): FormattedCharSequence {
+        if (!active) return text
         return FormattedCharSequence { sink ->
-            var first = -1
             text.accept { index, style, codePoint ->
-                val colour = style.color?.value
-                if (colour != SHINE_MARKER) return@accept sink.accept(index, style, codePoint)
-                if (first < 0) first = index
-                sink.accept(index, style.withColor(TextColor.fromRgb(shineAt(index - first))), codePoint)
+                val symbol = style.color?.value?.let(SYMBOLS::get)
+                    ?: return@accept sink.accept(index, style, codePoint)
+                sink.accept(index, style.withColor(TextColor.fromRgb(symbol.realColor)), codePoint) &&
+                    sink.accept(index, style.withColor(TextColor.fromRgb(symbol.color)), symbol.glyph.codePointAt(0))
             }
         }
     }
 
-    /** Dark red with a white band gliding left to right every couple of seconds. */
-    private fun shineAt(position: Int): Int {
-        val seconds = (System.nanoTime() - startedAt) / 1_000_000_000.0
-        val sweep = (seconds % 2.4) / 2.4 * 7.0 - 2.0
-        val distance = position - sweep
-        val glow = exp(-distance * distance / 0.9)
-        fun channel(from: Int, to: Int) = (from + (to - from) * glow).toInt().coerceIn(0, 255)
-        return (channel(0xAA, 0xFF) shl 16) or (channel(0x00, 0xE8) shl 8) or channel(0x00, 0xE0)
+    /** How much wider [text] draws than it measures, for the symbols [decorate] adds. */
+    @JvmStatic
+    fun extraWidth(text: FormattedCharSequence): Int {
+        if (!active) return 0
+        var extra = 0
+        text.accept { _, style, _ ->
+            style.color?.value?.let(SYMBOLS::get)?.let { extra += glyphWidth(it.glyph) }
+            true
+        }
+        return extra
     }
 
-    private const val SHINE_IDLE_NANOS = 30_000_000_000L
+    @JvmStatic
+    fun extraWidth(text: FormattedText): Int {
+        if (!active) return 0
+        var extra = 0
+        text.visit(
+            object : FormattedText.StyledContentConsumer<Unit> {
+                override fun accept(style: Style, piece: String): Optional<Unit> {
+                    style.color?.value?.let(SYMBOLS::get)?.let { extra += glyphWidth(it.glyph) * piece.codePointCount(0, piece.length) }
+                    return Optional.empty()
+                }
+            },
+            Style.EMPTY,
+        )
+        return extra
+    }
+
+    private val widths = HashMap<String, Int>()
+
+    private fun glyphWidth(glyph: String): Int = synchronized(widths) {
+        widths.getOrPut(glyph) { McCompat.font.width(glyph) }
+    }
+
+    private const val IDLE_NANOS = 30_000_000_000L
 
     /** For the dev preview: one sample line per tier, as Hypixel formats them. */
-    fun previewLines(): List<Component> = listOf(480, 520, 560, 600, 640).map { level ->
+    fun previewLines(): List<Component> = listOf(480, 520, 560, 600, 640, 680).map { level ->
         val raw = "§8[§4$level§8] §b[MVP§c+§b] pawliciously§f: level $level preview"
         val line: MutableComponent = Component.literal(raw)
         styleLevels(line, Where.CHAT) ?: line
