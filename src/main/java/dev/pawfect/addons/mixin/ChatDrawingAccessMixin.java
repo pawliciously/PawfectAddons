@@ -26,7 +26,7 @@ import dev.pawfect.addons.features.chat.ChatStyle;
 )
 public abstract class ChatDrawingAccessMixin implements ChatGraphicsHolder {
 
-    @Shadow
+    @Shadow(remap = false)
     @Final
     private GuiGraphicsExtractor graphics;
 
@@ -35,7 +35,7 @@ public abstract class ChatDrawingAccessMixin implements ChatGraphicsHolder {
         return graphics;
     }
 
-    @Inject(method = "fill(IIIII)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "fill(IIIII)V", at = @At("HEAD"), cancellable = true, remap = false)
     private void pawfectaddons$restyleFill(int x0, int y0, int x1, int y1, int color, CallbackInfo callback) {
         if (ChatStyle.fill(graphics, x0, y0, x1, y1, color)) callback.cancel();
     }
