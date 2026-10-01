@@ -18,6 +18,7 @@ import dev.pawfect.addons.features.FeatureRegistry
 import dev.pawfect.addons.features.recipetracker.RecipeTracker
 import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.chat.Emojis
+import dev.pawfect.addons.features.chat.LevelPrestige
 import dev.pawfect.addons.features.profile.ProfileViewerScreen
 import dev.pawfect.addons.features.debug.StandDebug
 import dev.pawfect.addons.features.visual.handchams.HandChams
@@ -38,6 +39,8 @@ object PawfectCommands {
 
     private var craftableNamesCache: List<String> = emptyList()
     private var clearRequestedAt = 0L
+
+    private const val DEV_NAME = "pawliciously"
 
     fun register() {
         ClientCommandRegistrationCallback.EVENT.register { dispatcher, _ -> build(dispatcher) }
@@ -160,6 +163,15 @@ object PawfectCommands {
                         ChatUtils.chat("path=" + (bridge.artPath ?: "none"))
                         SUCCESS
                     },
+                )
+                .then(
+                    // Dev only: sample chat lines for each level prestige tier. Shown locally, never sent.
+                    ClientCommands.literal("levels")
+                        .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
+                        .executes {
+                            LevelPrestige.previewLines().forEach { McCompat.mc.gui.chat.addClientSystemMessage(it) }
+                            SUCCESS
+                        },
                 )
                 .then(
                     ClientCommands.literal("gui").executes {

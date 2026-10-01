@@ -539,6 +539,7 @@ object PawfectSettings {
                 group(
                     "Messages",
                     ToggleSetting("Right Click to Copy", "Right click a message while chat is open to copy it. Shift + right click still opens other mods' menus.", chat::rightClickCopy),
+                    ToggleSetting("Level Prestige", "SkyBlock levels past 480 get bronze, silver and platinum brackets, then obsidian and shining digits, in chat, tab and nametags. Only on your screen.", chat::levelPrestige),
                 ),
             ),
             category(

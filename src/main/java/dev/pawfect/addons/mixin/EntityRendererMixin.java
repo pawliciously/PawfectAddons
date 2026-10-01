@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.cosmetics.Cosmetics;
+import dev.pawfect.addons.features.chat.LevelPrestige;
 import dev.pawfect.addons.features.visual.DungeonBats;
 import dev.pawfect.addons.features.visual.StarMobGlow;
 
@@ -38,5 +39,8 @@ public abstract class EntityRendererMixin {
             state.nameTag
         );
         if (styled != null) state.nameTag = styled;
+
+        Component leveled = LevelPrestige.restyle(state.nameTag, LevelPrestige.Where.NAMETAG);
+        if (leveled != null) state.nameTag = leveled;
     }
 }

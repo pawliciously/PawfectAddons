@@ -34,6 +34,10 @@ class ChatConfig {
     @Expose
     var rightClickCopy: Boolean = true
 
+    /** Prestige styling for SkyBlock levels past 480, in chat, the tab list and nametags. */
+    @Expose
+    var levelPrestige: Boolean = true
+
     @Suppress("SENSELESS_COMPARISON")
     fun sanitize() {
         if (background == null) background = PanelBackground.GLASS
