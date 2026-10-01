@@ -118,6 +118,27 @@ object Cosmetics {
         return styled.append(Component.literal(" ")).append(base)
     }
 
+    /** How a player's name looks on their nametag, for drawing it somewhere else. */
+    class Display(val name: ResolvedName?, val badges: List<Badge>)
+
+    /** Null when [uuid] has no cosmetics, or the settings hide them. Takes dashed or plain UUIDs. */
+    fun displayFor(uuid: String): Display? {
+        if (!config.enabled) return null
+        val id = parseUuid(uuid) ?: return null
+        val entry = lookup(id) ?: return null
+        val name = if (config.nameColors) entry.name else null
+        val badges = if (badgeVisible(id)) entry.badges else emptyList()
+        if (name == null && badges.isEmpty()) return null
+        return Display(name, badges)
+    }
+
+    /** [text] in [name]'s colours, animated if it is, on top of [base]. */
+    fun paint(text: String, base: Style, name: ResolvedName): Component {
+        val painted = Component.empty()
+        appendName(painted, text, base, name)
+        return painted
+    }
+
     private fun badgeVisible(uuid: UUID): Boolean = when (config.badges) {
         Visibility.ALL -> true
         Visibility.SELF -> uuid == McCompat.mc.player?.uuid

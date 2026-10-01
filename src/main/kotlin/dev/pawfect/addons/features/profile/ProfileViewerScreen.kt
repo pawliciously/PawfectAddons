@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.profile
 
+import dev.pawfect.addons.features.cosmetics.Cosmetics
 import dev.pawfect.addons.features.visual.tooltip.TooltipStyle
 import dev.pawfect.addons.ui.Draw
 import dev.pawfect.addons.ui.Draw.circle
@@ -16,6 +17,7 @@ import dev.pawfect.addons.ui.Draw.stringRight
 import dev.pawfect.addons.ui.Icons
 import dev.pawfect.addons.ui.Theme
 import dev.pawfect.addons.ui.UiScale
+import dev.pawfect.addons.ui.UiFont
 import dev.pawfect.addons.utils.ItemUtil.rarityColor
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -198,12 +200,33 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         val y = wy + PAD
 
         graphics.roundGradient(x, y, HEADER, HEADER, 12f, Theme.surface(Theme.mix(Theme.panel, Theme.accent, 0.18f)), Theme.surface(Theme.panel))
-        graphics.roundOutline(x, y, HEADER, HEADER, 12f, Theme.withAlpha(Theme.accent, 110))
+        // PawfectAddons users get their nametag look here too: badges, then the coloured name.
+        val cosmetic = data?.let { Cosmetics.displayFor(it.uuid) }
+        val nameColor = cosmetic?.name?.let { 0xFF000000.toInt() or it.colorAt(0f, 0f) }
+        graphics.roundOutline(x, y, HEADER, HEADER, 12f, Theme.withAlpha(nameColor ?: Theme.accent, 110))
         drawItem(graphics, head, x + 4f, y + 4f, 3f)
 
         val nameX = x + HEADER + 14f
+        var badgeX = nameX
+        cosmetic?.badges?.forEach { badge ->
+            val w = McCompat.font.width(badge.component) * NAME_SCALE
+            scaledComponent(graphics, badge.component, badgeX, y + 1f, NAME_SCALE)
+            if (hover(badgeX, y, w, 14f)) {
+                textTooltip = listOf(
+                    Component.literal(badge.label).withColor(badge.color),
+                    LegacyText.parse("§7PawfectAddons badge"),
+                )
+            }
+            badgeX += w + 3f
+        }
+        if (badgeX > nameX) badgeX += 2f
         val name = data?.ign?.takeIf { it.isNotEmpty() } ?: target
-        scaledText(graphics, name, nameX, y + 1f, 1.6f, Theme.opaque(Theme.text), bold = true)
+        val painted = cosmetic?.name
+        if (painted != null) {
+            scaledComponent(graphics, Cosmetics.paint(name, UiFont.style(bold = true), painted), badgeX, y + 1f, NAME_SCALE)
+        } else {
+            scaledText(graphics, name, badgeX, y + 1f, NAME_SCALE, Theme.opaque(Theme.text), bold = true)
+        }
 
         // Chips: profile switcher first, then facts about the profile.
         var chipX = nameX
@@ -747,6 +770,16 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         graphics.pose().popMatrix()
     }
 
+    /** Text that carries its own fonts and colours, like a cosmetic name or a badge. */
+    private fun scaledComponent(graphics: GuiGraphicsExtractor, text: Component, x: Float, y: Float, scale: Float) {
+        graphics.pose().pushMatrix()
+        graphics.pose().translate(x, y)
+        graphics.pose().scale(scale, scale)
+        graphics.pose().translate(0f, Theme.textOffset)
+        graphics.text(McCompat.font, text, 0, 0, Theme.opaque(Theme.text), Theme.fontShadow)
+        graphics.pose().popMatrix()
+    }
+
     private fun scaledTextRight(graphics: GuiGraphicsExtractor, text: String, right: Float, y: Float, scale: Float, color: Int) {
         val w = Draw.width(text) * scale
         graphics.pose().pushMatrix()
@@ -763,7 +796,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         val y = wy + PAD
         graphics.roundRect(x, y, HEADER, HEADER, 12f, Theme.surface(Theme.panel))
         drawItem(graphics, head, x + 4f, y + 4f, 3f)
-        scaledText(graphics, target, x + HEADER + 14f, y + 1f, 1.6f, Theme.opaque(Theme.text), bold = true)
+        scaledText(graphics, target, x + HEADER + 14f, y + 1f, NAME_SCALE, Theme.opaque(Theme.text), bold = true)
         val dots = ".".repeat(((System.currentTimeMillis() / 350) % 4).toInt())
         graphics.string("Loading profile$dots", x + HEADER + 14f, y + 24f, Theme.opaque(Theme.textDim))
         drawSkeleton(graphics)
@@ -923,6 +956,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         private const val SLOT = 22f
         private const val LEVEL_BAR = 128f
         private const val STAT_CARDS_WIDTH = 116f * 3 + 8f * 2
+        private const val NAME_SCALE = 1.6f
 
         fun coins(value: Double): String = when {
             value >= 1e12 -> "%.2fT".format(value / 1e12)
