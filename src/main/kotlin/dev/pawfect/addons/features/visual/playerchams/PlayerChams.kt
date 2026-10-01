@@ -102,9 +102,14 @@ object PlayerChams {
         filling = false
     }
 
+    /** True while the cape layer is submitting (CapeLayerMixin). */
+    @JvmStatic
+    var inCape = false
+
     @JvmStatic
     fun wrap(original: RenderType): RenderType {
         if (!filling) return original
+        if (inCape && config.ignoreCape) return original
         bySource[original]?.let { return it }
         if (passthrough.containsKey(original)) return original
         val wrapped = texture(original)?.let { swapped(it) }

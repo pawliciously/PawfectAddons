@@ -16,6 +16,10 @@ class PlayerChamsConfig {
     @Expose
     var ignoreNpcs: Boolean = true
 
+    /** Leave capes (vanilla and PA ones) unshaded. */
+    @Expose
+    var ignoreCape: Boolean = false
+
     @Expose
     var style: Style = Style.GHOST
 
@@ -57,7 +61,7 @@ class PlayerChamsConfig {
     /** The number is the shader's style id (player_chams.fsh). */
     enum class Style(private val label: String, val id: Int) {
         GHOST("Ghost", 0),
-        CHROME("Chrome", 1),
+        SKETCH("Ink Sketch", 1),
         NEON("Neon Pixels", 4),
         STARS("Stars", 2),
         END_PORTAL("End Portal", 3),

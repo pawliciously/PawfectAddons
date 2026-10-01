@@ -15,8 +15,6 @@ in vec4 vertexColor;
 in vec2 texCoord0;
 in vec4 texProj0;
 in float rimFactor;
-in vec3 worldNormal;
-in vec3 worldPos;
 
 out vec4 fragColor;
 
@@ -146,36 +144,74 @@ vec3 ghost(vec3 albedo, vec3 fill, vec3 accent, vec3 light, float amount, float 
     return body;
 }
 
-// Chrome: liquid metal reflecting a small built-in studio (sky, horizon line, two softboxes,
-// floor). It works in world space, so highlights stay on the body and glide as the studio
-// slowly turns; ripples tied to the skin make the surface look liquid.
-vec3 chrome(float luma, vec3 fill, vec3 accent, vec3 light, float amount, float gameTime) {
+float lumaOf(vec4 c) {
+    return dot(c.rgb, vec3(0.299, 0.587, 0.114));
+}
+
+// Ink Sketch: the model as a living ink drawing. Cream paper tinted by the main colour, shaded
+// in three flat tones; shadows hatched with pencil lines that live on the skin (cross-hatched
+// where darker); ink line art wherever neighbouring skin pixels differ, so it draws that
+// player's actual face, hair and clothes; brushed ink on faces turned away. The drawing
+// "boils", redrawing a few times a second with a slight wobble, like hand-drawn animation.
+// Far away, lines give way to soft shading so nothing shimmers.
+vec3 inkSketch(vec4 tex, float luma, vec3 fill, vec3 accent, vec3 light, float amount, float cover, float gameTime) {
     float t = gameTime * 1200.0;
     float gain = (amount - 0.10) / 1.40;
-    vec2 skin = texCoord0 * 64.0;
-    vec3 n = normalize(worldNormal);
-    n = normalize(n + vec3(sin(skin.y * 0.9 + t * 1.7), 0.0, cos(skin.x * 0.8 - t * 1.3)) * mix(0.03, 0.10, gain));
-    vec3 v = normalize(worldPos);
-    vec3 r = reflect(v, n);
-    float turn = t * 0.15;
-    r.xz = mat2(cos(turn), -sin(turn), sin(turn), cos(turn)) * r.xz;
+    float frame = floor(t * 6.0);
 
-    vec3 skyTop = mix(fill, vec3(1.0), 0.55);
-    vec3 horizon = mix(accent, vec3(1.0), 0.35);
-    vec3 env = r.y > 0.0
-        ? mix(horizon, skyTop, smoothstep(0.0, 0.8, r.y))
-        : mix(horizon * 0.45, fill * 0.30 + vec3(0.06), smoothstep(0.0, -0.5, r.y));
-    env += vec3(1.0) * pow(max(1.0 - abs(r.y) * 9.0, 0.0), 3.0) * 0.85;
-    env += vec3(1.0) * pow(max(dot(r, normalize(vec3(0.6, 0.55, 0.4))), 0.0), 80.0) * 1.6;
-    env += accent * pow(max(dot(r, normalize(vec3(-0.7, 0.25, -0.5))), 0.0), 30.0) * 0.8;
+    vec2 size = vec2(textureSize(Sampler0, 0));
+    vec2 cell = texCoord0 * size;
+    vec2 wobble = vec2(hash(vec2(frame, 1.3)), hash(vec2(frame, 7.1))) - 0.5;
+    vec2 skin = cell + wobble * 0.35;
+    float texel = max(fwidth(cell.x), fwidth(cell.y));
 
-    float facing = abs(dot(n, -v));
-    vec3 metal = env * mix(0.78, 1.15, pow(1.0 - facing, 3.0));
-    // A trace of the skin's light and dark keeps faces and armour readable.
-    metal *= mix(0.72, 1.08, luma);
-    // Dimmer in the dark, but never flat: metal still catches its own studio.
-    float lit = clamp(dot(light, vec3(0.333)) * 1.4, 0.0, 1.0);
-    return metal * mix(0.55, 1.0, lit) * mix(0.85, 1.20, gain);
+    vec3 ink = accent * 0.28;
+    vec3 paper = mix(vec3(1.0, 0.97, 0.91), fill, 0.12 + 0.30 * cover);
+
+    float lit = clamp(dot(light, vec3(0.333)) * 1.25, 0.0, 1.0);
+    float tone = lit * (0.45 + 0.55 * luma);
+    float band = tone > 0.62 ? 1.0 : (tone > 0.32 ? 0.84 : 0.68);
+    paper *= band * (0.95 + 0.05 * noise(gl_FragCoord.xy * 0.9));
+    // A watercolour wash of the skin's own colours, pooling unevenly like pigment does.
+    vec3 wash = min(tex.rgb * 1.15 + 0.08, vec3(1.0));
+    paper *= mix(vec3(1.0), wash, 0.55 + 0.25 * noise(skin * 0.45));
+
+    // Hatching: diagonal lines in skin space, so they ride on the body.
+    float density = mix(1.5, 2.5, gain);
+    vec2 h = skin * density;
+    float jitter = noise(skin * 0.7 + frame * 3.1) * 0.6;
+    float aa = max(fwidth(h.x + h.y), 1e-4) * 1.2;
+    float d1 = abs(fract(h.x + h.y + jitter) - 0.5) * 2.0;
+    float d2 = abs(fract(h.x - h.y + jitter * 1.3) - 0.5) * 2.0;
+    float line1 = 1.0 - smoothstep(0.28 - aa, 0.28 + aa, d1);
+    float line2 = 1.0 - smoothstep(0.28 - aa, 0.28 + aa, d2);
+    float hatch = line1 * (1.0 - smoothstep(0.42, 0.62, tone)) + line2 * (1.0 - smoothstep(0.18, 0.38, tone));
+
+    // Line art along the borders between skin pixels that differ in brightness. Each pixel
+    // draws its half of every such border, so lines sit centred between the two.
+    ivec2 at = ivec2(floor(cell));
+    ivec2 limit = ivec2(size) - 1;
+    vec2 inside = fract(skin);
+    float stroke = 0.11 + 0.04 * noise(skin * 1.3 + frame);
+    float lineArt = 0.0;
+    for (int side = 0; side < 4; side++) {
+        ivec2 step2 = side == 0 ? ivec2(1, 0) : side == 1 ? ivec2(-1, 0) : side == 2 ? ivec2(0, 1) : ivec2(0, -1);
+        vec4 next = texelFetch(Sampler0, clamp(at + step2, ivec2(0), limit), 0);
+        if (next.a < 0.1 || abs(lumaOf(next) - luma) < 0.12) continue;
+        float dist = side == 0 ? 1.0 - inside.x : side == 1 ? inside.x : side == 2 ? 1.0 - inside.y : inside.y;
+        lineArt = max(lineArt, 1.0 - smoothstep(stroke - aa, stroke + aa, dist));
+    }
+
+    // Far away the lines get thinner than a pixel; settle into plain shading instead.
+    float far = smoothstep(0.35, 0.9, texel * density);
+    float marks = mix(max(hatch, lineArt), (1.0 - tone) * 0.45, far);
+
+    // Brushed ink on faces turned away from you.
+    float brush = noise(skin * 0.5 + frame * 1.7);
+    float outline = smoothstep(0.66 - 0.14 * brush, 0.86 - 0.14 * brush, rimFactor);
+
+    vec3 col = mix(paper, ink, clamp(marks * mix(0.75, 1.0, gain), 0.0, 1.0));
+    return mix(col, ink, outline * 0.9);
 }
 
 // Neon Pixels: the skin's own pixel grid as an LED panel. Each skin pixel is a lit tile in the
@@ -242,7 +278,7 @@ void main() {
     } else if (id == 2) {
         body = stars(tinted, fill, light, amount, gameTime);
     } else if (id == 1) {
-        body = mix(tinted, chrome(luma, fill, accent, light, amount, gameTime), cover);
+        body = inkSketch(tex, luma, fill, accent, light, amount, cover, gameTime);
     } else {
         body = ghost(albedo, fill, accent, light, amount, cover, gameTime, alpha);
     }

@@ -435,6 +435,8 @@ object PawfectSettings {
                         .showIf { players.enabled },
                     ToggleSetting("Ignore NPCs", "Skip Hypixel NPCs that use player models.", players::ignoreNpcs)
                         .showIf { players.enabled && players.others },
+                    ToggleSetting("Ignore Cape", "Leave capes as they are, including PawfectAddons capes.", players::ignoreCape)
+                        .showIf { players.enabled },
                 ),
                 group(
                     "Style",
@@ -455,7 +457,7 @@ object PawfectSettings {
                     "Rim",
                     FloatSliderSetting("Rim Glow", "Light along the model's edges.", players::rim, 0f, 2f, 0.05f)
                         .showIf { players.enabled },
-                    ColorSetting("Second Colour", "The edge light, and the highlight colour in Chrome and Neon Pixels.", players::accentColor)
+                    ColorSetting("Second Colour", "The edge light, the bright tiles in Neon Pixels, and the ink in Ink Sketch.", players::accentColor)
                         .showIf { players.enabled },
                 ),
                 group(
