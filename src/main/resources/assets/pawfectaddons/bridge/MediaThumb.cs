@@ -14,21 +14,32 @@ public static class PawfectMedia {
         return operation.Status == AsyncStatus.Completed ? operation.GetResults() : default(T);
     }
 
-    static string Capture(string path) {
+    // The session the bridge is showing: same app and same title. Two browser tabs share an
+    // app id, so the title is what tells YouTube and SoundCloud apart.
+    static GlobalSystemMediaTransportControlsSessionMediaProperties Find(string appId, string title) {
         var manager = Wait(GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
-        if (manager == null) return "no-manager";
+        if (manager == null) return null;
+        GlobalSystemMediaTransportControlsSessionMediaProperties sameApp = null;
+        foreach (var session in manager.GetSessions()) {
+            if (session.SourceAppUserModelId != appId) continue;
+            var properties = Wait(session.TryGetMediaPropertiesAsync());
+            if (properties == null) continue;
+            if (properties.Title == title) return properties;
+            if (sameApp == null) sameApp = properties;
+        }
+        return sameApp;
+    }
 
-        var session = manager.GetCurrentSession();
-        if (session == null) return "no-session";
-
-        var properties = Wait(session.TryGetMediaPropertiesAsync());
-        if (properties == null || properties.Thumbnail == null) return "no-thumb";
+    static string Capture(string path, string appId, string title) {
+        var properties = Find(appId, title);
+        if (properties == null) return "no-session";
+        if (properties.Thumbnail == null) return "no-thumb";
 
         var stream = Wait(properties.Thumbnail.OpenReadAsync());
         if (stream == null) return "no-stream";
 
         uint size = (uint)stream.Size;
-        if (size == 0) return "empty";
+        if (size == 0) return "no-thumb";
 
         var reader = new DataReader(stream.GetInputStreamAt(0));
         var load = reader.LoadAsync(size);
@@ -39,13 +50,17 @@ public static class PawfectMedia {
         var bytes = new byte[size];
         reader.ReadBytes(bytes);
         File.WriteAllBytes(path, bytes);
-        return "ok:" + bytes.Length;
+
+        // FNV-1a, so the bridge can tell a new picture from the same one fetched again.
+        uint hash = 2166136261;
+        foreach (var b in bytes) { hash ^= b; hash *= 16777619; }
+        return "ok:" + hash.ToString("x8");
     }
 
-    public static string SaveThumb(string path) {
+    public static string SaveThumb(string path, string appId, string title) {
         string result = "unset";
         var worker = new Thread(delegate() {
-            try { result = Capture(path); } catch (Exception error) { result = "error: " + error.Message; }
+            try { result = Capture(path, appId, title); } catch (Exception error) { result = "error: " + error.Message; }
         });
         worker.SetApartmentState(ApartmentState.MTA);
         worker.IsBackground = true;

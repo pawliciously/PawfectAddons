@@ -32,10 +32,11 @@ if ($null -eq $manager) {
 }
 
 $commandFile = Join-Path $WorkDir 'pawfect_media_command.txt'
-$thumbFile = Join-Path $WorkDir 'pawfect_media_thumb.img'
+# Two files, written in turn, so the game never reads a picture that is still being written.
+$thumbSlots = @((Join-Path $WorkDir 'pawfect_media_thumb_a.img'), (Join-Path $WorkDir 'pawfect_media_thumb_b.img'))
 $thumbSource = Join-Path $WorkDir 'MediaThumb.cs'
-$thumbDll = Join-Path $WorkDir 'PawfectMediaThumb.dll'
-$lastThumbKey = ''
+# Renamed whenever SaveThumb's signature changes, so an older build's DLL is never loaded.
+$thumbDll = Join-Path $WorkDir 'PawfectMediaThumb2.dll'
 $thumbReady = $false
 $thumbState = 'not attempted'
 
@@ -71,6 +72,8 @@ if (Test-Path $thumbSource) {
     }
 }
 
+function Now-Ms { return [long]([DateTime]::UtcNow.Ticks / 10000) }
+
 function Invoke-Command-File($session) {
     if (-not (Test-Path $commandFile)) { return }
     $command = ''
@@ -92,9 +95,48 @@ function Invoke-Command-File($session) {
     } catch { }
 }
 
+# Which source to show. Windows' "current" session is whatever it last saw used, which can be
+# a paused YouTube tab while SoundCloud is playing. So: whatever is playing wins, and the one
+# already shown keeps winning while it plays. With nothing playing, stay on the last one shown.
+$chosen = $null
+function Pick-Session {
+    $sessions = @($manager.GetSessions())
+    if ($sessions.Count -eq 0) { return $null }
+
+    $playing = @($sessions | Where-Object {
+        try { $_.GetPlaybackInfo().PlaybackStatus.ToString() -eq 'Playing' } catch { $false }
+    })
+    $stillThere = $null
+    if ($null -ne $script:chosen) {
+        $stillThere = $sessions | Where-Object { [object]::ReferenceEquals($_, $script:chosen) } | Select-Object -First 1
+    }
+
+    if ($playing.Count -gt 0) {
+        if ($null -ne $stillThere -and ($playing | Where-Object { [object]::ReferenceEquals($_, $stillThere) })) { return $stillThere }
+        $current = $manager.GetCurrentSession()
+        if ($null -ne $current -and ($playing | Where-Object { [object]::ReferenceEquals($_, $current) })) { return $current }
+        return $playing[0]
+    }
+    if ($null -ne $stillThere) { return $stillThere }
+    $current = $manager.GetCurrentSession()
+    if ($null -ne $current) { return $current }
+    return $sessions[0]
+}
+
+# Thumbnail state. Browsers often swap the picture a moment after the title, so a change is
+# re-checked quickly for a few seconds, then every few seconds; the game is only told when the
+# picture actually differs.
+$slot = 0
+$lastHash = ''
+$artKey = ''
+$trackKey = ''
+$trackChangedAt = 0
+$nextThumbCheck = 0
+
 while ($true) {
     try {
-        $session = $manager.GetCurrentSession()
+        $session = Pick-Session
+        $chosen = $session
         Invoke-Command-File $session
 
         if ($null -eq $session) {
@@ -103,6 +145,7 @@ while ($true) {
             $properties = Await ($session.TryGetMediaPropertiesAsync()) $propsType
             $timeline = $session.GetTimelineProperties()
             $playback = $session.GetPlaybackInfo()
+            $app = $session.SourceAppUserModelId
 
             $title = ''
             $artist = ''
@@ -113,17 +156,41 @@ while ($true) {
                 $album = $properties.AlbumTitle
             }
 
-            $key = "$title|$artist|$album"
-            $newThumb = $false
-            if ($thumbReady -and ($key -ne $lastThumbKey -or -not (Test-Path $thumbFile))) {
-                $lastThumbKey = $key
+            $now = Now-Ms
+            $key = "$app|$title|$artist|$album"
+            if ($key -ne $trackKey) {
+                $trackKey = $key
+                $trackChangedAt = $now
+                $nextThumbCheck = $now
+            }
+
+            $thumbChanged = $false
+            $thumbPath = ''
+            if ($thumbReady -and $now -ge $nextThumbCheck) {
+                $target = $thumbSlots[1 - $slot]
                 try {
-                    $saved = [PawfectMedia]::SaveThumb($thumbFile)
+                    $saved = [PawfectMedia]::SaveThumb($target, $app, $title)
                     $thumbState = $saved
-                    if ($saved -like 'ok:*') { $newThumb = $true }
+                    if ($saved -like 'ok:*') {
+                        $hash = $saved.Substring(3)
+                        if ($hash -ne $lastHash) {
+                            $lastHash = $hash
+                            $slot = 1 - $slot
+                            $thumbChanged = $true
+                            $thumbPath = $target
+                        }
+                        $artKey = $key
+                    } elseif ($artKey -ne $key -and ($now - $trackChangedAt) -gt 2500) {
+                        # This track has no picture; don't leave the last track's one up.
+                        $lastHash = ''
+                        $artKey = $key
+                        $thumbChanged = $true
+                    }
                 } catch {
                     $thumbState = 'error: ' + $_.Exception.Message
                 }
+                $sinceChange = $now - $trackChangedAt
+                $nextThumbCheck = $now + $(if ($sinceChange -lt 4000) { 700 } else { 3000 })
             }
 
             $controls = $playback.Controls
@@ -132,12 +199,12 @@ while ($true) {
                 title     = $title
                 artist    = $artist
                 album     = $album
-                app       = $session.SourceAppUserModelId
+                app       = $app
                 status    = $playback.PlaybackStatus.ToString()
                 position  = [math]::Round($timeline.Position.TotalSeconds, 2)
                 duration  = [math]::Round($timeline.EndTime.TotalSeconds, 2)
-                thumb     = $newThumb
-                thumbPath = $thumbFile
+                thumb     = $thumbChanged
+                thumbPath = $thumbPath
                 thumbState = $thumbState
                 thumbReady = $thumbReady
                 canPlay   = [bool]$controls.IsPlayEnabled
