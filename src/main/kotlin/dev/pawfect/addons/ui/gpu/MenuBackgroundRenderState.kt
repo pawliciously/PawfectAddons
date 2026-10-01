@@ -24,6 +24,8 @@ class MenuBackgroundRenderState(
     private val time: Float,
     private val style: Float = 0f,
     private val renderPipeline: RenderPipeline = UiPipelines.MENU_BACKGROUND,
+    /** Corner radius in whole pixels; only the inventory pipeline reads it (inv_bg.fsh). */
+    private val radius: Int = 0,
 ) : GuiElementRenderState {
 
     private val centerX = (left + right) / 2f
@@ -55,7 +57,7 @@ class MenuBackgroundRenderState(
         if (localPointer != -1L) {
             MemoryUtil.memPutFloat(localPointer, x - centerX)
             MemoryUtil.memPutFloat(localPointer + 4L, y - centerY)
-            MemoryUtil.memPutFloat(localPointer + 8L, style * 2f + intensity)
+            MemoryUtil.memPutFloat(localPointer + 8L, radius.coerceIn(0, 15) * 16f + style * 2f + intensity)
             MemoryUtil.memPutFloat(localPointer + 12L, time)
         }
 

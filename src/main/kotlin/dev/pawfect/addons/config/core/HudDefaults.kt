@@ -11,6 +11,7 @@ object HudDefaults {
     const val STAT_VITALITY = "Vitality"
     const val MEDIA = "Media"
     const val PACKET_LOG = "Packet Log"
+    const val SCOREBOARD = "Scoreboard"
 
     class Default(val x: Int, val y: Int, val scale: Float = Position.DEFAULT_SCALE)
 
@@ -24,6 +25,7 @@ object HudDefaults {
         STAT_VITALITY to Default(10, 168),
         MEDIA to Default(-10, -40),
         PACKET_LOG to Default(10, 190),
+        SCOREBOARD to Default(-4, 80),
     )
 
     fun position(label: String): Position {

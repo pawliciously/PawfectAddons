@@ -5,6 +5,7 @@ import dev.pawfect.addons.config.ConfigGuiManager
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ConfigPresets
 import dev.pawfect.addons.config.core.GuiEditManager
+import dev.pawfect.addons.config.features.ScoreboardConfig
 import dev.pawfect.addons.config.features.SecretWaypointsConfig
 import dev.pawfect.addons.config.features.InventoryConfig.PlateStyle
 import dev.pawfect.addons.config.features.SkyboxConfig.SkyEffect
@@ -50,6 +51,7 @@ object PawfectSettings {
         val slayers = config.slayers
         val emojis = config.emojis
         val chat = config.chat
+        val scoreboard = config.scoreboard
         val visuals = config.visuals
         val chams = config.handChams
         val players = config.playerChams
@@ -527,6 +529,43 @@ object PawfectSettings {
                 ),
             ),
             category(
+                "scoreboard",
+                "Scoreboard",
+                Icons.SLIDERS,
+                "0.82.0",
+                group(
+                    "Look",
+                    ToggleSetting("Custom Scoreboard", "Draw the sidebar on a themed panel without the red numbers. Steps aside if SkyHanni's or NoammAddons' scoreboard is on.", scoreboard::enabled),
+                    DropdownSetting("Background", "Glass is a flat panel; the others are the inventory's animated styles.", scoreboard::background, ScoreboardConfig.Background.entries.toList())
+                        .showIf { scoreboard.enabled },
+                    FloatSliderSetting("Background Opacity", "How solid the panel is.", scoreboard::opacity, 0f, 1f, 0.05f)
+                        .showIf { scoreboard.enabled },
+                    IntSliderSetting("Corner Radius", "Roundness of the panel corners.", scoreboard::radius, 0, 12)
+                        .showIf { scoreboard.enabled },
+                    ToggleSetting("Outline", "A thin accent edge around the panel.", scoreboard::outline)
+                        .showIf { scoreboard.enabled },
+                    ToggleSetting("Text Shadow", "Shadow under the text, like vanilla.", scoreboard::textShadow)
+                        .showIf { scoreboard.enabled },
+                ),
+                group(
+                    "Lines",
+                    ToggleSetting("Hide Server ID", "Keep the date on the top line but drop the server name after it.", scoreboard::hideServerId)
+                        .showIf { scoreboard.enabled },
+                    ToggleSetting("Hide Website Line", "Drop the www.hypixel.net line at the bottom.", scoreboard::hideWebsite)
+                        .showIf { scoreboard.enabled },
+                    ToggleSetting("Compact Blank Lines", "Make Hypixel's empty spacer lines half height.", scoreboard::compactBlankLines)
+                        .showIf { scoreboard.enabled },
+                ),
+                group(
+                    "Position",
+                    DropdownSetting("Placement", "Keep vanilla's spot, or place it yourself in the HUD editor.", scoreboard::placement, ScoreboardConfig.Placement.entries.toList())
+                        .showIf { scoreboard.enabled },
+                    PositionSetting("Scoreboard Position", "Drag the scoreboard to reposition it.", scoreboard.position) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { scoreboard.enabled && scoreboard.placement == ScoreboardConfig.Placement.CUSTOM },
+                ),
+            ),
+            category(
                 "general",
                 "General",
                 Icons.SLIDERS,
@@ -937,7 +976,7 @@ object PawfectSettings {
         "visuals", "chams", "skybox", "media", "discord",
         "hitsounds",
         "slayers", "dungeon",
-        "recipetracker", "chat", "general", "experiments",
+        "recipetracker", "chat", "scoreboard", "general", "experiments",
         "cosmetics",
         "inventory",
         "menu", "theme", "dev",

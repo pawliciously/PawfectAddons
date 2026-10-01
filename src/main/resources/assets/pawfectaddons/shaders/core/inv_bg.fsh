@@ -96,10 +96,20 @@ void main() {
     vec2 uv = (local.xy + extent) / max(extent * 2.0, vec2(1.0));
     vec2 px = local.xy + extent;
 
-    float styleBits = local.z;
+    // local.z packs radius * 16 + style * 2 + intensity. The inventory passes radius 0.
+    float packedBits = local.z;
+    float radius = floor(packedBits / 16.0);
+    float styleBits = packedBits - radius * 16.0;
     float style = floor(styleBits / 2.0);
     float intensity = styleBits - style * 2.0;
     float time = local.w;
+
+    // Rounded edge, anti-aliased. With radius 0 this is the plain rectangle it always was.
+    radius = min(radius, min(extent.x, extent.y));
+    vec2 corner = abs(local.xy) - extent + radius;
+    float dist = min(max(corner.x, corner.y), 0.0) + length(max(corner, 0.0)) - radius;
+    float coverage = radius > 0.0 ? clamp(0.5 - dist / max(fwidth(dist), 1e-5), 0.0, 1.0) : 1.0;
+    if (coverage <= 0.0) discard;
 
     vec3 top = vertexColor.rgb;
     vec3 bottom = borderColor.rgb;
@@ -120,13 +130,13 @@ void main() {
         colour = aurora(uv, px, base, accent, time, intensity);
     }
 
-    vec2 far = min(px, extent * 2.0 - px);
-    float inset = min(far.x, far.y);
+    // Distance in from the edge; follows the rounded corners when there are any.
+    float inset = max(-dist, 0.0);
     colour = mix(base, colour, smoothstep(0.0, 4.0, inset));
 
     colour *= mix(0.74, 1.0, smoothstep(0.0, 1.5, inset));
     colour += accent * smoothstep(0.9, 0.0, inset) * 0.30 * intensity;
     colour += (hash12(px + time) - 0.5) * 0.012;
 
-    fragColor = vec4(max(colour, vec3(0.0)), vertexColor.a);
+    fragColor = vec4(max(colour, vec3(0.0)), vertexColor.a * coverage);
 }

@@ -15,6 +15,7 @@ import dev.pawfect.addons.config.features.InventoryConfig
 import dev.pawfect.addons.config.features.MediaConfig
 import dev.pawfect.addons.config.features.MenuConfig
 import dev.pawfect.addons.config.features.PlayerChamsConfig
+import dev.pawfect.addons.config.features.ScoreboardConfig
 import dev.pawfect.addons.config.features.SecretWaypointsConfig
 import dev.pawfect.addons.config.features.MotionBlurConfig
 import dev.pawfect.addons.config.features.SkyboxConfig
@@ -38,6 +39,9 @@ class PawfectConfig {
 
     @Expose
     val chat: ChatConfig = ChatConfig()
+
+    @Expose
+    val scoreboard: ScoreboardConfig = ScoreboardConfig()
 
     @Expose
     val visuals: VisualsConfig = VisualsConfig()
