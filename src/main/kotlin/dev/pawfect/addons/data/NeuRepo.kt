@@ -184,7 +184,7 @@ object NeuRepo {
         ItemStack(BuiltInRegistries.ITEM.getValue(identifier))
     }
 
-    private fun headStack(texture: String): ItemStack {
+    fun headStack(texture: String): ItemStack {
         val stack = ItemStack(Items.PLAYER_HEAD)
         stack.set(DataComponents.PROFILE, profileFor(texture))
         return stack

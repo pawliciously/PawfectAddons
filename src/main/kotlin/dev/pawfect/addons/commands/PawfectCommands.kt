@@ -18,6 +18,7 @@ import dev.pawfect.addons.features.FeatureRegistry
 import dev.pawfect.addons.features.recipetracker.RecipeTracker
 import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.chat.Emojis
+import dev.pawfect.addons.features.profile.ProfileViewerScreen
 import dev.pawfect.addons.features.debug.StandDebug
 import dev.pawfect.addons.features.visual.handchams.HandChams
 import dev.pawfect.addons.features.recipetracker.RecipeTrackerOverlay
@@ -69,6 +70,24 @@ object PawfectCommands {
                                 }
                                 .executes { context ->
                                     showEmojis(StringArgumentType.getString(context, "search"))
+                                    SUCCESS
+                                },
+                        ),
+                )
+                .then(
+                    ClientCommands.literal("pv")
+                        .executes {
+                            openProfile(McCompat.mc.user.name)
+                            SUCCESS
+                        }
+                        .then(
+                            ClientCommands.argument("player", StringArgumentType.word())
+                                .suggests { _, builder ->
+                                    val online = McCompat.mc.connection?.onlinePlayers?.map { it.profile.name } ?: emptyList()
+                                    SharedSuggestionProvider.suggest(online, builder)
+                                }
+                                .executes { context ->
+                                    openProfile(StringArgumentType.getString(context, "player"))
                                     SUCCESS
                                 },
                         ),
@@ -331,6 +350,10 @@ object PawfectCommands {
         val count = RecipeTracker.clear()
         RecipeTrackerOverlay.invalidate()
         ChatUtils.success("Cleared $count tracked recipe${if (count == 1) "" else "s"}.")
+    }
+
+    private fun openProfile(name: String) {
+        PawfectAddons.queueScreen { McCompat.mc.setScreen(ProfileViewerScreen(name)) }
     }
 
     private fun showEmojis(query: String) {
