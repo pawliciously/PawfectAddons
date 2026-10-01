@@ -12,6 +12,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.core.NonNullList
 import net.minecraft.resources.Identifier
+import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.inventory.Slot
 import org.joml.Matrix3x2f
 
@@ -134,31 +135,48 @@ object InventoryStyle {
         (graphics as GuiGraphicsAccessor).`pawfectaddons$guiRenderState`().addGuiElement(state)
 
         if (!config.slotPlates || slots == null) return
-        val alpha = (config.slotOpacity.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
-        if (alpha <= 2) return
-        val radius = config.slotRadius.coerceIn(0f, 8f)
-        val fill = (alpha shl 24) or (shade(bottomColor(), 0.8f) and 0xFFFFFF)
-        val border = ((alpha / 2) shl 24) or (accentColor() and 0xFFFFFF)
-        val hoverFill = (minOf(255, alpha + 40) shl 24) or (shade(accentColor(), 0.35f) and 0xFFFFFF)
-        val hoverBorder = (minOf(255, alpha + 90) shl 24) or (accentColor() and 0xFFFFFF)
-
         for (slot in slots) {
             if (!slot.isActive) continue
-            val x = left + slot.x - 1f
-            val y = top + slot.y - 1f
-            val hovered = mouseX >= x && mouseX < x + 18f && mouseY >= y && mouseY < y + 18f
-            Shapes.rect(
-                graphics,
-                x,
-                y,
-                18f,
-                18f,
-                radius,
-                if (hovered) hoverFill else fill,
-                if (hovered) hoverFill else fill,
-                1f,
-                if (hovered) hoverBorder else border,
-            )
+            plate(graphics, left + slot.x - 1f, top + slot.y - 1f, mouseX, mouseY)
         }
     }
+
+    /** One slot's plate, 18 pixels square at [x], [y]; brighter under the mouse. */
+    private fun plate(graphics: GuiGraphicsExtractor, x: Float, y: Float, mouseX: Int, mouseY: Int) {
+        val alpha = (config.slotOpacity.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
+        if (alpha <= 2) return
+        val hovered = mouseX >= x && mouseX < x + 18f && mouseY >= y && mouseY < y + 18f
+        val fill = if (hovered) {
+            (minOf(255, alpha + 40) shl 24) or (shade(accentColor(), 0.35f) and 0xFFFFFF)
+        } else {
+            (alpha shl 24) or (shade(bottomColor(), 0.8f) and 0xFFFFFF)
+        }
+        val border = if (hovered) {
+            (minOf(255, alpha + 90) shl 24) or (accentColor() and 0xFFFFFF)
+        } else {
+            ((alpha / 2) shl 24) or (accentColor() and 0xFFFFFF)
+        }
+        Shapes.rect(graphics, x, y, 18f, 18f, config.slotRadius.coerceIn(0f, 8f), fill, fill, 1f, border)
+    }
+
+    /**
+     * Other mods draw vanilla's slot frame for slots they add themselves; Skyblocker does for
+     * its equipment column and for the off-hand, which it moves. Those frames become plates
+     * to match the rest, and the off-hand's is dropped along with the slot (see SlotMixin).
+     */
+    @JvmStatic
+    fun replaceSlotFrame(graphics: GuiGraphicsExtractor, sprite: Identifier, x: Int, y: Int): Boolean {
+        if (!active() || tooltipDepth > 0) return false
+        if (sprite != SLOT_FRAME) return false
+        val screen = McCompat.mc.screen as? AbstractContainerScreen<*> ?: return false
+        val geometry = screen as ContainerScreenAccessor
+        val left = geometry.`pawfectaddons$leftPos`()
+        val top = geometry.`pawfectaddons$topPos`()
+        val offhand = screen.menu.slots.firstOrNull { it.container is Inventory && it.containerSlot == Inventory.SLOT_OFFHAND }
+        if (offhand != null && x == left + offhand.x - 1 && y == top + offhand.y - 1) return true
+        if (config.slotPlates) plate(graphics, x.toFloat(), y.toFloat(), McCompat.mouseX, McCompat.mouseY)
+        return true
+    }
+
+    private val SLOT_FRAME: Identifier = Identifier.withDefaultNamespace("container/slot")
 }

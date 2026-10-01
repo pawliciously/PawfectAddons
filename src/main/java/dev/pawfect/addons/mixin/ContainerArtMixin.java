@@ -50,6 +50,9 @@ public abstract class ContainerArtMixin {
         int height,
         CallbackInfo callback
     ) {
-        if (InventoryStyle.hidesSprite(sprite)) callback.cancel();
+        if (InventoryStyle.hidesSprite(sprite)
+            || InventoryStyle.replaceSlotFrame((GuiGraphicsExtractor) (Object) this, sprite, x, y)) {
+            callback.cancel();
+        }
     }
 }
