@@ -2,36 +2,64 @@ package dev.pawfect.addons.features.media
 
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.core.GuiEditManager
+import dev.pawfect.addons.mixin.GuiGraphicsAccessor
 import dev.pawfect.addons.ui.Draw
+import dev.pawfect.addons.ui.Draw.icon
 import dev.pawfect.addons.ui.Draw.string
-import dev.pawfect.addons.ui.Draw.stringRight
+import dev.pawfect.addons.ui.Draw.stringScaled
 import dev.pawfect.addons.ui.Icons
 import dev.pawfect.addons.ui.Shapes
-import dev.pawfect.addons.ui.Theme
+import dev.pawfect.addons.ui.UiFont
 import dev.pawfect.addons.ui.UiSound
+import dev.pawfect.addons.ui.gpu.MediaBackdropRenderState
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.RenderContext
 import dev.pawfect.addons.utils.renderables.Renderable
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.renderer.RenderPipelines
-import kotlin.math.abs
-import kotlin.math.roundToInt
+import org.joml.Matrix3x2f
+import kotlin.math.ceil
+import kotlin.math.exp
+import kotlin.math.sin
 
+/**
+ * Now playing card. The backdrop is a shader that slowly swirls four colours taken from the
+ * album art (see [MediaPalette] and media_bg.fsh); it eases between tracks and calms down
+ * while paused. Everything drawn on top is white, which the palette is toned to keep readable.
+ */
 object MediaOverlay {
 
     private val config get() = ConfigManager.features.media
 
-    private const val PADDING = 8
-    private const val ART = 32
-    private const val PROGRESS_BLOCK = 18
-    private const val CONTROL_BLOCK = 16
-    private const val RADIUS = 8f
-    private const val ART_RADIUS = 6f
-    private const val CONTROL_GAP = 14f
+    private const val PAD = 9f
+    private const val ART = MediaArt.SIZE.toFloat()
+    private const val RADIUS = 11f
+    private const val TEXT_GAP = 9f
+    private const val PROGRESS_HEIGHT = 14f
+    private const val CONTROLS_HEIGHT = 20f
+    private const val PLAY_RADIUS = 8.5f
+    private const val SIDE_SPACING = 25f
+    private const val BUTTON = 18f
+
+    private const val MARQUEE_PAUSE = 2.5f
+    private const val MARQUEE_SPEED = 22f
+    private const val MARQUEE_GAP = 28f
 
     private enum class Control { PREVIOUS, TOGGLE, NEXT }
 
-    private class Hitbox(val x: Float, val y: Float, val width: Float, val height: Float, val control: Control)
+    private class Hitbox(val x: Float, val y: Float, val width: Float, val height: Float, val control: Control) {
+        fun contains(px: Float, py: Float) = px >= x && px <= x + width && py >= y && py <= y + height
+    }
+
+    // Animation state, advanced once per frame.
+    private var lastFrame = 0L
+    private var phase = 0f
+    private var awake = 0f
+    private val shown: IntArray = MediaPalette.IDLE.copyOf()
+    private var seedKey = ""
+    private var seedPalette = MediaPalette.IDLE
+    private var marqueeKey = ""
+    private var marqueeStart = 0L
 
     fun render() {
         if (McCompat.mc.screen != null && !GuiEditManager.isEditorOpen()) return
@@ -44,7 +72,6 @@ object MediaOverlay {
         RenderContext.withContext(graphics) { draw() }
     }
 
-    @JvmStatic
     private var dragging = false
     private var dragOffsetX = 0
     private var dragOffsetY = 0
@@ -79,46 +106,29 @@ object MediaOverlay {
         if (track == null && config.hideWhenStopped) return false
 
         val scale = config.position.effectiveScale
-        val cardWidth = cardWidth()
-        val cardHeight = cardHeight()
-        val absX = config.position.getAbsX((cardWidth * scale).toInt())
-        val absY = config.position.getAbsY((cardHeight * scale).toInt())
+        val width = cardWidth()
+        val height = cardHeight()
+        val absX = config.position.getAbsX((width * scale).toInt())
+        val absY = config.position.getAbsY((height * scale).toInt())
+        val localX = ((mouseX - absX) / scale).toFloat()
+        val localY = ((mouseY - absY) / scale).toFloat()
 
         if (config.showControls && track != null) {
-            if (clickControls(mouseX, mouseY, absX, absY, scale, cardWidth, track)) return true
+            hitboxes(width.toFloat()).firstOrNull { it.contains(localX, localY) }?.let { box ->
+                when (box.control) {
+                    Control.PREVIOUS -> if (track.canPrev) MediaBridge.previous()
+                    Control.TOGGLE -> MediaBridge.togglePlayback()
+                    Control.NEXT -> if (track.canNext) MediaBridge.next()
+                }
+                UiSound.click()
+                return true
+            }
         }
 
-        val insideX = mouseX >= absX && mouseX <= absX + cardWidth * scale
-        val insideY = mouseY >= absY && mouseY <= absY + cardHeight * scale
-        if (insideX && insideY) {
+        if (localX in 0f..width.toFloat() && localY in 0f..height.toFloat()) {
             dragging = true
             dragOffsetX = mouseX.toInt() - absX
             dragOffsetY = mouseY.toInt() - absY
-            return true
-        }
-        return false
-    }
-
-    private fun clickControls(
-        mouseX: Double,
-        mouseY: Double,
-        absX: Int,
-        absY: Int,
-        scale: Float,
-        cardWidth: Int,
-        track: MediaBridge.Track,
-    ): Boolean {
-        for (box in hitboxes(cardWidth.toFloat())) {
-            val left = absX + box.x * scale
-            val top = absY + box.y * scale
-            if (mouseX < left || mouseX > left + box.width * scale) continue
-            if (mouseY < top || mouseY > top + box.height * scale) continue
-            when (box.control) {
-                Control.PREVIOUS -> if (track.canPrev) MediaBridge.previous()
-                Control.TOGGLE -> MediaBridge.togglePlayback()
-                Control.NEXT -> if (track.canNext) MediaBridge.next()
-            }
-            UiSound.click()
             return true
         }
         return false
@@ -129,56 +139,64 @@ object MediaOverlay {
         MediaArt.tick()
         val track = MediaBridge.track
         if (track == null && config.hideWhenStopped) return
+        animate(track)
         config.position.render(MediaRenderable(track), "Media")
     }
 
-    private fun cardWidth(): Int = config.width.coerceIn(120, 320)
+    // Layout
+
+    private fun cardWidth(): Int = config.width.coerceIn(140, 320)
+
+    private fun progressTop(): Float = PAD + ART + 8f
+
+    private fun controlsTop(): Float = if (config.showProgress) progressTop() + PROGRESS_HEIGHT + 3f else PAD + ART + 6f
 
     private fun cardHeight(): Int {
-        var value = PADDING * 2 + ART
-        if (config.showProgress) value += PROGRESS_BLOCK
-        if (config.showControls) value += CONTROL_BLOCK
-        return value
+        var bottom = PAD + ART
+        if (config.showProgress) bottom = progressTop() + PROGRESS_HEIGHT
+        if (config.showControls) bottom = controlsTop() + CONTROLS_HEIGHT
+        return ceil(bottom + PAD).toInt()
     }
-
-    private fun controlsTop(): Float {
-        var cursor = PADDING + ART + 2f
-        if (config.showProgress) cursor += PROGRESS_BLOCK
-        return cursor
-    }
-
-    private fun controlGlyphs(playing: Boolean): List<Pair<String, Control>> = listOf(
-        Icons.SKIP_BACK to Control.PREVIOUS,
-        (if (playing) Icons.PAUSE else Icons.PLAY) to Control.TOGGLE,
-        Icons.SKIP_FORWARD to Control.NEXT,
-    )
 
     private fun hitboxes(cardWidth: Float): List<Hitbox> {
-        val playing = MediaBridge.track?.playing ?: false
-        val glyphs = controlGlyphs(playing)
-
-        var totalWidth = 0f
-        glyphs.forEach { totalWidth += Draw.width(it.first) + CONTROL_GAP }
-        totalWidth -= CONTROL_GAP
-
-        val top = controlsTop()
-        var cursor = (cardWidth - totalWidth) / 2f
-        val boxes = ArrayList<Hitbox>(glyphs.size)
-        glyphs.forEach { entry ->
-            val glyphWidth = Draw.width(entry.first)
-            boxes.add(
-                Hitbox(
-                    cursor - CONTROL_GAP / 2f,
-                    top,
-                    glyphWidth + CONTROL_GAP,
-                    Draw.LINE_HEIGHT + 6f,
-                    entry.second,
-                ),
-            )
-            cursor += glyphWidth + CONTROL_GAP
-        }
-        return boxes
+        val centerY = controlsTop() + CONTROLS_HEIGHT / 2f
+        val centerX = cardWidth / 2f
+        return listOf(
+            Control.PREVIOUS to centerX - SIDE_SPACING,
+            Control.TOGGLE to centerX,
+            Control.NEXT to centerX + SIDE_SPACING,
+        ).map { (control, x) -> Hitbox(x - BUTTON / 2f, centerY - BUTTON / 2f, BUTTON, BUTTON, control) }
     }
+
+    // Animation
+
+    private fun animate(track: MediaBridge.Track?) {
+        val now = System.nanoTime()
+        val dt = if (lastFrame == 0L) 0f else ((now - lastFrame) / 1_000_000_000f).coerceIn(0f, 0.1f)
+        lastFrame = now
+
+        val target = if (track?.playing == true) 1f else 0.2f
+        awake += (target - awake) * ease(dt, 2.5f)
+        phase += dt * (0.2f + 0.9f * awake)
+
+        val goal = MediaArt.palette ?: when {
+            track == null -> MediaPalette.IDLE
+            else -> {
+                val key = track.title + "\u0000" + track.artist
+                if (key != seedKey) {
+                    seedKey = key
+                    seedPalette = MediaPalette.fromSeed(key)
+                }
+                seedPalette
+            }
+        }
+        val blend = ease(dt, 3f)
+        for (i in shown.indices) shown[i] = MediaPalette.mix(shown[i], goal[i], blend)
+    }
+
+    private fun ease(dt: Float, rate: Float): Float = 1f - exp(-dt * rate)
+
+    private fun seconds(): Float = (System.nanoTime() % 3_600_000_000_000L) / 1_000_000_000f
 
     private class MediaRenderable(private val track: MediaBridge.Track?) : Renderable {
 
@@ -188,206 +206,210 @@ object MediaOverlay {
 
         override fun render(absX: Int, absY: Int) {
             val graphics = RenderContext.graphics
-            val cardWidth = width.toFloat()
-            val cardHeight = height.toFloat()
+            val w = width.toFloat()
+            val h = height.toFloat()
+            val opacity = config.opacity.coerceIn(0.1f, 1f)
 
-            Shapes.shadow(graphics, 0f, 0f, cardWidth, cardHeight, RADIUS, 8f, surface(0x000000, 130), 2f)
-            Shapes.panel(
-                graphics,
-                0f,
-                0f,
-                cardWidth,
-                cardHeight,
-                RADIUS,
-                surface(Theme.palette.background, 245),
-                alpha(Theme.palette.border, 255),
+            // A coloured glow from the art under a tight dark shadow, then the swirl itself.
+            Shapes.shadow(graphics, 0f, 0f, w, h, RADIUS, 14f, argb(MediaPalette.light(shown[0]), 40f * opacity), 3f)
+            Shapes.shadow(graphics, 0f, 0f, w, h, RADIUS, 6f, argb(0x000000, 120f * opacity), 2f)
+            (graphics as GuiGraphicsAccessor).`pawfectaddons$guiRenderState`().addGuiElement(
+                MediaBackdropRenderState(Matrix3x2f(graphics.pose()), 0f, 0f, w, h, RADIUS, shown.copyOf(), opacity, phase, awake),
             )
 
-            val textLeft = (if (config.showArt) PADDING + ART + PADDING else PADDING).toFloat()
+            val textLeft = if (config.showArt) PAD + ART + TEXT_GAP else PAD + 2f
             if (config.showArt) drawArt(graphics)
+            drawText(graphics, textLeft, w - PAD - textLeft)
 
-            val title = track?.title?.takeIf { it.isNotBlank() } ?: "Nothing playing"
-            val artist = track?.artist.orEmpty()
-            val available = cardWidth - textLeft - PADDING
-
-            graphics.string(
-                Draw.truncate(title, available),
-                textLeft,
-                PADDING + 2f,
-                alpha(Theme.palette.text, 255),
-                bold = true,
-            )
-
-            if (config.showArtist && artist.isNotBlank()) {
-                graphics.string(
-                    Draw.truncate(artist, available),
-                    textLeft,
-                    PADDING + 13f,
-                    alpha(Theme.palette.textDim, 255),
-                )
-            }
-
-            if (config.showSource && track != null) {
-                graphics.string(
-                    Draw.truncate(sourceName(track.app), available),
-                    textLeft,
-                    PADDING + 23f,
-                    alpha(Theme.palette.textDim, 190),
-                )
-            }
-
-            var cursor = PADDING + ART + 2f
-            if (config.showProgress) {
-                drawProgress(graphics, cardWidth, cursor)
-                cursor += PROGRESS_BLOCK
-            }
-            if (config.showControls) drawControls(graphics, cardWidth, cursor)
+            if (config.showProgress) drawProgress(graphics, w)
+            if (config.showControls) drawControls(graphics, w, absX, absY)
         }
 
         private fun drawArt(graphics: GuiGraphicsExtractor) {
+            Shapes.shadow(graphics, PAD, PAD, ART, ART, MediaArt.RADIUS, 5f, argb(0x000000, 140f), 1.5f)
             if (MediaArt.available) {
+                val size = ART.toInt()
                 graphics.blit(
                     RenderPipelines.GUI_TEXTURED,
                     MediaArt.identifier,
-                    PADDING,
-                    PADDING,
+                    PAD.toInt(),
+                    PAD.toInt(),
                     0f,
                     0f,
-                    ART,
-                    ART,
+                    size,
+                    size,
                     MediaArt.width,
                     MediaArt.height,
                     MediaArt.width,
                     MediaArt.height,
                 )
-                Shapes.outline(
-                    graphics,
-                    PADDING.toFloat(),
-                    PADDING.toFloat(),
-                    ART.toFloat(),
-                    ART.toFloat(),
-                    ART_RADIUS,
-                    alpha(0xFFFFFF, 55),
+            } else {
+                Shapes.gradient(
+                    graphics, PAD, PAD, ART, ART, MediaArt.RADIUS,
+                    argb(MediaPalette.light(shown[0]), 90f), argb(shown[1], 255f),
                 )
+                val glyph = Icons.MUSIC
+                graphics.icon(glyph, PAD + (ART - UiFont.iconWidth(glyph)) / 2f, PAD + (ART - Draw.LINE_HEIGHT) / 2f, argb(0xFFFFFF, 230f))
+            }
+            Shapes.outline(graphics, PAD, PAD, ART, ART, MediaArt.RADIUS, argb(0xFFFFFF, 34f))
+        }
+
+        private fun drawText(graphics: GuiGraphicsExtractor, left: Float, available: Float) {
+            val title = track?.title?.takeIf { it.isNotBlank() } ?: "Nothing playing"
+            val artist = track?.artist.orEmpty().ifBlank { if (track == null) "Play something on this PC" else "" }
+            val compact = !config.showArtist || artist.isBlank()
+            val titleY = PAD + if (compact) 9f else 4f
+
+            drawTitle(graphics, title, left, titleY, available)
+            if (!compact) {
+                graphics.string(Draw.truncate(artist, available), left, PAD + 15f, argb(0xFFFFFF, 185f), shadow = true)
+            }
+
+            // Little equaliser that dances while playing, and where the sound is coming from.
+            if (track != null) {
+                val baseY = PAD + ART - 4f
+                drawEqualizer(graphics, left, baseY)
+                if (config.showSource) {
+                    val source = sourceName(track.app)
+                    if (source.isNotEmpty()) {
+                        graphics.stringScaled(
+                            Draw.truncate(source, (available - 12f) / 0.8f), left + 12f, baseY - 6.2f, 0.8f,
+                            argb(0xFFFFFF, 150f), shadow = true,
+                        )
+                    }
+                }
+            }
+        }
+
+        private fun drawTitle(graphics: GuiGraphicsExtractor, title: String, left: Float, y: Float, available: Float) {
+            val white = argb(0xFFFFFF, 255f)
+            val titleWidth = McCompat.font.width(UiFont.component(title, true)).toFloat()
+            if (titleWidth <= available) {
+                graphics.string(title, left, y, white, shadow = true, bold = true)
+                return
+            }
+            if (!config.scrollLongTitles) {
+                graphics.string(Draw.truncate(title, available - 2f), left, y, white, shadow = true, bold = true)
                 return
             }
 
-            val tint = artTint(track?.title.orEmpty() + track?.artist.orEmpty())
-            Shapes.gradient(
-                graphics,
-                PADDING.toFloat(),
-                PADDING.toFloat(),
-                ART.toFloat(),
-                ART.toFloat(),
-                ART_RADIUS,
-                alpha(tint, 255),
-                alpha(shade(tint), 255),
-            )
-            Shapes.outline(
-                graphics,
-                PADDING.toFloat(),
-                PADDING.toFloat(),
-                ART.toFloat(),
-                ART.toFloat(),
-                ART_RADIUS,
-                alpha(0xFFFFFF, 45),
-            )
+            // Marquee: rest at the start, glide the whole title past, loop.
+            if (title != marqueeKey) {
+                marqueeKey = title
+                marqueeStart = System.currentTimeMillis()
+            }
+            val travel = titleWidth + MARQUEE_GAP
+            val cycle = MARQUEE_PAUSE + travel / MARQUEE_SPEED
+            val t = ((System.currentTimeMillis() - marqueeStart) / 1000f) % cycle
+            val offset = if (t < MARQUEE_PAUSE) 0f else (t - MARQUEE_PAUSE) * MARQUEE_SPEED
 
-            val glyph = Icons.MUSIC
-            graphics.string(
-                glyph,
-                PADDING + (ART - Draw.width(glyph)) / 2f,
-                PADDING + (ART - Draw.LINE_HEIGHT) / 2f,
-                alpha(0xFFFFFF, 220),
-            )
+            Shapes.pushScissor(graphics, left, y - 2f, available, 13f)
+            graphics.string(title, left - offset, y, white, shadow = true, bold = true)
+            if (offset > 0f) graphics.string(title, left - offset + travel, y, white, shadow = true, bold = true)
+            Shapes.popScissor(graphics)
         }
 
-        private fun drawProgress(graphics: GuiGraphicsExtractor, cardWidth: Float, top: Float) {
+        private fun drawEqualizer(graphics: GuiGraphicsExtractor, left: Float, baseY: Float) {
+            val time = seconds()
+            val colour = argb(MediaPalette.light(shown[0]), 235f)
+            val speeds = floatArrayOf(7.1f, 9.3f, 6.2f)
+            val offsets = floatArrayOf(0f, 1.9f, 3.7f)
+            for (i in 0 until 3) {
+                val bounce = 0.5f + 0.5f * sin(time * speeds[i] + offsets[i]) * sin(time * speeds[i] * 0.37f + offsets[i] * 2f)
+                val height = 2f + 5.5f * bounce * ((awake - 0.2f) / 0.8f).coerceIn(0f, 1f)
+                Shapes.rect(graphics, left + i * 3.2f, baseY - height, 2f, height, 1f, colour)
+            }
+        }
+
+        private fun drawProgress(graphics: GuiGraphicsExtractor, cardWidth: Float) {
             val position = MediaBridge.smoothPosition()
             val duration = track?.duration ?: 0.0
             val fraction = if (duration > 0.0) (position / duration).coerceIn(0.0, 1.0).toFloat() else 0f
 
-            val barLeft = PADDING.toFloat()
-            val barWidth = cardWidth - PADDING * 2f
-            val barY = top + 4f
+            val left = PAD
+            val barWidth = cardWidth - PAD * 2f
+            val top = progressTop()
 
-            Shapes.pill(graphics, barLeft, barY, barWidth, 3f, alpha(Theme.palette.border, 200))
+            Shapes.pill(graphics, left, top, barWidth, 3f, argb(0xFFFFFF, 56f))
             if (fraction > 0f) {
-                Shapes.gradientHorizontal(
-                    graphics,
-                    barLeft,
-                    barY,
-                    barWidth * fraction,
-                    3f,
-                    1.5f,
-                    alpha(Theme.mix(Theme.palette.accent, 0x000000, 0.35f), 255),
-                    alpha(Theme.mix(Theme.palette.accent, 0xFFFFFF, 0.35f), 255),
+                Shapes.shadow(graphics, left, top, barWidth * fraction, 3f, 1.5f, 3f, argb(MediaPalette.light(shown[0]), 70f))
+                Shapes.pill(graphics, left, top, barWidth * fraction, 3f, argb(0xFFFFFF, 240f))
+                Shapes.circle(graphics, left + barWidth * fraction, top + 1.5f, 2.6f, argb(0xFFFFFF, 255f))
+            }
+
+            val remaining = (duration - position).coerceAtLeast(0.0)
+            val textY = top + 6.5f
+            val dim = argb(0xFFFFFF, 165f)
+            graphics.stringScaled(clock(position), left, textY, 0.8f, dim, shadow = true)
+            val end = if (duration > 0.0) "-${clock(remaining)}" else clock(0.0)
+            graphics.stringScaled(end, left + barWidth - Draw.width(end) * 0.8f, textY, 0.8f, dim, shadow = true)
+        }
+
+        private fun drawControls(graphics: GuiGraphicsExtractor, cardWidth: Float, absX: Int, absY: Int) {
+            val playing = track?.playing ?: false
+            val hoverable = McCompat.mc.screen != null && config.clickableInMenus
+            val scale = config.position.effectiveScale
+            val mouseX = (McCompat.mouseX - absX) / scale
+            val mouseY = (McCompat.mouseY - absY) / scale
+
+            for (box in hitboxes(cardWidth)) {
+                val cx = box.x + box.width / 2f
+                val cy = box.y + box.height / 2f
+                val hovered = hoverable && track != null && box.contains(mouseX, mouseY)
+                if (box.control == Control.TOGGLE) {
+                    val radius = PLAY_RADIUS + if (hovered) 0.8f else 0f
+                    Shapes.shadow(graphics, cx - radius, cy - radius, radius * 2f, radius * 2f, radius, 3f, argb(0x000000, 90f), 1f)
+                    Shapes.circle(graphics, cx, cy, radius, argb(0xFFFFFF, if (track == null) 120f else 250f))
+                    val glyph = if (playing) Icons.PAUSE else Icons.PLAY
+                    // The play triangle's weight sits left of its box; nudge it to look centred.
+                    val nudge = if (playing) 0f else 0.6f
+                    graphics.icon(
+                        glyph,
+                        cx - UiFont.iconWidth(glyph) / 2f + nudge,
+                        cy - Draw.LINE_HEIGHT / 2f + 0.5f,
+                        argb(MediaPalette.mix(shown[0], 0x000000, 0.45f), 255f),
+                    )
+                    continue
+                }
+                val enabled = when (box.control) {
+                    Control.PREVIOUS -> track?.canPrev ?: false
+                    else -> track?.canNext ?: false
+                }
+                if (hovered && enabled) Shapes.circle(graphics, cx, cy, 8f, argb(0xFFFFFF, 38f))
+                val glyph = if (box.control == Control.PREVIOUS) Icons.SKIP_BACK else Icons.SKIP_FORWARD
+                graphics.icon(
+                    glyph,
+                    cx - UiFont.iconWidth(glyph) / 2f,
+                    cy - Draw.LINE_HEIGHT / 2f + 0.5f,
+                    argb(0xFFFFFF, if (enabled) 235f else 80f),
                 )
             }
-
-            graphics.string(clock(position), barLeft, barY + 6f, alpha(Theme.palette.textDim, 220))
-            graphics.stringRight(
-                clock(duration),
-                barLeft + barWidth,
-                barY + 6f,
-                alpha(Theme.palette.textDim, 220),
-            )
         }
 
-        private fun drawControls(graphics: GuiGraphicsExtractor, cardWidth: Float, top: Float) {
-            val playing = track?.playing ?: false
-            val glyphs = controlGlyphs(playing)
-            val boxes = hitboxes(cardWidth)
-
-            glyphs.forEachIndexed { index, entry ->
-                val glyph = entry.first
-                val enabled = when (entry.second) {
-                    Control.PREVIOUS -> track?.canPrev ?: false
-                    Control.NEXT -> track?.canNext ?: false
-                    Control.TOGGLE -> true
-                }
-                val color = when {
-                    !enabled -> alpha(Theme.palette.textDim, 90)
-                    entry.second == Control.TOGGLE -> alpha(Theme.palette.accent, 255)
-                    else -> alpha(Theme.palette.text, 210)
-                }
-                val box = boxes[index]
-                graphics.string(glyph, box.x + CONTROL_GAP / 2f, top + 3f, color)
-            }
-        }
-
-        private fun alpha(rgb: Int, value: Int): Int =
-            (value.coerceIn(0, 255) shl 24) or (rgb and 0xFFFFFF)
-
-        private fun surface(rgb: Int, value: Int): Int {
-            val mix = 0.35f + 0.65f * config.opacity.coerceIn(0.1f, 1f)
-            val scaled = (value * mix).roundToInt().coerceIn(0, 255)
-            return (scaled shl 24) or (rgb and 0xFFFFFF)
-        }
-
-        private fun shade(rgb: Int): Int {
-            val red = ((rgb shr 16) and 0xFF) * 45 / 100
-            val green = ((rgb shr 8) and 0xFF) * 45 / 100
-            val blue = (rgb and 0xFF) * 45 / 100
-            return (red shl 16) or (green shl 8) or blue
-        }
-
-        private fun artTint(key: String): Int {
-            if (key.isBlank()) return Theme.palette.accent
-            val hue = abs(key.hashCode()) % 360 / 360f
-            return java.awt.Color.HSBtoRGB(hue, 0.55f, 0.75f) and 0xFFFFFF
-        }
+        private fun argb(rgb: Int, alpha: Float): Int = (alpha.toInt().coerceIn(0, 255) shl 24) or (rgb and 0xFFFFFF)
 
         private fun sourceName(app: String): String {
             if (app.isBlank()) return ""
             val trimmed = app.substringAfterLast('.').substringBefore(".exe")
-            return trimmed.replaceFirstChar { it.uppercase() }
+            return when (trimmed.lowercase()) {
+                "spotify" -> "Spotify"
+                "chrome" -> "Chrome"
+                "msedge" -> "Edge"
+                "firefox" -> "Firefox"
+                "opera", "opera_gx" -> "Opera"
+                "brave" -> "Brave"
+                "applemusic", "zunemusic" -> "Music"
+                else -> trimmed.replaceFirstChar { it.uppercase() }
+            }
         }
 
         private fun clock(seconds: Double): String {
             if (seconds <= 0.0) return "0:00"
             val total = seconds.toInt()
-            return "${total / 60}:${(total % 60).toString().padStart(2, '0')}"
+            val hours = total / 3600
+            val minutes = (total % 3600) / 60
+            val secs = (total % 60).toString().padStart(2, '0')
+            return if (hours > 0) "$hours:${minutes.toString().padStart(2, '0')}:$secs" else "$minutes:$secs"
         }
     }
 }

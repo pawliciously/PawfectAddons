@@ -21,7 +21,4 @@ class DiscordConfig {
 
     @Expose
     var showTimer: Boolean = true
-
-    @Expose
-    var showButton: Boolean = true
 }

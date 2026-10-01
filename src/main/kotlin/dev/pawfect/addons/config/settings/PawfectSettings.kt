@@ -692,22 +692,23 @@ object PawfectSettings {
                 "media",
                 "Media",
                 Icons.MUSIC,
-                "0.17.1",
+                "0.82.0",
                 group(
                     "Display",
                     ToggleSetting("Media Display", "Show what is currently playing on this PC.", media::enabled),
-                    ToggleSetting("Album Tile", "Show the coloured art tile.", media::showArt),
+                    ToggleSetting("Album Art", "Show the album art next to the title.", media::showArt),
                     ToggleSetting("Artist", "Show the artist under the title.", media::showArtist),
                     ToggleSetting("Duration Bar", "Show the progress bar and timestamps.", media::showProgress),
                     ToggleSetting("Controls", "Show the transport buttons.", media::showControls),
                     ToggleSetting("Source App", "Show which app the audio is coming from.", media::showSource),
+                    ToggleSetting("Scroll Long Titles", "Slide titles that don't fit across instead of cutting them off.", media::scrollLongTitles),
                     ToggleSetting("Hide When Stopped", "Hide the panel when nothing is playing.", media::hideWhenStopped),
                     ToggleSetting("Clickable In Menus", "Draw the panel above open screens and let the controls be clicked.", media::clickableInMenus),
                 ),
                 group(
                     "Appearance",
                     FloatSliderSetting("Transparency", "Opacity of the media panel only.", media::opacity, 0.1f, 1f, 0.05f),
-                    IntSliderSetting("Width", "Panel width in pixels.", media::width, 120, 320),
+                    IntSliderSetting("Width", "Panel width in pixels.", media::width, 140, 320),
                     PositionSetting("Panel Position", "Drag the panel to reposition it.", media.position) {
                         PawfectAddons.queueScreen { GuiEditManager.openEditor() }
                     },
@@ -727,11 +728,9 @@ object PawfectSettings {
                         .showIf { discord.enabled && discord.showLocation },
                     ToggleSetting("Username", "Show your Minecraft name.", discord::showName)
                         .showIf { discord.enabled },
-                    ToggleSetting("Skin Face", "Use your skin's face as the main picture.", discord::showHead)
+                    ToggleSetting("Skin Face", "Show your skin's face in the corner of the logo.", discord::showHead)
                         .showIf { discord.enabled },
                     ToggleSetting("Timer", "Show how long you've been doing it.", discord::showTimer)
-                        .showIf { discord.enabled },
-                    ToggleSetting("Download Button", "Add a button that links to PawfectAddons.", discord::showButton)
                         .showIf { discord.enabled },
                 ),
             ),

@@ -41,7 +41,6 @@ object DiscordPresence {
         val largeText: String,
         val smallImage: String?,
         val smallText: String?,
-        val button: Boolean,
     ) {
         fun toJson() = JsonObject().apply {
             addProperty("type", 0)
@@ -54,14 +53,12 @@ object DiscordPresence {
                 smallImage?.let { addProperty("small_image", it) }
                 smallText?.let { addProperty("small_text", fit(it)) }
             })
-            if (button) {
-                add("buttons", JsonArray().apply {
-                    add(JsonObject().apply {
-                        addProperty("label", "Get PawfectAddons")
-                        addProperty("url", SITE)
-                    })
+            add("buttons", JsonArray().apply {
+                add(JsonObject().apply {
+                    addProperty("label", "Get PawfectAddons")
+                    addProperty("url", SITE)
                 })
-            }
+            })
         }
 
         /** Discord wants 2 to 128 characters. */
@@ -180,11 +177,10 @@ object DiscordPresence {
             details = details,
             state = state,
             start = placeSince.takeIf { config.showTimer },
-            largeImage = if (head) "https://mc-heads.net/avatar/${mc.user.profileId.toString().replace("-", "")}/128" else LOGO,
-            largeText = if (head) name else version,
-            smallImage = LOGO.takeIf { head },
-            smallText = version.takeIf { head },
-            button = config.showButton,
+            largeImage = LOGO,
+            largeText = version,
+            smallImage = "https://mc-heads.net/avatar/${mc.user.profileId.toString().replace("-", "")}/128".takeIf { head },
+            smallText = name.takeIf { head },
         )
     }
 

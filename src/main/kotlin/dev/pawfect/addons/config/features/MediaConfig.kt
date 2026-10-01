@@ -16,7 +16,7 @@ class MediaConfig {
     var opacity: Float = 0.9f
 
     @Expose
-    var width: Int = 170
+    var width: Int = 180
 
     @Expose
     var showArt: Boolean = true

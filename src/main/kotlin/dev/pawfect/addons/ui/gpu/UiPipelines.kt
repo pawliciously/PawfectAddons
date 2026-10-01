@@ -55,5 +55,19 @@ object UiPipelines {
             .build(),
     )
 
+    val MEDIA_BACKGROUND: RenderPipeline = RenderPipelines.register(
+        RenderPipeline.builder()
+            .withLocation(id("pipeline/media_bg"))
+            .withVertexShader(id("core/ui_shape"))
+            .withFragmentShader(id("core/media_bg"))
+            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
+            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
+            .withVertexFormat(UiFormats.SHAPE_FORMAT, VertexFormat.Mode.QUADS)
+            .withColorTargetState(RenderPipelines.GUI.colorTargetState)
+            .withDepthStencilState(Optional.ofNullable(RenderPipelines.GUI.depthStencilState))
+            .withCull(RenderPipelines.GUI.isCull)
+            .build(),
+    )
+
     fun bootstrap() = Unit
 }
