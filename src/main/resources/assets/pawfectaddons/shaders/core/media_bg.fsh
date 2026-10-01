@@ -22,8 +22,8 @@ flat in vec4 shape;
 
 out vec4 fragColor;
 
-vec3 unpackRgb(float packed) {
-    float n = floor(packed + 0.5);
+vec3 unpackRgb(float bits) {
+    float n = floor(bits + 0.5);
     return vec3(floor(n / 65536.0), mod(floor(n / 256.0), 256.0), mod(n, 256.0)) / 255.0;
 }
 
