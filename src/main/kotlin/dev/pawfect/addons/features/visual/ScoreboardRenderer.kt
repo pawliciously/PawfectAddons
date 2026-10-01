@@ -10,6 +10,7 @@ import dev.pawfect.addons.ui.gpu.MenuBackgroundRenderState
 import dev.pawfect.addons.ui.gpu.UiPipelines
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.RenderContext
+import dev.pawfect.addons.utils.StringUtil.removeColor
 import dev.pawfect.addons.utils.renderables.Renderable
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.network.chat.Component
@@ -88,7 +89,10 @@ object ScoreboardRenderer {
         val out = ArrayList<Line>(entries.size)
         for ((index, entry) in entries.withIndex()) {
             var text: Component = PlayerTeam.formatNameForTeam(scoreboard.getPlayersTeam(entry.owner()), entry.ownerName())
-            val plain = text.string
+            // Hypixel's team prefixes and holder names carry § codes inside the text itself, so
+            // a "blank" line isn't blank until they're stripped.
+            val raw = text.string
+            val plain = raw.removeColor()
 
             if (plain.isBlank()) {
                 out += Line(null, if (config.compactBlankLines) BLANK else LINE)
@@ -97,13 +101,28 @@ object ScoreboardRenderer {
             if (index == entries.lastIndex && config.hideWebsite && WEBSITE.containsMatchIn(plain)) continue
             if (index == 0 && config.hideServerId) {
                 // Hypixel's first line is "MM/DD/YY m12AB": keep the date, drop the server.
-                DATE.find(plain)?.let { text = keepFirst(text, it.range.last + 1) }
+                DATE.find(plain)?.let { text = keepFirst(text, rawLength(raw, it.range.last + 1)) }
             }
             out += Line(text, LINE)
         }
         // A trailing spacer left behind by a hidden website line looks like padding; drop it.
         while (out.isNotEmpty() && out.last().text == null) out.removeAt(out.lastIndex)
         return out
+    }
+
+    /** How many raw characters (§ codes included) it takes to show [visible] characters. */
+    private fun rawLength(raw: String, visible: Int): Int {
+        var shown = 0
+        var index = 0
+        while (index < raw.length && shown < visible) {
+            if (raw[index] == '§' && index + 1 < raw.length) {
+                index += 2
+                continue
+            }
+            shown++
+            index++
+        }
+        return index
     }
 
     /** The first [count] characters of [source], styles intact. */

@@ -82,7 +82,8 @@ vec3 ember(vec2 uv, vec2 px, vec3 base, vec3 accent, float t, float k) {
     vec2 cell = floor(g);
     float seed = hash12(cell);
     if (seed > 0.90) {
-        vec2 o = vec2(hash12(cell + 5.3), hash12(cell + 2.7));
+        // Keep the spark well inside its cell; one near the edge was cut off by its neighbour.
+        vec2 o = 0.26 + 0.48 * vec2(hash12(cell + 5.3), hash12(cell + 2.7));
         float d = length((fract(g) - o) * vec2(1.0, 1.45));
         float spark = smoothstep(0.24, 0.0, d);
         float flick = 0.55 + 0.45 * sin(t * 3.1 + seed * 62.0);
