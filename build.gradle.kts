@@ -35,6 +35,10 @@ repositories {
         filter { includeGroup("maven.modrinth") }
     }
     exclusiveContent {
+        forRepository { maven("https://repo.hypixel.net/repository/Hypixel/") }
+        filter { includeGroup("net.hypixel") }
+    }
+    exclusiveContent {
         // legacy-item-dfu's Minecraft 26.1.2 build isn't published upstream, so it lives in libs/maven.
         forRepositories(maven("https://maven.azureaaron.net/releases"), maven(uri("libs/maven")))
         filter { includeGroup("net.azureaaron") }
@@ -52,6 +56,8 @@ dependencies {
     implementation("net.fabricmc.fabric-api:fabric-api:${prop("fabric_api_version")}")
     implementation("net.fabricmc:fabric-language-kotlin:${prop("flk_version")}")
     compileOnly("com.terraformersmc:modmenu:${prop("modmenu_version")}")
+    // Location events for the Discord status. Optional: Skyblocker and most SkyBlock mods ship it.
+    compileOnly("net.hypixel:mod-api:${prop("hypixel_mod_api_version")}")
 
     // Profile viewer: rebuilds Hypixel's 1.8 item NBT into modern stacks, and prices items
     // the same way SkyHelper does. Both are Apache-2.0 and nested jar-in-jar, so Fabric loads

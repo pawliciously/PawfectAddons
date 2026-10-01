@@ -2,6 +2,7 @@ package dev.pawfect.addons.config
 
 import com.google.gson.annotations.Expose
 import dev.pawfect.addons.config.features.CosmeticsConfig
+import dev.pawfect.addons.config.features.DiscordConfig
 import dev.pawfect.addons.config.features.DungeonWaypointsConfig
 import dev.pawfect.addons.config.features.EmojisConfig
 import dev.pawfect.addons.config.features.ExperimentsConfig
@@ -57,6 +58,9 @@ class PawfectConfig {
 
     @Expose
     val media: MediaConfig = MediaConfig()
+
+    @Expose
+    val discord: DiscordConfig = DiscordConfig()
 
     @Expose
     val dev: DevConfig = DevConfig()

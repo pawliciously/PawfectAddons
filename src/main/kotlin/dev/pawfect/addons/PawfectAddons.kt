@@ -31,6 +31,7 @@ import dev.pawfect.addons.features.slayer.SlayerOverlay
 import dev.pawfect.addons.features.slayer.SlayerWorldRender
 import dev.pawfect.addons.features.visual.LavaChanger
 import dev.pawfect.addons.features.visual.handchams.ChamsPipelines
+import dev.pawfect.addons.features.discord.DiscordPresence
 import dev.pawfect.addons.features.media.MediaBridge
 import dev.pawfect.addons.utils.SessionTracker
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
@@ -105,6 +106,7 @@ object PawfectAddons : ClientModInitializer {
         SecretWaypointRenderer.register()
         SecretTracker.register()
         registerChat()
+        DiscordPresence.register()
 
         ClientTickEvents.END_CLIENT_TICK.register { onTick() }
         ClientLifecycleEvents.CLIENT_STOPPING.register {
@@ -112,6 +114,7 @@ object PawfectAddons : ClientModInitializer {
             Skybox.shutdown()
             MotionBlur.shutdown()
             MediaBridge.stop()
+            DiscordPresence.stop()
             ConfigManager.saveAll("client stopping")
         }
     }
@@ -236,6 +239,7 @@ object PawfectAddons : ClientModInitializer {
         }
 
         MediaBridge.tick()
+        runCatching { DiscordPresence.onTick() }
         SessionTracker.tick()
         runCatching { Hitsound.onTick() }
         runCatching { PacketLog.tick() }

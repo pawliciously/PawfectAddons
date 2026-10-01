@@ -56,6 +56,7 @@ object PawfectSettings {
         val general = config.general
         val theme = config.theme
         val media = config.media
+        val discord = config.discord
         val waypoints = config.dungeonWaypoints
         val secrets = config.secretWaypoints
         val menu = config.menu
@@ -713,6 +714,28 @@ object PawfectSettings {
                 ),
             ),
             category(
+                "discord",
+                "Discord",
+                Icons.USER,
+                "0.82.0",
+                group(
+                    "Rich Presence",
+                    ToggleSetting("Discord Status", "Show what you're doing in SkyBlock on your Discord profile.", discord::enabled),
+                    ToggleSetting("Location", "Say which island you're on and what you're doing there.", discord::showLocation)
+                        .showIf { discord.enabled },
+                    ToggleSetting("Area", "Add the part of the island you're in, or how much of the dungeon is cleared.", discord::showArea)
+                        .showIf { discord.enabled && discord.showLocation },
+                    ToggleSetting("Username", "Show your Minecraft name.", discord::showName)
+                        .showIf { discord.enabled },
+                    ToggleSetting("Skin Face", "Use your skin's face as the main picture.", discord::showHead)
+                        .showIf { discord.enabled },
+                    ToggleSetting("Timer", "Show how long you've been doing it.", discord::showTimer)
+                        .showIf { discord.enabled },
+                    ToggleSetting("Download Button", "Add a button that links to PawfectAddons.", discord::showButton)
+                        .showIf { discord.enabled },
+                ),
+            ),
+            category(
                 "experiments",
                 "Experiments",
                 Icons.CLOCK,
@@ -890,7 +913,7 @@ object PawfectSettings {
     )
 
     private val ORDER = listOf(
-        "visuals", "chams", "skybox", "media",
+        "visuals", "chams", "skybox", "media", "discord",
         "hitsounds",
         "slayers", "dungeon",
         "recipetracker", "general", "experiments",

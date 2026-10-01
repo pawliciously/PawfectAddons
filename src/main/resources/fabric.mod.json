@@ -27,5 +27,8 @@
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",
     "fabric-language-kotlin": ">=${flk_version}"
+  },
+  "suggests": {
+    "hypixel-mod-api": "*"
   }
 }
