@@ -1,6 +1,8 @@
 package dev.pawfect.addons.features.cosmetics
 
 import com.google.gson.annotations.Expose
+import dev.pawfect.addons.features.chat.Emojis
+import net.minecraft.network.chat.Component
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.sqrt
@@ -69,6 +71,10 @@ class NameCosmetic {
 
     @Expose
     var uppercase: Boolean = false
+
+    /** Shortcodes drawn after the name, like "eyes". */
+    @Expose
+    var emoji: List<String>? = null
 
     fun resolve(): ResolvedName? = resolvePalette(style, colors, speed, spread, bold, uppercase)
 }
@@ -224,15 +230,22 @@ class CosmeticEntry {
         val resolvedTrail = trail?.resolve()
         val resolvedMotes = motes?.resolve()
         val resolvedBadges = Badge.ordered(badges.orEmpty() + if (og) listOf(Badge.FOUNDER.id) else emptyList())
+        val resolvedEmoji = name?.emoji?.take(MAX_NAME_EMOJI)?.let(Emojis::glyphs)
         if (resolvedName == null &&
             resolvedCape == null &&
             resolvedTrail == null &&
             resolvedMotes == null &&
-            resolvedBadges.isEmpty()
+            resolvedBadges.isEmpty() &&
+            resolvedEmoji == null
         ) {
             return null
         }
-        return ResolvedCosmetic(resolvedName, resolvedCape, resolvedTrail, resolvedMotes, resolvedBadges)
+        return ResolvedCosmetic(resolvedName, resolvedCape, resolvedTrail, resolvedMotes, resolvedBadges, resolvedEmoji)
+    }
+
+    private companion object {
+        /** The website allows three; ignore anything past that. */
+        const val MAX_NAME_EMOJI = 3
     }
 }
 
@@ -242,6 +255,8 @@ class ResolvedCosmetic(
     val trail: ResolvedTrail?,
     val motes: ResolvedMotes?,
     val badges: List<Badge>,
+    /** Emoji drawn after the name, already in the emoji font. */
+    val emoji: Component?,
 )
 
 class ResolvedTrail(

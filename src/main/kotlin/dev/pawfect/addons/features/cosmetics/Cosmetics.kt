@@ -107,10 +107,11 @@ object Cosmetics {
 
         val entry = lookup(uuid) ?: return null
         val name = if (config.nameColors) entry.name else null
+        val emoji = if (config.nameColors) entry.emoji else null
         val badges = if (badgeVisible(uuid)) entry.badges else emptyList()
-        if (name == null && badges.isEmpty()) return null
+        if (name == null && emoji == null && badges.isEmpty()) return null
 
-        val base = name?.let { recolor(nameTag, ownerName, it) } ?: nameTag
+        val base = if (name != null || emoji != null) recolor(nameTag, ownerName, name, emoji) ?: nameTag else nameTag
         if (badges.isEmpty()) return base
 
         val styled = Component.empty()
@@ -119,7 +120,7 @@ object Cosmetics {
     }
 
     /** How a player's name looks on their nametag, for drawing it somewhere else. */
-    class Display(val name: ResolvedName?, val badges: List<Badge>)
+    class Display(val name: ResolvedName?, val badges: List<Badge>, val emoji: Component?)
 
     /** Null when [uuid] has no cosmetics, or the settings hide them. Takes dashed or plain UUIDs. */
     fun displayFor(uuid: String): Display? {
@@ -127,9 +128,10 @@ object Cosmetics {
         val id = parseUuid(uuid) ?: return null
         val entry = lookup(id) ?: return null
         val name = if (config.nameColors) entry.name else null
+        val emoji = if (config.nameColors) entry.emoji else null
         val badges = if (badgeVisible(id)) entry.badges else emptyList()
-        if (name == null && badges.isEmpty()) return null
-        return Display(name, badges)
+        if (name == null && emoji == null && badges.isEmpty()) return null
+        return Display(name, badges, emoji)
     }
 
     /** [text] in [name]'s colours, animated if it is, on top of [base]. */
@@ -169,7 +171,8 @@ object Cosmetics {
         return if (uuid == McCompat.mc.player?.uuid) self else null
     }
 
-    private fun recolor(source: Component, ownerName: String, name: ResolvedName): Component? {
+    /** Swaps the owner's name in [source] for the coloured version, with their emoji right after it. */
+    private fun recolor(source: Component, ownerName: String, name: ResolvedName?, emoji: Component?): Component? {
         if (ownerName.isEmpty()) return null
 
         val runs = ArrayList<Run>()
@@ -200,7 +203,12 @@ object Cosmetics {
                 result.append(Component.literal(run.text.substring(0, at)).setStyle(run.style))
             }
 
-            appendName(result, ownerName, run.style, name)
+            if (name != null) {
+                appendName(result, ownerName, run.style, name)
+            } else {
+                result.append(Component.literal(ownerName).setStyle(run.style))
+            }
+            emoji?.let { result.append(Component.literal(" ")).append(it) }
 
             val tail = at + ownerName.length
             if (tail < run.text.length) {

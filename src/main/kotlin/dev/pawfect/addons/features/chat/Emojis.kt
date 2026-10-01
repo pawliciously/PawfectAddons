@@ -51,6 +51,16 @@ object Emojis {
         return convert(message)
     }
 
+    /**
+     * Emoji for shortcodes like "eyes" or ":eyes:", skipping unknown ones; null if none are known.
+     * Used for cosmetic names, so it works even with chat emojis turned off.
+     */
+    fun glyphs(shortcodes: List<String>): Component? {
+        val found = shortcodes.mapNotNull { codes[it.trim().lowercase().removePrefix(":").removeSuffix(":")] }
+        if (found.isEmpty()) return null
+        return Component.literal(found.joinToString("")).setStyle(style)
+    }
+
     fun suggest(text: String, cursor: Int): CompletableFuture<Suggestions>? {
         if (!config.enabled || codes.isEmpty()) return null
 

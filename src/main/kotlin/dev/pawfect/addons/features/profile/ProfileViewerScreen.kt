@@ -222,11 +222,15 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         if (badgeX > nameX) badgeX += 2f
         val name = data?.ign?.takeIf { it.isNotEmpty() } ?: target
         val painted = cosmetic?.name
-        if (painted != null) {
-            scaledComponent(graphics, Cosmetics.paint(name, UiFont.style(bold = true), painted), badgeX, y + 1f, NAME_SCALE)
+        val nameWidth = if (painted != null) {
+            val component = Cosmetics.paint(name, UiFont.style(bold = true), painted)
+            scaledComponent(graphics, component, badgeX, y + 1f, NAME_SCALE)
+            McCompat.font.width(component) * NAME_SCALE
         } else {
             scaledText(graphics, name, badgeX, y + 1f, NAME_SCALE, Theme.opaque(Theme.text), bold = true)
+            McCompat.font.width(UiFont.component(name, true)) * NAME_SCALE
         }
+        cosmetic?.emoji?.let { scaledComponent(graphics, it, badgeX + nameWidth + 4f, y, NAME_SCALE) }
 
         // Chips: profile switcher first, then facts about the profile.
         var chipX = nameX

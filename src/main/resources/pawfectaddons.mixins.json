@@ -42,6 +42,7 @@
     "RenderTypeMixin",
     "ScreenMixin",
     "SkyRendererMixin",
+    "SlotMixin",
     "SplashRendererMixin",
     "SubmitNodeCollectionMixin",
     "TextureBindingAccessor",
