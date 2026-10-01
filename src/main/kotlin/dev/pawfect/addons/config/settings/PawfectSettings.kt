@@ -6,6 +6,7 @@ import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ConfigPresets
 import dev.pawfect.addons.config.core.GuiEditManager
 import dev.pawfect.addons.config.features.ScoreboardConfig
+import dev.pawfect.addons.config.features.PanelBackground
 import dev.pawfect.addons.config.features.SecretWaypointsConfig
 import dev.pawfect.addons.config.features.InventoryConfig.PlateStyle
 import dev.pawfect.addons.config.features.SkyboxConfig.SkyEffect
@@ -511,6 +512,10 @@ object PawfectSettings {
                 group(
                     "Look",
                     ToggleSetting("Styled Chat", "Draw chat on one rounded panel in your theme instead of black strips. Text and clicks are untouched.", chat::styled),
+                    DropdownSetting("Background", "Glass is a flat panel; the others are the inventory's animated styles, kept gentle behind text.", chat::background, PanelBackground.entries.toList())
+                        .showIf { chat.styled },
+                    FloatSliderSetting("Effect Strength", "How strongly the animated background shows.", chat::strength, 0.1f, 1f, 0.05f)
+                        .showIf { chat.styled && chat.background != PanelBackground.GLASS },
                     FloatSliderSetting("Background Opacity", "How solid the panel is. Old lines still fade out as usual.", chat::opacity, 0f, 1f, 0.05f)
                         .showIf { chat.styled },
                     FloatSliderSetting("Corner Radius", "Roundness of the panel corners.", chat::radius, 0f, 8f, 0.5f)
@@ -536,7 +541,7 @@ object PawfectSettings {
                 group(
                     "Look",
                     ToggleSetting("Custom Scoreboard", "Draw the sidebar on a themed panel without the red numbers. Steps aside if SkyHanni's or NoammAddons' scoreboard is on.", scoreboard::enabled),
-                    DropdownSetting("Background", "Glass is a flat panel; the others are the inventory's animated styles.", scoreboard::background, ScoreboardConfig.Background.entries.toList())
+                    DropdownSetting("Background", "Glass is a flat panel; the others are the inventory's animated styles.", scoreboard::background, PanelBackground.entries.toList())
                         .showIf { scoreboard.enabled },
                     FloatSliderSetting("Background Opacity", "How solid the panel is.", scoreboard::opacity, 0f, 1f, 0.05f)
                         .showIf { scoreboard.enabled },
@@ -549,7 +554,9 @@ object PawfectSettings {
                 ),
                 group(
                     "Lines",
-                    ToggleSetting("Hide Server ID", "Keep the date on the top line but drop the server name after it.", scoreboard::hideServerId)
+                    ToggleSetting("Hide Date", "Drop the date from the top line. With Hide Server ID too, the line goes entirely.", scoreboard::hideDate)
+                        .showIf { scoreboard.enabled },
+                    ToggleSetting("Hide Server ID", "Drop the server name (like m12AB) from the top line.", scoreboard::hideServerId)
                         .showIf { scoreboard.enabled },
                     ToggleSetting("Hide Website Line", "Drop the www.hypixel.net line at the bottom.", scoreboard::hideWebsite)
                         .showIf { scoreboard.enabled },

@@ -1,7 +1,7 @@
 package dev.pawfect.addons.features.visual
 
 import dev.pawfect.addons.config.ConfigManager
-import dev.pawfect.addons.config.features.ScoreboardConfig.Background
+import dev.pawfect.addons.config.features.PanelBackground
 import dev.pawfect.addons.config.features.ScoreboardConfig.Placement
 import dev.pawfect.addons.mixin.GuiGraphicsAccessor
 import dev.pawfect.addons.ui.Shapes
@@ -88,20 +88,30 @@ object ScoreboardRenderer {
 
         val out = ArrayList<Line>(entries.size)
         for ((index, entry) in entries.withIndex()) {
-            var text: Component = PlayerTeam.formatNameForTeam(scoreboard.getPlayersTeam(entry.owner()), entry.ownerName())
-            // Hypixel's team prefixes and holder names carry § codes inside the text itself, so
-            // a "blank" line isn't blank until they're stripped.
+            val team = scoreboard.getPlayersTeam(entry.owner())
+            var text: Component = PlayerTeam.formatNameForTeam(team, entry.ownerName())
             val raw = text.string
-            val plain = raw.removeColor()
+            // Hypixel writes each line as prefix + holder + suffix, where the holder is a hidden
+            // marker that keeps lines unique. Checks read prefix + suffix only (that's the line as
+            // you see it), with the § codes Hypixel puts inside the text stripped too.
+            val plain = (team?.let { it.playerPrefix.string + it.playerSuffix.string } ?: raw).removeColor()
 
             if (plain.isBlank()) {
                 out += Line(null, if (config.compactBlankLines) BLANK else LINE)
                 continue
             }
             if (index == entries.lastIndex && config.hideWebsite && WEBSITE.containsMatchIn(plain)) continue
-            if (index == 0 && config.hideServerId) {
-                // Hypixel's first line is "MM/DD/YY m12AB": keep the date, drop the server.
-                DATE.find(plain)?.let { text = keepFirst(text, rawLength(raw, it.range.last + 1)) }
+            if (index == 0 && (config.hideDate || config.hideServerId)) {
+                // Hypixel's first line is "MM/DD/YY m12AB": the date, then the server.
+                val date = DATE.find(plain)
+                if (date != null) {
+                    val dateEnd = rawLength(raw, date.range.last + 1)
+                    when {
+                        config.hideDate && config.hideServerId -> continue
+                        config.hideServerId -> text = slice(text, 0, dateEnd)
+                        else -> text = slice(text, dateEnd, Int.MAX_VALUE, trimStart = true)
+                    }
+                }
             }
             out += Line(text, LINE)
         }
@@ -125,17 +135,34 @@ object ScoreboardRenderer {
         return index
     }
 
-    /** The first [count] characters of [source], styles intact. */
-    private fun keepFirst(source: Component, count: Int): Component {
+    /**
+     * Raw characters [from] until [to] of [source], styles intact. [trimStart] drops the spaces
+     * the cut leaves at the front. § codes before [from] still apply to what's kept.
+     */
+    private fun slice(source: Component, from: Int, to: Int, trimStart: Boolean = false): Component {
         val out = Component.empty()
-        var left = count
+        var position = 0
+        var trimming = trimStart
+        var codes = ""
         source.visit(
             object : FormattedText.StyledContentConsumer<Unit> {
                 override fun accept(style: Style, text: String): Optional<Unit> {
-                    if (left <= 0) return Optional.of(Unit)
-                    val piece = if (text.length > left) text.substring(0, left) else text
-                    out.append(Component.literal(piece).setStyle(style))
-                    left -= piece.length
+                    if (position >= to) return Optional.of(Unit)
+                    val start = (from - position).coerceIn(0, text.length)
+                    val end = (to - position).coerceIn(0, text.length)
+                    // Colour codes in the skipped part still colour what follows.
+                    codes += Regex("§.").findAll(text.substring(0, start)).joinToString("") { it.value }
+                    var piece = text.substring(start, end)
+                    if (trimming) {
+                        val trimmed = piece.trimStart(' ')
+                        if (trimmed.isNotEmpty() && trimmed.removeColor().isNotBlank()) trimming = false
+                        piece = trimmed
+                    }
+                    if (piece.isNotEmpty()) {
+                        out.append(Component.literal(codes + piece).setStyle(style))
+                        codes = ""
+                    }
+                    position += text.length
                     return Optional.empty()
                 }
             },
@@ -175,7 +202,7 @@ object ScoreboardRenderer {
             val opacity = config.opacity.coerceIn(0f, 1f)
             val radius = config.radius.coerceIn(0, 12)
             val style = config.background
-            if (style == Background.GLASS) {
+            if (style == PanelBackground.GLASS) {
                 val top = Theme.mix(Theme.palette.panel, 0xFFFFFF, 0.04f)
                 val bottom = Theme.palette.background
                 Shapes.rect(graphics, 0f, 0f, w, h, radius.toFloat(), argb(top, opacity), argb(bottom, opacity))

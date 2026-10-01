@@ -2,10 +2,13 @@ package dev.pawfect.addons.features.chat
 
 import dev.pawfect.addons.chat.ChatGraphicsHolder
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.config.features.PanelBackground
+import dev.pawfect.addons.mixin.GuiGraphicsAccessor
 import dev.pawfect.addons.ui.Icons
 import dev.pawfect.addons.ui.Notifications
 import dev.pawfect.addons.ui.Shapes
 import dev.pawfect.addons.ui.Theme
+import dev.pawfect.addons.ui.gpu.ChatBackdropRenderState
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.StringUtil.removeColor
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -96,11 +99,15 @@ object ChatStyle {
     private fun drawPanels(graphics: GuiGraphicsExtractor) {
         // Rows arrive bottom first. Touching rows form one block; a gap starts a new one.
         val sorted = rows.sortedBy { it.top }
+        // The animated pattern hangs off chat's bottom-left corner, which stays put as lines
+        // come and go, so the pattern never jumps or stretches.
+        val anchorX = sorted.first().left.toFloat()
+        val anchorY = sorted.maxOf { it.bottom }.toFloat()
         var start = 0
         for (i in 1..sorted.size) {
             val breaks = i == sorted.size || sorted[i].top > sorted[i - 1].bottom || sorted[i].left != sorted[start].left
             if (!breaks) continue
-            drawBlock(graphics, sorted.subList(start, i))
+            drawBlock(graphics, sorted.subList(start, i), anchorX, anchorY)
             start = i
         }
     }
@@ -111,13 +118,16 @@ object ChatStyle {
      * continuous. A line's top edge sits just out of sight above it while the line above is
      * solid and slides into place as that line fades, so corners and outline never pop in.
      */
-    private fun drawBlock(graphics: GuiGraphicsExtractor, block: List<Row>) {
+    private fun drawBlock(graphics: GuiGraphicsExtractor, block: List<Row>, anchorX: Float, anchorY: Float) {
+        config.sanitize()
         val opacity = config.opacity.coerceIn(0f, 1f)
         val radius = config.radius.coerceIn(0f, 8f)
         val tuck = radius + 2f
         val rgb = if (config.customColor) config.color else Theme.palette.background
         val left = block[0].left.toFloat()
         val width = (block[0].right - block[0].left).toFloat()
+        val animated = config.background != PanelBackground.GLASS
+        val time = (System.nanoTime() - startedAt) / 1_000_000_000f
 
         for ((index, row) in block.withIndex()) {
             val alpha = row.alpha * opacity
@@ -128,21 +138,49 @@ object ChatStyle {
             val border = if (config.outline) argb(Theme.accent, alpha * 0.45f) else 0
 
             Shapes.pushScissor(graphics, left - 1f, row.top.toFloat(), width + 2f, (row.bottom - row.top).toFloat())
-            Shapes.rect(
-                graphics,
-                left,
-                edgeTop,
-                width,
-                edgeBottom - edgeTop,
-                radius,
-                argb(rgb, alpha),
-                argb(rgb, alpha),
-                if (config.outline) 1f else 0f,
-                border,
-            )
+            if (animated) {
+                (graphics as GuiGraphicsAccessor).`pawfectaddons$guiRenderState`().addGuiElement(
+                    ChatBackdropRenderState(
+                        Matrix3x2f(graphics.pose()),
+                        left,
+                        row.top.toFloat(),
+                        left + width,
+                        row.bottom.toFloat(),
+                        anchorX,
+                        anchorY,
+                        left,
+                        edgeTop,
+                        left + width,
+                        edgeBottom,
+                        radius.toInt(),
+                        config.background.style,
+                        argb(rgb, alpha),
+                        Theme.accent,
+                        config.strength,
+                        time,
+                        Shapes.currentScissor,
+                    ),
+                )
+                if (config.outline) Shapes.rect(graphics, left, edgeTop, width, edgeBottom - edgeTop, radius, 0, 0, 1f, border)
+            } else {
+                Shapes.rect(
+                    graphics,
+                    left,
+                    edgeTop,
+                    width,
+                    edgeBottom - edgeTop,
+                    radius,
+                    argb(rgb, alpha),
+                    argb(rgb, alpha),
+                    if (config.outline) 1f else 0f,
+                    border,
+                )
+            }
             Shapes.popScissor(graphics)
         }
     }
+
+    private val startedAt = System.nanoTime()
 
     /** A rounded panel that fades from [topAlpha] to [bottomAlpha], the way old lines fade first. */
     private fun panel(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, topAlpha: Float, bottomAlpha: Float) {

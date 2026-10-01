@@ -29,6 +29,9 @@ object Shapes {
         scissor = scissor?.intersection(rect) ?: rect
     }
 
+    /** The clip in effect, for render states that aren't drawn through [rect]. */
+    val currentScissor: ScreenRectangle? get() = scissor
+
     fun popScissor(graphics: GuiGraphicsExtractor) {
         graphics.disableScissor()
         scissor = if (scissorStack.isEmpty()) null else scissorStack.removeLast()
