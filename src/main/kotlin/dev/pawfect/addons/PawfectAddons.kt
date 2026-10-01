@@ -12,6 +12,7 @@ import dev.pawfect.addons.data.BazaarApi
 import dev.pawfect.addons.data.ItemSources
 import dev.pawfect.addons.data.NeuRepo
 import dev.pawfect.addons.data.SackApi
+import dev.pawfect.addons.features.chat.ChatStyle
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.cosmetics.Capes
 import dev.pawfect.addons.features.cosmetics.CosmeticEnroll
@@ -60,6 +61,8 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.resources.Identifier
+import net.minecraft.client.gui.screens.ChatScreen
+import org.lwjgl.glfw.GLFW
 import org.slf4j.LoggerFactory
 
 object PawfectAddons : ClientModInitializer {
@@ -126,7 +129,10 @@ object PawfectAddons : ClientModInitializer {
     private fun registerScreenInput() {
         ScreenEvents.AFTER_INIT.register { _, screen, _, _ ->
             ScreenMouseEvents.allowMouseClick(screen).register { _, event ->
-                if (runCatching { PacketOverlay.mouseClicked(event.x(), event.y()) }.getOrDefault(false)) {
+                val copyClick = screen is ChatScreen && event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && !event.hasShiftDown()
+                if (copyClick && runCatching { ChatStyle.copyAt(event.x(), event.y()) }.getOrDefault(false)) {
+                    false
+                } else if (runCatching { PacketOverlay.mouseClicked(event.x(), event.y()) }.getOrDefault(false)) {
                     false
                 } else {
                     !runCatching { MediaOverlay.mouseClicked(event.x(), event.y()) }.getOrDefault(false)

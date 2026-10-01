@@ -11,6 +11,8 @@
     "AbstractTextureAccessor",
     "AvatarRendererMixin",
     "BufferBuilderInvoker",
+    "ChatComponentMixin",
+    "ChatDrawingAccessMixin",
     "ChestBlockEntityMixin",
     "ClientPacketListenerMixin",
     "CommandSuggestionsMixin",

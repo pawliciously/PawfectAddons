@@ -1,6 +1,7 @@
 package dev.pawfect.addons.config
 
 import com.google.gson.annotations.Expose
+import dev.pawfect.addons.config.features.ChatConfig
 import dev.pawfect.addons.config.features.CosmeticsConfig
 import dev.pawfect.addons.config.features.DiscordConfig
 import dev.pawfect.addons.config.features.DungeonWaypointsConfig
@@ -34,6 +35,9 @@ class PawfectConfig {
 
     @Expose
     val emojis: EmojisConfig = EmojisConfig()
+
+    @Expose
+    val chat: ChatConfig = ChatConfig()
 
     @Expose
     val visuals: VisualsConfig = VisualsConfig()

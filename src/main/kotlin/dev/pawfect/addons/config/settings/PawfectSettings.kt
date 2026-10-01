@@ -49,6 +49,7 @@ object PawfectSettings {
         val tracker = config.recipeTracker
         val slayers = config.slayers
         val emojis = config.emojis
+        val chat = config.chat
         val visuals = config.visuals
         val chams = config.handChams
         val players = config.playerChams
@@ -501,6 +502,31 @@ object PawfectSettings {
                 ),
             ),
             category(
+                "chat",
+                "Chat",
+                Icons.TAG,
+                "0.82.0",
+                group(
+                    "Look",
+                    ToggleSetting("Styled Chat", "Draw chat on one rounded panel in your theme instead of black strips. Text and clicks are untouched.", chat::styled),
+                    FloatSliderSetting("Background Opacity", "How solid the panel is. Old lines still fade out as usual.", chat::opacity, 0f, 1f, 0.05f)
+                        .showIf { chat.styled },
+                    FloatSliderSetting("Corner Radius", "Roundness of the panel corners.", chat::radius, 0f, 8f, 0.5f)
+                        .showIf { chat.styled },
+                    ToggleSetting("Outline", "A thin accent edge around the panel.", chat::outline)
+                        .showIf { chat.styled },
+                    ToggleSetting("Custom Colour", "Pick the panel colour instead of using your theme's.", chat::customColor)
+                        .showIf { chat.styled },
+                    ColorSetting("Panel Colour", "Colour behind chat.", chat::color, supportsAlpha = false)
+                        .showIf { chat.styled && chat.customColor },
+                ),
+                group(
+                    "Messages",
+                    ToggleSetting("Right Click to Copy", "Right click a message while chat is open to copy it. Shift + right click still opens other mods' menus.", chat::rightClickCopy),
+                    ToggleSetting("Chat Emojis", "Draw :shortcodes: in chat as real emojis. Only you see them, everyone else sees the text.", emojis::enabled),
+                ),
+            ),
+            category(
                 "general",
                 "General",
                 Icons.SLIDERS,
@@ -514,10 +540,6 @@ object PawfectSettings {
                     "Item Sources",
                     ToggleSetting("Count Inventory", "Also count your inventory and equipped gear.", general::countInventory),
                     ToggleSetting("Count Storage", "Also count your ender chest and backpacks.", general::countStorage),
-                ),
-                group(
-                    "Emojis",
-                    ToggleSetting("Chat Emojis", "Draw :shortcodes: in chat as real emojis. Only you see them, everyone else sees the text.", emojis::enabled),
                 ),
                 group(
                     "Advanced",
@@ -915,7 +937,7 @@ object PawfectSettings {
         "visuals", "chams", "skybox", "media", "discord",
         "hitsounds",
         "slayers", "dungeon",
-        "recipetracker", "general", "experiments",
+        "recipetracker", "chat", "general", "experiments",
         "cosmetics",
         "inventory",
         "menu", "theme", "dev",
