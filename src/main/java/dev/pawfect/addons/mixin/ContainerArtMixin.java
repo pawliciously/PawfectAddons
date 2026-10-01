@@ -51,7 +51,29 @@ public abstract class ContainerArtMixin {
         CallbackInfo callback
     ) {
         if (InventoryStyle.hidesSprite(sprite)
-            || InventoryStyle.replaceSlotFrame((GuiGraphicsExtractor) (Object) this, sprite, x, y)) {
+            || InventoryStyle.replaceSlotFrame((GuiGraphicsExtractor) (Object) this, sprite, x, y)
+            || InventoryStyle.replaceNavTab((GuiGraphicsExtractor) (Object) this, sprite, x, y, width, height, -1)) {
+            callback.cancel();
+        }
+    }
+
+    /** Tinted sprites, which is how Skyblocker draws its quick-nav tabs. */
+    @Inject(
+        method = "blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIIII)V",
+        at = @At("HEAD"),
+        cancellable = true
+    )
+    private void pawfectaddons$restyleNavTab(
+        RenderPipeline pipeline,
+        Identifier sprite,
+        int x,
+        int y,
+        int width,
+        int height,
+        int color,
+        CallbackInfo callback
+    ) {
+        if (InventoryStyle.replaceNavTab((GuiGraphicsExtractor) (Object) this, sprite, x, y, width, height, color)) {
             callback.cancel();
         }
     }

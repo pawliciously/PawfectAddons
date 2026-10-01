@@ -179,4 +179,61 @@ object InventoryStyle {
     }
 
     private val SLOT_FRAME: Identifier = Identifier.withDefaultNamespace("container/slot")
+
+    /** Skyblocker's quick-nav tabs, and the vanilla creative tabs it falls back to. */
+    private val NAV_TAB = Regex("""^(?:quick_nav/|container/creative_inventory/)tab_(top|bottom)_(selected|unselected)_\d+$""")
+
+    /**
+     * Tabs drawn above and below the panel in vanilla's light grey look out of place on the
+     * styled panel, so they're redrawn in its colours. A resting tab stops at the panel's edge;
+     * the selected one runs into the panel so it reads as attached. [color] carries the alpha
+     * Skyblocker fades tabs with.
+     */
+    @JvmStatic
+    fun replaceNavTab(graphics: GuiGraphicsExtractor, sprite: Identifier, x: Int, y: Int, width: Int, height: Int, color: Int): Boolean {
+        if (!active() || tooltipDepth > 0) return false
+        val match = NAV_TAB.matchEntire(sprite.path) ?: return false
+        val top = match.groupValues[1] == "top"
+        val selected = match.groupValues[2] == "selected"
+        val alpha = ((color ushr 24) and 0xFF) / 255f
+        if (alpha <= 0.01f) return true
+
+        val mouseX = McCompat.mouseX
+        val mouseY = McCompat.mouseY
+        val hovered = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height
+        val fillRgb = when {
+            selected -> shade(topColor(), 1.1f)
+            hovered -> shade(bottomColor(), 1.9f)
+            else -> shade(bottomColor(), 1.35f)
+        }
+        val fill = withAlpha(fillRgb, alpha)
+        val border = withAlpha(accentColor(), alpha * if (selected) 0.85f else if (hovered) 0.55f else 0.3f)
+
+        // Vanilla tabs overlap the panel by 4 pixels.
+        val overlap = 4f
+        val left = x + 1f
+        val tabWidth = width - 2f
+        val radius = 5f
+        val bodyTop: Float
+        val bodyBottom: Float
+        if (top) {
+            bodyTop = y + 2f
+            bodyBottom = y + height - if (selected) 0f else overlap
+        } else {
+            bodyTop = y + if (selected) 0f else overlap
+            bodyBottom = y + height - 2f
+        }
+        Shapes.rect(graphics, left, bodyTop, tabWidth, bodyBottom - bodyTop, radius, fill, fill, 1f, border)
+        // Square off the corners that meet the panel, hiding the border along that edge.
+        val seam = radius + 1f
+        if (top) {
+            Shapes.rect(graphics, left + 1f, bodyBottom - seam, tabWidth - 2f, seam, 0f, fill)
+        } else {
+            Shapes.rect(graphics, left + 1f, bodyTop, tabWidth - 2f, seam, 0f, fill)
+        }
+        return true
+    }
+
+    private fun withAlpha(rgb: Int, alpha: Float): Int =
+        ((alpha.coerceIn(0f, 1f) * 255f).toInt() shl 24) or (rgb and 0xFFFFFF)
 }
