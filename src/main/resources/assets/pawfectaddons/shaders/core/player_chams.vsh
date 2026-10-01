@@ -21,6 +21,8 @@ out vec4 vertexColor;
 out vec2 texCoord0;
 out vec4 texProj0;
 out float rimFactor;
+out vec3 worldNormal;
+out vec3 worldPos;
 
 void main() {
     sphericalVertexDistance = fog_spherical_distance(Position);
@@ -28,6 +30,9 @@ void main() {
     vertexColor = minecraft_mix_light(Light0_Direction, Light1_Direction, Normal, Color) * sample_lightmap(Sampler2, UV2);
     texCoord0 = UV0;
     rimFactor = 1.0 - abs(dot(Normal / max(length(Normal), 1e-4), -Position / max(length(Position), 1e-4)));
+    // Camera-relative world space: +Y is up, which the Chrome reflections rely on.
+    worldNormal = Normal;
+    worldPos = Position;
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
     texProj0 = projection_from_position(gl_Position);
 }

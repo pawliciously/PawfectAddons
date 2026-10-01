@@ -31,6 +31,7 @@
     "SoundBufferLibraryAccessor",
     "SoundEngineAccessor",
     "SoundManagerAccessor",
+    "InventoryPreviewMixin",
     "ItemStackFoilMixin",
     "LavaFogEnvironmentMixin",
     "LevelRendererMixin",

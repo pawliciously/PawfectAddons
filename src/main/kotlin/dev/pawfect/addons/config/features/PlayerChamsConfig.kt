@@ -40,17 +40,36 @@ class PlayerChamsConfig {
     @Expose
     var rim: Float = 0.5f
 
+    /** Visual size of players; 1 is normal. Hitboxes and the server don't change. */
+    @Expose
+    var scale: Float = 1f
+
+    @Expose
+    var scaleTarget: ScaleTarget = ScaleTarget.EVERYONE
+
     @Suppress("SENSELESS_COMPARISON")
     fun sanitize() {
+        // Saved configs from before Prism and Ripple were removed come back as null.
         if (style == null) style = Style.GHOST
+        if (scaleTarget == null) scaleTarget = ScaleTarget.EVERYONE
     }
 
+    /** The number is the shader's style id (player_chams.fsh). */
     enum class Style(private val label: String, val id: Int) {
         GHOST("Ghost", 0),
-        PRISM("Prism", 1),
+        CHROME("Chrome", 1),
+        NEON("Neon Pixels", 4),
         STARS("Stars", 2),
         END_PORTAL("End Portal", 3),
-        RIPPLE("Ripple", 5),
+        ;
+
+        override fun toString(): String = label
+    }
+
+    enum class ScaleTarget(private val label: String) {
+        OTHERS("Other players"),
+        SELF("Just you"),
+        EVERYONE("Everyone"),
         ;
 
         override fun toString(): String = label

@@ -15,6 +15,8 @@ in vec4 vertexColor;
 in vec2 texCoord0;
 in vec4 texProj0;
 in float rimFactor;
+in vec3 worldNormal;
+in vec3 worldPos;
 
 out vec4 fragColor;
 
@@ -144,48 +146,67 @@ vec3 ghost(vec3 albedo, vec3 fill, vec3 accent, vec3 light, float amount, float 
     return body;
 }
 
-vec3 prism(vec3 tinted, vec3 fill, vec3 accent, vec3 light, float amount, float gameTime) {
+// Chrome: liquid metal reflecting a small built-in studio (sky, horizon line, two softboxes,
+// floor). It works in world space, so highlights stay on the body and glide as the studio
+// slowly turns; ripples tied to the skin make the surface look liquid.
+vec3 chrome(float luma, vec3 fill, vec3 accent, vec3 light, float amount, float gameTime) {
     float t = gameTime * 1200.0;
-    vec2 screen = gl_FragCoord.xy;
     float gain = (amount - 0.10) / 1.40;
+    vec2 skin = texCoord0 * 64.0;
+    vec3 n = normalize(worldNormal);
+    n = normalize(n + vec3(sin(skin.y * 0.9 + t * 1.7), 0.0, cos(skin.x * 0.8 - t * 1.3)) * mix(0.03, 0.10, gain));
+    vec3 v = normalize(worldPos);
+    vec3 r = reflect(v, n);
+    float turn = t * 0.15;
+    r.xz = mat2(cos(turn), -sin(turn), sin(turn), cos(turn)) * r.xz;
 
-    float flow = fbm(screen * 0.017 + vec2(t * 0.07, -t * 0.05));
-    float band = rimFactor * 2.60 + flow * 2.20 + t * 0.22;
+    vec3 skyTop = mix(fill, vec3(1.0), 0.55);
+    vec3 horizon = mix(accent, vec3(1.0), 0.35);
+    vec3 env = r.y > 0.0
+        ? mix(horizon, skyTop, smoothstep(0.0, 0.8, r.y))
+        : mix(horizon * 0.45, fill * 0.30 + vec3(0.06), smoothstep(0.0, -0.5, r.y));
+    env += vec3(1.0) * pow(max(1.0 - abs(r.y) * 9.0, 0.0), 3.0) * 0.85;
+    env += vec3(1.0) * pow(max(dot(r, normalize(vec3(0.6, 0.55, 0.4))), 0.0), 80.0) * 1.6;
+    env += accent * pow(max(dot(r, normalize(vec3(-0.7, 0.25, -0.5))), 0.0), 30.0) * 0.8;
 
-    vec3 iris = 0.5 + 0.5 * cos(6.2831853 * (band + vec3(0.00, 0.33, 0.67)));
-    iris = mix(fill, iris, 0.66);
-    iris = mix(iris, accent, pow(rimFactor, 2.20) * 0.55);
-
-    float facet = pow(clamp(1.0 - abs(fract(band * 1.6) - 0.5) * 2.30, 0.0, 1.0), 7.0);
-    float sheen = pow(clamp(1.0 - abs(fract(band * 0.7 + 0.35) - 0.5) * 3.40, 0.0, 1.0), 4.0);
-
-    vec3 body = mix(tinted, iris * light * mix(0.95, 1.45, gain), 0.86);
-    body += iris * facet * mix(0.30, 0.85, gain);
-    body += mix(iris, vec3(1.0), 0.55) * sheen * 0.22;
-    return body;
+    float facing = abs(dot(n, -v));
+    vec3 metal = env * mix(0.78, 1.15, pow(1.0 - facing, 3.0));
+    // A trace of the skin's light and dark keeps faces and armour readable.
+    metal *= mix(0.72, 1.08, luma);
+    // Dimmer in the dark, but never flat: metal still catches its own studio.
+    float lit = clamp(dot(light, vec3(0.333)) * 1.4, 0.0, 1.0);
+    return metal * mix(0.55, 1.0, lit) * mix(0.85, 1.20, gain);
 }
 
-vec3 ripple(vec3 tinted, vec3 fill, vec3 accent, vec3 light, float amount, float gameTime) {
+// Neon Pixels: the skin's own pixel grid as an LED panel. Each skin pixel is a lit tile in the
+// palette (dark pixels lean to the main colour, bright ones to the rim colour), pulsing on its
+// own, with a scan sweeping up the rows. Seams fade out with distance so tiles never shimmer.
+vec3 neon(float luma, vec3 fill, vec3 accent, vec3 light, float amount, float gameTime) {
     float t = gameTime * 1200.0;
-    vec2 screen = gl_FragCoord.xy;
     float gain = (amount - 0.10) / 1.40;
+    vec2 size = vec2(textureSize(Sampler0, 0));
+    vec2 cell = texCoord0 * size;
+    vec2 id = floor(cell);
+    vec2 f = fract(cell);
 
-    float warp = fbm(screen * 0.013 + vec2(t * 0.06, -t * 0.04)) * 2.20;
-    float wave = sin(screen.y * 0.155 - t * 2.40 + warp);
-    float crest = pow(clamp(0.5 + 0.5 * wave, 0.0, 1.0), 8.0);
+    vec3 hue = mix(fill, accent, smoothstep(0.12, 0.88, luma));
+    float seed = hash(id);
+    float pulse = 0.55 + 0.45 * sin(t * (1.6 + seed * 2.4) + seed * 31.0);
+    float sweep = pow(0.5 + 0.5 * sin(id.y * 0.35 - t * 2.4), 6.0);
 
-    float wave2 = sin(screen.y * 0.086 + screen.x * 0.034 + t * 1.35 + warp * 1.40);
-    float crest2 = pow(clamp(0.5 + 0.5 * wave2, 0.0, 1.0), 14.0);
+    vec2 edge = min(f, 1.0 - f);
+    float tile = smoothstep(0.0, 0.16, min(edge.x, edge.y));
+    vec2 texelsPerPixel = fwidth(cell);
+    float seams = smoothstep(0.35, 0.15, max(texelsPerPixel.x, texelsPerPixel.y));
+    tile = mix(1.0, tile, seams);
 
-    float wave3 = sin(screen.y * 0.290 - t * 3.60 + warp * 0.60);
-    float crest3 = pow(clamp(0.5 + 0.5 * wave3, 0.0, 1.0), 22.0);
-
-    vec3 glow = mix(fill, accent, 0.42) * max(light, vec3(0.22));
-    vec3 body = mix(tinted, fill * light * 0.62, 0.55);
-    body += glow * (crest * 1.00 + crest2 * 0.62) * mix(0.70, 1.90, gain);
-    body += mix(glow, vec3(1.0), 0.45) * crest3 * mix(0.35, 1.00, gain);
-    body += glow * pow(rimFactor, 2.40) * 0.45;
-    return body;
+    float glow = (0.35 + 0.65 * luma) * (0.60 + 0.40 * pulse) + sweep * 0.80;
+    vec3 col = hue * glow * mix(0.80, 1.60, gain);
+    col += mix(hue, vec3(1.0), 0.5) * sweep * 0.35;
+    col = mix(hue * 0.08, col, tile);
+    // Mostly self-lit, like a screen: only a quarter of the world light comes through.
+    float lit = clamp(dot(light, vec3(0.333)) * 1.4, 0.0, 1.0);
+    return col * mix(1.0, lit, 0.25);
 }
 
 void main() {
@@ -211,15 +232,17 @@ void main() {
     float cover = clamp(tintAmount, 0.08, 1.0);
     float alpha = opacity;
 
+    float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+    int id = int(style + 0.5);
     vec3 body;
-    if (style > 4.5) {
-        body = ripple(tinted, fill, accent, light, amount, gameTime);
-    } else if (style > 2.5) {
+    if (id == 4) {
+        body = neon(luma, fill, accent, light, amount, gameTime);
+    } else if (id == 3) {
         body = mix(tinted, endPortal(fill, amount, gameTime), cover);
-    } else if (style > 1.5) {
+    } else if (id == 2) {
         body = stars(tinted, fill, light, amount, gameTime);
-    } else if (style > 0.5) {
-        body = prism(tinted, fill, accent, light, amount, gameTime);
+    } else if (id == 1) {
+        body = mix(tinted, chrome(luma, fill, accent, light, amount, gameTime), cover);
     } else {
         body = ghost(albedo, fill, accent, light, amount, cover, gameTime, alpha);
     }

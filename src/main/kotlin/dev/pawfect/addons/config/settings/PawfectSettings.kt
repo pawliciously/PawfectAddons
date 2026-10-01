@@ -6,6 +6,8 @@ import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ConfigPresets
 import dev.pawfect.addons.config.core.GuiEditManager
 import dev.pawfect.addons.config.features.ScoreboardConfig
+import dev.pawfect.addons.config.features.PlayerChamsConfig
+import dev.pawfect.addons.features.visual.playerchams.PlayerScale
 import dev.pawfect.addons.config.features.PanelBackground
 import dev.pawfect.addons.config.features.SecretWaypointsConfig
 import dev.pawfect.addons.config.features.InventoryConfig.PlateStyle
@@ -424,7 +426,7 @@ object PawfectSettings {
                     DropdownSetting("Debug View", "Draw an intermediate texture full screen to diagnose the effect.", chams::debugView, DebugView.entries.toList()),
                 ),
                 sectionGroup(
-                    "Player Chams",
+                    "Player",
                     "Targets",
                     ToggleSetting("Player Chams", "Shade player models. Walls still hide them.", players::enabled),
                     ToggleSetting("Yourself", "Apply to your own model in third person and menus.", players::self)
@@ -453,8 +455,14 @@ object PawfectSettings {
                     "Rim",
                     FloatSliderSetting("Rim Glow", "Light along the model's edges.", players::rim, 0f, 2f, 0.05f)
                         .showIf { players.enabled },
-                    ColorSetting("Rim Colour", "Colour of the edge light.", players::accentColor)
-                        .showIf { players.enabled && players.rim > 0f },
+                    ColorSetting("Second Colour", "The edge light, and the highlight colour in Chrome and Neon Pixels.", players::accentColor)
+                        .showIf { players.enabled },
+                ),
+                group(
+                    "Scale",
+                    FloatSliderSetting("Player Scale", "Draw players bigger or smaller. Only you see it; hitboxes don't change.", players::scale, PlayerScale.MIN, PlayerScale.MAX, 0.05f),
+                    DropdownSetting("Scale Applies To", "Whose size changes.", players::scaleTarget, PlayerChamsConfig.ScaleTarget.entries.toList())
+                        .showIf { players.scale != 1f },
                 ),
             ),
             category(

@@ -1,6 +1,7 @@
 package dev.pawfect.addons.mixin;
 
 import dev.pawfect.addons.features.cosmetics.Capes;
+import dev.pawfect.addons.features.visual.playerchams.PlayerScale;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.world.entity.Avatar;
@@ -19,6 +20,10 @@ public abstract class AvatarRendererMixin {
     private void pawfectaddons$applyCape(Avatar entity, AvatarRenderState state, float partialTick, CallbackInfo ci) {
         try {
             Capes.apply(entity.getUUID(), state);
+        } catch (Throwable error) {
+        }
+        try {
+            PlayerScale.apply(entity, state);
         } catch (Throwable error) {
         }
     }
