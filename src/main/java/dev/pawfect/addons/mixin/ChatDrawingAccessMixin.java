@@ -16,10 +16,14 @@ import dev.pawfect.addons.features.chat.ChatStyle;
  * Line backgrounds are handled in ChatComponentMixin; what reaches fill here is the scrollbar
  * and the pending-message line.
  */
-@Mixin(targets = {
-    "net.minecraft.client.gui.components.ChatComponent$DrawingBackgroundGraphicsAccess",
-    "net.minecraft.client.gui.components.ChatComponent$DrawingFocusedGraphicsAccess"
-})
+// Two targets means nothing in here may be remappable; 26.1 is unobfuscated, so none of it needs to be.
+@Mixin(
+    targets = {
+        "net.minecraft.client.gui.components.ChatComponent$DrawingBackgroundGraphicsAccess",
+        "net.minecraft.client.gui.components.ChatComponent$DrawingFocusedGraphicsAccess"
+    },
+    remap = false
+)
 public abstract class ChatDrawingAccessMixin implements ChatGraphicsHolder {
 
     @Shadow
