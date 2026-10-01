@@ -10,12 +10,6 @@ import dev.pawfect.addons.utils.StringUtil.removeColor
 import org.slf4j.LoggerFactory
 import java.io.IOException
 
-/**
- * Discord Rich Presence: what the player is doing in SkyBlock, their name and skin face.
- *
- * The client thread works out the presence once a second; a worker thread owns the Discord
- * connection, sends the presence when it changes and reconnects if Discord restarts.
- */
 object DiscordPresence {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Discord")
@@ -24,10 +18,8 @@ object DiscordPresence {
     private const val LOGO = "https://pawfectaddons.net/favicon-192.png"
     private const val SITE = "https://pawfectaddons.net"
 
-    /** Discord allows five activity updates every 20 seconds. */
     private const val MIN_GAP_MS = 5_000L
 
-    /** Sent again now and then, so a restarted Discord gets it without waiting for a change. */
     private const val RESEND_MS = 60_000L
     private const val RETRY_MS = 15_000L
 
@@ -61,7 +53,6 @@ object DiscordPresence {
             })
         }
 
-        /** Discord wants 2 to 128 characters. */
         private fun fit(text: String) = text.take(128).padEnd(2)
     }
 
@@ -74,7 +65,6 @@ object DiscordPresence {
     private var worker: Thread? = null
     private var ticker = 0
 
-    /** The timer counts from when the activity line last changed. */
     private var place: String? = null
     private var placeSince = 0L
 
@@ -148,12 +138,9 @@ object DiscordPresence {
             }
         } catch (_: InterruptedException) {
         } finally {
-            // Discord drops the activity on its own once the pipe closes.
             ipc.close()
         }
     }
-
-    // Working out the presence
 
     private fun build(): Presence {
         val mc = McCompat.mc
@@ -187,7 +174,6 @@ object DiscordPresence {
     private fun onHypixel(): Boolean =
         HypixelLocation.known || McCompat.mc.currentServer?.ip?.contains("hypixel", ignoreCase = true) == true
 
-    /** The activity line and the extra detail that goes after the player's name. */
     private fun hypixel(): Pair<String, String?> {
         val type = HypixelLocation.serverType
         val onSkyBlock = if (type != null) type == "SKYBLOCK" else SkyBlockData.onSkyBlock
@@ -236,7 +222,6 @@ object DiscordPresence {
 
     private val KUUDRA_TIERS = listOf("Basic", "Hot", "Burning", "Fiery", "Infernal")
 
-    /** The sidebar's area line, like "⏣ Village", unless it only repeats the island's name. */
     private fun zone(sidebar: List<String>, island: Island?): String? {
         if (!config.showArea) return null
         val line = sidebar.firstOrNull { it.trimStart().startsWith("⏣") || it.trimStart().startsWith("ф") } ?: return null
@@ -246,10 +231,8 @@ object DiscordPresence {
         return text
     }
 
-    /** Hypixel pads sidebar lines with emoji and stray symbols to keep them unique. */
     private val junk = Regex("""[^\p{L}\p{N}\p{P}\p{Zs}]""")
 
-    /** The tab list's "Area: Hub" line, for when the Mod API isn't installed. */
     private fun tabArea(): String? {
         val connection = McCompat.mc.connection ?: return null
         for (info in connection.onlinePlayers) {
@@ -288,7 +271,6 @@ object DiscordPresence {
             fun find(mode: String?, area: String?): Island? {
                 mode?.let { id -> entries.firstOrNull { it.mode == id }?.let { return it } }
                 val name = area ?: return null
-                // Longest match wins, so "Dungeon Hub" isn't read as the Hub.
                 return entries.filter { name.contains(it.area, ignoreCase = true) }.maxByOrNull { it.area.length }
             }
         }

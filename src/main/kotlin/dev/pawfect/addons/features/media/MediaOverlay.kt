@@ -22,11 +22,6 @@ import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.sin
 
-/**
- * Now playing card. The backdrop is a shader that slowly swirls four colours taken from the
- * album art (see [MediaPalette] and media_bg.fsh); it eases between tracks and calms down
- * while paused. Everything drawn on top is white, which the palette is toned to keep readable.
- */
 object MediaOverlay {
 
     private val config get() = ConfigManager.features.media
@@ -51,7 +46,6 @@ object MediaOverlay {
         fun contains(px: Float, py: Float) = px >= x && px <= x + width && py >= y && py <= y + height
     }
 
-    // Animation state, advanced once per frame.
     private var lastFrame = 0L
     private var phase = 0f
     private var awake = 0f
@@ -143,8 +137,6 @@ object MediaOverlay {
         config.position.render(MediaRenderable(track), "Media")
     }
 
-    // Layout
-
     private fun cardWidth(): Int = config.width.coerceIn(140, 320)
 
     private fun progressTop(): Float = PAD + ART + 8f
@@ -167,8 +159,6 @@ object MediaOverlay {
             Control.NEXT to centerX + SIDE_SPACING,
         ).map { (control, x) -> Hitbox(x - BUTTON / 2f, centerY - BUTTON / 2f, BUTTON, BUTTON, control) }
     }
-
-    // Animation
 
     private fun animate(track: MediaBridge.Track?) {
         val now = System.nanoTime()
@@ -210,7 +200,6 @@ object MediaOverlay {
             val h = height.toFloat()
             val opacity = config.opacity.coerceIn(0.1f, 1f)
 
-            // A coloured glow from the art under a tight dark shadow, then the swirl itself.
             Shapes.shadow(graphics, 0f, 0f, w, h, RADIUS, 14f, argb(MediaPalette.light(shown[0]), 40f * opacity), 3f)
             Shapes.shadow(graphics, 0f, 0f, w, h, RADIUS, 6f, argb(0x000000, 120f * opacity), 2f)
             (graphics as GuiGraphicsAccessor).`pawfectaddons$guiRenderState`().addGuiElement(
@@ -265,7 +254,6 @@ object MediaOverlay {
                 graphics.string(Draw.truncate(artist, available), left, PAD + 15f, argb(0xFFFFFF, 185f), shadow = true)
             }
 
-            // Little equaliser that dances while playing, and where the sound is coming from.
             if (track != null) {
                 val baseY = PAD + ART - 4f
                 drawEqualizer(graphics, left, baseY)
@@ -293,7 +281,6 @@ object MediaOverlay {
                 return
             }
 
-            // Marquee: rest at the start, glide the whole title past, loop.
             if (title != marqueeKey) {
                 marqueeKey = title
                 marqueeStart = System.currentTimeMillis()
@@ -384,11 +371,6 @@ object MediaOverlay {
             }
         }
 
-        /**
-         * Where an icon's ink is centred, from its left edge. The glyphs sit left of their
-         * advance box, so centring on the advance puts them off; these were measured in game.
-         * The play triangle is placed by its visual weight, a little left of its box centre.
-         */
         private fun inkCentre(glyph: String): Float = when (glyph) {
             Icons.PAUSE -> 2.8f
             Icons.PLAY -> 3.0f

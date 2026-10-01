@@ -11,11 +11,6 @@ import org.lwjgl.system.MemoryUtil
 import kotlin.math.ceil
 import kotlin.math.floor
 
-/**
- * The media card's animated backdrop (shaders/core/media_bg.fsh). The four palette colours
- * ride in the vertex data: two in the colour slots and two packed into floats, which hold a
- * 24-bit integer exactly.
- */
 class MediaBackdropRenderState(
     private val pose: Matrix3x2f,
     private val x: Float,

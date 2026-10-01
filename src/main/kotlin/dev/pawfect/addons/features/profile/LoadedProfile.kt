@@ -5,18 +5,15 @@ import net.minecraft.world.item.ItemStack
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 
-/** One profile with every container decoded, plus its networth once that has been worked out. */
 class LoadedProfile private constructor(
     val profile: ProfileData.Profile,
     private val containers: Map<String, List<ItemStack>>,
-    /** Backpack slot to contents, in slot order. */
     val backpacks: List<Pair<Int, List<ItemStack>>>,
     val backpackIcons: Map<Int, ItemStack>,
 ) {
 
     fun container(key: String): List<ItemStack> = containers[key] ?: emptyList()
 
-    /** Pet items need NeuRepo, which lives on the render thread, so they are built on first use there. */
     val pets: List<ItemStack> by lazy { profile.pets.map(ProfileItems::pet) }
 
     @Volatile
@@ -34,7 +31,6 @@ class LoadedProfile private constructor(
 
         private val CONTAINERS = listOf("inventory", "armor", "equipment", "ender_chest", "vault", "accessories", "potions", "fishing_bag", "quiver")
 
-        /** Decodes off-thread and completes on the render thread. Networth follows on its own. */
         fun load(profile: ProfileData.Profile): CompletableFuture<LoadedProfile> =
             CompletableFuture.supplyAsync({
                 LoadedProfile(
@@ -44,7 +40,7 @@ class LoadedProfile private constructor(
                     profile.backpackIcons.mapNotNull { (slot, data) -> ProfileItems.decode(data).firstOrNull()?.let { slot to it } }.toMap(),
                 )
             }, worker).thenApplyAsync({ loaded ->
-                loaded.pets.size // build pet items now, on the render thread
+                loaded.pets.size
                 CompletableFuture.supplyAsync({ ProfileNetworth.compute(loaded) }, worker).whenComplete { result, error ->
                     if (result != null) loaded.networth = result else loaded.networthFailed = error != null
                 }

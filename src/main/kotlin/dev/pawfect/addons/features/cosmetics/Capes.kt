@@ -193,7 +193,6 @@ object Capes {
         }
     }
 
-    // TODO swap for a real cloth sim eventually
     private fun animate() {
         if (!config.animate) return
         val now = System.currentTimeMillis()

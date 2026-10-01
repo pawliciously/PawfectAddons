@@ -18,13 +18,6 @@ import org.joml.Vector2f
 import kotlin.math.max
 import kotlin.math.min
 
-/**
- * Chat's look and right-click copy. Only backgrounds are replaced: vanilla's black strip
- * behind every line becomes one rounded panel per block of lines, and the scrollbar becomes
- * an accent pill. Everything else (text, wrapping, clicks, hover, chat size) stays vanilla.
- *
- * The positions recorded for the panel double as the hit boxes for copying a message.
- */
 object ChatStyle {
 
     private val config get() = ConfigManager.features.chat
@@ -35,7 +28,6 @@ object ChatStyle {
     private var recording: Any? = null
     private var focused = false
 
-    // The last frame the chat was open: its rows, and the transform from chat space to the screen.
     private var openRows: List<Row> = emptyList()
     private var openPose: Matrix3x2f? = null
     private var openAt = 0L
@@ -45,12 +37,10 @@ object ChatStyle {
     @JvmStatic
     fun beginLines(access: Any, foreground: Boolean) {
         rows.clear()
-        // The clickable-text pass also runs this method, with nothing to draw into; skip it.
         recording = access.takeIf { it is ChatGraphicsHolder }
         focused = foreground
     }
 
-    /** One line's background. True when the styled panel replaces vanilla's strip. */
     @JvmStatic
     fun line(access: Any, baseY: Int, lineHeight: Int, width: Int, line: GuiMessage.Line, index: Int, alpha: Float): Boolean {
         if (access !== recording) return false
@@ -73,7 +63,6 @@ object ChatStyle {
         rows.clear()
     }
 
-    /** The other fills chat makes: the scrollbar, its highlight, and the pending-messages line. */
     @JvmStatic
     fun fill(graphics: GuiGraphicsExtractor, x0: Int, y0: Int, x1: Int, y1: Int, color: Int): Boolean {
         if (!styled) return false
@@ -84,9 +73,7 @@ object ChatStyle {
         val width = (max(x0, x1) - min(x0, x1)).toFloat()
         val height = (max(y0, y1) - min(y0, y1)).toFloat()
         when (rgb) {
-            // Vanilla draws a 1 pixel highlight down the scrollbar; the pill doesn't need it.
             HIGHLIGHT -> Unit
-            // The "messages pending" line under chat.
             0 -> panel(graphics, left, top, width, height, alpha * config.opacity.coerceIn(0f, 1f), alpha * config.opacity.coerceIn(0f, 1f))
             else -> {
                 val bar = if (rgb == NEW_MESSAGES) Theme.accent else Theme.mix(Theme.accent, 0xFFFFFF, 0.25f)
@@ -97,10 +84,7 @@ object ChatStyle {
     }
 
     private fun drawPanels(graphics: GuiGraphicsExtractor) {
-        // Rows arrive bottom first. Touching rows form one block; a gap starts a new one.
         val sorted = rows.sortedBy { it.top }
-        // The animated pattern hangs off chat's bottom-left corner, which stays put as lines
-        // come and go, so the pattern never jumps or stretches.
         val anchorX = sorted.first().left.toFloat()
         val anchorY = sorted.maxOf { it.bottom }.toFloat()
         var start = 0
@@ -112,12 +96,6 @@ object ChatStyle {
         }
     }
 
-    /**
-     * One block of lines. Each line keeps its own fade, the way vanilla fades lines one at a
-     * time, but they're all slices of the same rounded panel, so the edges and outline stay
-     * continuous. A line's top edge sits just out of sight above it while the line above is
-     * solid and slides into place as that line fades, so corners and outline never pop in.
-     */
     private fun drawBlock(graphics: GuiGraphicsExtractor, block: List<Row>, anchorX: Float, anchorY: Float) {
         config.sanitize()
         val opacity = config.opacity.coerceIn(0f, 1f)
@@ -182,7 +160,6 @@ object ChatStyle {
 
     private val startedAt = System.nanoTime()
 
-    /** A rounded panel that fades from [topAlpha] to [bottomAlpha], the way old lines fade first. */
     private fun panel(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, topAlpha: Float, bottomAlpha: Float) {
         if (width <= 0f || height <= 0f || max(topAlpha, bottomAlpha) <= 0.003f) return
         val rgb = if (config.customColor) config.color else Theme.palette.background
@@ -202,10 +179,6 @@ object ChatStyle {
         )
     }
 
-    /**
-     * Right click on a message while chat is open: copy its plain text. Shift + right click is
-     * left alone so other mods' menus (Chat Patches has one) still open.
-     */
     fun copyAt(mouseX: Double, mouseY: Double): Boolean {
         if (!config.rightClickCopy) return false
         val pose = openPose ?: return false
@@ -228,7 +201,6 @@ object ChatStyle {
 
     private const val HIGHLIGHT = 0xCCCCCC
 
-    /** Vanilla's scrollbar turns this colour when new messages arrive while scrolled up. */
     private const val NEW_MESSAGES = 0xCC3333
 
     private const val STALE_MS = 500L

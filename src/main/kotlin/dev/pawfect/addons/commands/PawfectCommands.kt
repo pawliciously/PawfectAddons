@@ -165,7 +165,6 @@ object PawfectCommands {
                     },
                 )
                 .then(
-                    // Dev only: sample chat lines for each level prestige tier. Shown locally, never sent.
                     ClientCommands.literal("levels")
                         .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
                         .executes {

@@ -14,8 +14,6 @@ public static class PawfectMedia {
         return operation.Status == AsyncStatus.Completed ? operation.GetResults() : default(T);
     }
 
-    // The session the bridge is showing: same app and same title. Two browser tabs share an
-    // app id, so the title is what tells YouTube and SoundCloud apart.
     static GlobalSystemMediaTransportControlsSessionMediaProperties Find(string appId, string title) {
         var manager = Wait(GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
         if (manager == null) return null;
@@ -51,7 +49,6 @@ public static class PawfectMedia {
         reader.ReadBytes(bytes);
         File.WriteAllBytes(path, bytes);
 
-        // FNV-1a, so the bridge can tell a new picture from the same one fetched again.
         uint hash = 2166136261;
         foreach (var b in bytes) { hash ^= b; hash *= 16777619; }
         return "ok:" + hash.ToString("x8");

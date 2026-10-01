@@ -72,7 +72,6 @@ class NameCosmetic {
     @Expose
     var uppercase: Boolean = false
 
-    /** Shortcodes drawn after the name, like "eyes". */
     @Expose
     var emoji: List<String>? = null
 
@@ -244,7 +243,6 @@ class CosmeticEntry {
     }
 
     private companion object {
-        /** The website allows three; ignore anything past that. */
         const val MAX_NAME_EMOJI = 3
     }
 }
@@ -255,7 +253,6 @@ class ResolvedCosmetic(
     val trail: ResolvedTrail?,
     val motes: ResolvedMotes?,
     val badges: List<Badge>,
-    /** Emoji drawn after the name, already in the emoji font. */
     val emoji: Component?,
 )
 

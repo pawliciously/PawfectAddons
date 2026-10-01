@@ -34,7 +34,6 @@ import java.util.concurrent.CompletionException
 import kotlin.math.ceil
 import kotlin.math.sin
 
-/** `/pa pv [player]`: a SkyBlock profile fetched through me.pawfectaddons.net. */
 class ProfileViewerScreen(private val target: String) : Screen(Component.literal("Profile Viewer")) {
 
     private enum class Tab(val label: String, val icon: () -> ItemStack) {
@@ -56,8 +55,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
 
     private class Clickable(val x: Float, val y: Float, val w: Float, val h: Float, val action: () -> Unit)
 
-    // State
-
     private var data: ProfileData? = null
     private var error: String? = null
     private var request: CompletableFuture<ProfileData>? = null
@@ -70,8 +67,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
     private var pageCount = 1
     private var backpack = 0
     private var dropdownOpen = false
-
-    // Per-frame
 
     private val clickables = ArrayList<Clickable>()
     private var mx = 0f
@@ -139,7 +134,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
 
         graphics.dropShadow(wx, wy, W, H, 14f, 22f, Theme.withAlpha(0x000000, 180), 6f)
         graphics.roundPanel(wx, wy, W, H, 14f, Theme.surface(Theme.background), Theme.opaque(Theme.border))
-        // A soft accent glow behind the header, so the window doesn't read as one flat slab.
         graphics.roundGradient(wx + 1f, wy + 1f, W - 2f, 96f, 13f, Theme.withAlpha(Theme.accent, 34), Theme.withAlpha(Theme.accent, 0))
 
         val p = profile
@@ -180,8 +174,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         }
     }
 
-    // Layout
-
     private val contentX get() = wx + PAD
     private val contentY get() = wy + PAD + HEADER + 12f + TAB_HEIGHT + 12f
     private val contentW get() = W - PAD * 2f
@@ -193,14 +185,11 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         clickables += Clickable(x, y, w, h, action)
     }
 
-    // Header
-
     private fun drawHeader(graphics: GuiGraphicsExtractor, p: ProfileData.Profile) {
         val x = wx + PAD
         val y = wy + PAD
 
         graphics.roundGradient(x, y, HEADER, HEADER, 12f, Theme.surface(Theme.mix(Theme.panel, Theme.accent, 0.18f)), Theme.surface(Theme.panel))
-        // PawfectAddons users get their nametag look here too: badges, then the coloured name.
         val cosmetic = data?.let { Cosmetics.displayFor(it.uuid) }
         val nameColor = cosmetic?.name?.let { 0xFF000000.toInt() or it.colorAt(0f, 0f) }
         graphics.roundOutline(x, y, HEADER, HEADER, 12f, Theme.withAlpha(nameColor ?: Theme.accent, 110))
@@ -232,7 +221,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         }
         cosmetic?.emoji?.let { scaledComponent(graphics, it, badgeX + nameWidth + 4f, y, NAME_SCALE) }
 
-        // Chips: profile switcher first, then facts about the profile.
         var chipX = nameX
         val chipY = y + 22f
         val switcher = p.name
@@ -244,7 +232,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         if ((data?.profiles?.size ?: 0) > 1) click(chipX, chipY, switchW, 16f) { dropdownOpen = !dropdownOpen }
         chipX += switchW + 6f
 
-        // The stat cards start here; chips that wouldn't fit before them are left out.
         val chipLimit = wx + W - PAD - STAT_CARDS_WIDTH - 10f
         val facts = listOfNotNull(
             modeLabel(p.mode),
@@ -256,7 +243,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
             chipX += chip(graphics, label, chipX, chipY, color) + 6f
         }
 
-        // SkyBlock level: badge in Hypixel's colour for that bracket, then XP into the level.
         val levelY = y + 42f
         val badge = p.sbLevel.toString()
         val badgeW = Draw.width(badge) + 14f
@@ -274,7 +260,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
             )
         }
 
-        // Stat cards, right aligned.
         val cardW = 116f
         var cardX = wx + W - PAD - cardW
         val bank = p.bank
@@ -334,7 +319,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         val h = profiles.size * rowH + 8f
         graphics.dropShadow(x, y, w, h, 8f, 12f, Theme.withAlpha(0x000000, 150), 3f)
         graphics.roundPanel(x, y, w, h, 8f, Theme.opaque(Theme.header), Theme.opaque(Theme.border))
-        // Clicks anywhere else close it; registered first so rows win.
         click(0f, 0f, UiScale.width, UiScale.height) { dropdownOpen = false }
         profiles.forEachIndexed { index, p ->
             val ry = y + 4f + index * rowH
@@ -351,8 +335,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
             }
         }
     }
-
-    // Tabs
 
     private fun drawTabs(graphics: GuiGraphicsExtractor) {
         var x = wx + PAD
@@ -378,8 +360,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         }
     }
 
-    // Overview
-
     private fun drawOverview(graphics: GuiGraphicsExtractor, p: ProfileData.Profile, l: LoadedProfile) {
         val gap = 10f
         val skillsW = (contentW * 0.45f).toInt().toFloat()
@@ -387,7 +367,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         val top = contentY
         val h = contentH
 
-        // Skills: two columns of six.
         val skills = p.skills
         val average = p.skillAverage?.let { "Average %.1f".format(it) }
         card(graphics, contentX, top, skillsW, h, "Skills", average)
@@ -403,7 +382,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
             }
         }
 
-        // Slayers.
         val slayerX = contentX + skillsW + gap
         card(graphics, slayerX, top, sideW, h, "Slayers", p.slayers.sumOf { it.level.xp }.takeIf { it > 0 }?.let { "${shortNumber(it)} XP" })
         val slayerRow = (h - 40f) / 6f
@@ -421,7 +399,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
             }
         }
 
-        // Dungeons.
         val dungeonX = slayerX + sideW + gap
         val d = p.dungeons
         card(graphics, dungeonX, top, sideW, h, "Dungeons", d.selectedClass?.replaceFirstChar(Char::uppercase))
@@ -498,8 +475,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         }
     }
 
-    // Inventory
-
     private fun drawInventory(graphics: GuiGraphicsExtractor, l: LoadedProfile) {
         if (!l.profile.inventoryApi) return apiOff(graphics)
         val armor = l.container("armor").reversed()
@@ -541,8 +516,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
     private fun groupLabel(graphics: GuiGraphicsExtractor, text: String, x: Float, y: Float, w: Float) {
         graphics.stringCentered(text, x + w / 2f, y, Theme.opaque(Theme.textDim))
     }
-
-    // Storage: a list of containers on the left, the open one on the right.
 
     private fun drawStorage(graphics: GuiGraphicsExtractor, l: LoadedProfile) {
         if (!l.profile.inventoryApi) return apiOff(graphics)
@@ -604,8 +577,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         divider(graphics, left, gridTop - 6f, 9 * SLOT - 2f)
         contents.forEachIndexed { i, stack -> slot(graphics, l, stack, left + (i % 9) * SLOT, gridTop + 4f + (i / 9) * SLOT) }
     }
-
-    // Accessories and Pets: one paged grid each.
 
     private fun drawGridTab(graphics: GuiGraphicsExtractor, l: LoadedProfile, stacks: List<ItemStack>, title: String, one: String, many: String, worth: Double?) {
         if (!l.profile.inventoryApi) return apiOff(graphics)
@@ -672,8 +643,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         if (enabled) click(x, y, 18f, 18f, action)
     }
 
-    // Slots
-
     private fun slot(
         graphics: GuiGraphicsExtractor,
         l: LoadedProfile,
@@ -727,8 +696,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         graphics.pose().popMatrix()
     }
 
-    // Shared pieces
-
     private fun card(graphics: GuiGraphicsExtractor, x: Float, y: Float, w: Float, h: Float, title: String, right: String?) {
         graphics.roundPanel(x, y, w, h, 10f, Theme.surface(Theme.panel), Theme.opaque(Theme.border))
         graphics.string(title, x + 12f, y + 11f, Theme.opaque(Theme.text), bold = true)
@@ -761,7 +728,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         centered(graphics, "This player hides their inventories from the API, so there's nothing to show here.", contentX, contentY + 10f, contentW, contentH)
     }
 
-    /** Right-aligned text that can be bold, which Draw.stringRight can't. */
     private fun textRight(graphics: GuiGraphicsExtractor, text: String, right: Float, y: Float, color: Int, bold: Boolean) {
         graphics.string(text, right - Draw.width(text) - if (bold) 1f else 0f, y, color, bold = bold)
     }
@@ -774,7 +740,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         graphics.pose().popMatrix()
     }
 
-    /** Text that carries its own fonts and colours, like a cosmetic name or a badge. */
     private fun scaledComponent(graphics: GuiGraphicsExtractor, text: Component, x: Float, y: Float, scale: Float) {
         graphics.pose().pushMatrix()
         graphics.pose().translate(x, y)
@@ -792,8 +757,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         graphics.string(text, 0f, 0f, color, shadow = true)
         graphics.pose().popMatrix()
     }
-
-    // Loading and errors
 
     private fun drawLoading(graphics: GuiGraphicsExtractor) {
         val x = wx + PAD
@@ -836,12 +799,9 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         click(bx, by, bw, 20f) { fetch() }
     }
 
-    // Input
-
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         val x = UiScale.mouseX(click.x())
         val y = UiScale.mouseY(click.y())
-        // Last registered is drawn on top, so it gets the click first.
         for (i in clickables.indices.reversed()) {
             val c = clickables[i]
             if (Draw.inside(x, y, c.x, c.y, c.w, c.h)) {
@@ -869,8 +829,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         return super.keyPressed(event)
     }
 
-    // Formatting and lookups
-
     private fun levelColor(level: ProfileData.Level): Int =
         if (level.maxed) 0xFFFFC34D.toInt() else Theme.opaque(Theme.accent)
 
@@ -881,7 +839,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         else -> null
     }
 
-    /** Hypixel colours SkyBlock levels by bracket of 40. */
     private fun sbLevelColor(level: Int): Int = when (level / 40) {
         0 -> 0xAAAAAA
         1 -> 0xFFFFFF

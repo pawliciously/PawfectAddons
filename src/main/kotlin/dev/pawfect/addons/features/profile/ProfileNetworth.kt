@@ -31,11 +31,6 @@ import java.time.Duration
 import java.util.IdentityHashMap
 import java.util.Optional
 
-/**
- * Networth the way Skyblocker and Aaron's Mod do it: AzureAaron's networth-calculator
- * (a port of SkyHelper's maths) valuing each item, fed by SkyHelper's public price list
- * and Hypixel's public item metadata. Neither source needs an API key.
- */
 object ProfileNetworth {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Networth")
@@ -58,12 +53,10 @@ object ProfileNetworth {
     class Result(
         val total: Double,
         val categories: List<Category>,
-        /** Value of each decoded stack, keyed by identity, for tooltips. */
         val values: IdentityHashMap<ItemStack, Double>,
         val petValues: Map<Int, Double>,
     )
 
-    /** Blocking; run it on a worker thread. */
     fun compute(loaded: LoadedProfile): Result {
         val d = ensureData()
         val price: (String) -> Double = { id -> d.prices[id] ?: 0.0 }
@@ -142,7 +135,6 @@ object ProfileNetworth {
         return response.body()
     }
 
-    /** New Year Cake Bags are worth whatever cake years they hold, which lives in nested NBT. */
     private class Retriever(private val years: IntList) : ItemMetadataRetriever {
         override fun cakeBagCakeYears(): IntList = years
 

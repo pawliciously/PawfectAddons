@@ -1,15 +1,5 @@
 #version 330
 
-// Chat's animated backdrop: the inventory's styles (copied from inv_bg.fsh), laid out against a
-// fixed frame pinned to chat's bottom-left corner instead of the block of visible lines. Lines
-// arriving or fading never shift or stretch the pattern; each line is drawn as its own slice
-// with its own fade, and its rounded edge is a separate rectangle (shape).
-//
-// vertexColor  rgb panel colour, a this line's opacity
-// borderColor  rgb accent, a style strength
-// local        xy offset from chat's bottom-left anchor, z time, w style * 16 + corner radius
-// shape        xy half size of this slice's rounded rectangle, zw its centre from the anchor
-
 in vec4 vertexColor;
 in vec4 borderColor;
 in vec4 local;
@@ -93,7 +83,6 @@ vec3 ember(vec2 uv, vec2 px, vec3 base, vec3 accent, float t, float k) {
     vec2 cell = floor(g);
     float seed = hash12(cell);
     if (seed > 0.90) {
-        // Keep the spark well inside its cell; one near the edge was cut off by its neighbour.
         vec2 o = 0.26 + 0.48 * vec2(hash12(cell + 5.3), hash12(cell + 2.7));
         float d = length((fract(g) - o) * vec2(1.0, 1.45));
         float spark = smoothstep(0.24, 0.0, d);
@@ -120,7 +109,6 @@ void main() {
     float coverage = clamp(0.5 - dist / max(fwidth(dist), 1e-5), 0.0, 1.0);
     if (coverage <= 0.0) discard;
 
-    // The pattern's frame: chat-wide, a fixed height, bottom edge on the anchor.
     vec2 px = vec2(rel.x, rel.y + FRAME_HEIGHT);
     vec2 uv = px / vec2(max(halfSize.x * 2.0, 1.0), FRAME_HEIGHT);
     float time = local.z;
@@ -143,7 +131,6 @@ void main() {
         colour = aurora(uv, px, base, accent, time, k);
     }
 
-    // Settle to the plain colour in the outer two pixels only, so a single line isn't all edge.
     float inset = max(-dist, 0.0);
     colour = mix(base, colour, smoothstep(0.0, 2.0, inset));
     colour += (hash12(px + time) - 0.5) * 0.012;

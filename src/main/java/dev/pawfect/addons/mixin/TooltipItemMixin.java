@@ -28,8 +28,6 @@ public abstract class TooltipItemMixin {
         TooltipStyle.setItem(hovered == null ? ItemStack.EMPTY : hovered.getItem());
     }
 
-    // Mods that wrap setTooltipForNextFrame (like Skyblocker's compactor preview) draw these lines
-    // without going through TooltipTextMixin, so restyle them where they are built.
     @Inject(method = "getTooltipFromContainerItem", at = @At("RETURN"), cancellable = true)
     private void pawfectaddons$restyleLines(ItemStack stack, CallbackInfoReturnable<List<Component>> callback) {
         callback.setReturnValue(TooltipStyle.restyle(callback.getReturnValue()));

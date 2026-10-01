@@ -11,11 +11,6 @@ import org.lwjgl.system.MemoryUtil
 import kotlin.math.ceil
 import kotlin.math.floor
 
-/**
- * One chat line's slice of the animated backdrop (shaders/core/chat_bg.fsh). The quad covers
- * [left]..[right] x [top]..[bottom]; the rounded shape and the pattern are positioned against
- * the anchor (chat's bottom-left), so slices from different frames line up seamlessly.
- */
 class ChatBackdropRenderState(
     private val pose: Matrix3x2f,
     private val left: Float,

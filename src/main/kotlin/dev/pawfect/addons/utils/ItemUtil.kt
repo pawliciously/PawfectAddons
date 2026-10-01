@@ -17,8 +17,6 @@ object ItemUtil {
 
     fun ItemStack.plainName(): String = hoverName.string
 
-    // Skyblock puts the rarity on the last lore line ("LEGENDARY SWORD"), coloured to match.
-    // Falls back to the name colour, and null for plain vanilla items.
     fun ItemStack.rarityColor(): Int? {
         if (isEmpty) return null
         get(DataComponents.LORE)?.lines()?.asReversed()?.forEach { line ->

@@ -21,7 +21,6 @@ object ChronomatronSolver : ExperimentSolver(Regex("^Chronomatron \\(\\w+\\)$"))
         Items.PINK_TERRACOTTA to Items.PINK_STAINED_GLASS,
     )
 
-    // TODO only tested on the first few tiers, check the later ones
     private const val INSTRUCTION_SLOT = 49
     private const val LAST_CHEST_SLOT = 53
 

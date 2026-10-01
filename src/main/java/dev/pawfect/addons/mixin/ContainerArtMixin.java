@@ -57,7 +57,6 @@ public abstract class ContainerArtMixin {
         }
     }
 
-    /** Tinted sprites, which is how Skyblocker draws its quick-nav tabs. */
     @Inject(
         method = "blitSprite(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIIII)V",
         at = @At("HEAD"),

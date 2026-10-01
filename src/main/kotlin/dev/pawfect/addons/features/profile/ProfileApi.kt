@@ -14,11 +14,6 @@ import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 
-/**
- * Fetches SkyBlock profiles through me.pawfectaddons.net. The Hypixel key lives on our
- * server, so the mod first proves who it is with the same handshake cosmetics use and
- * gets a session token back.
- */
 object ProfileApi {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/ProfileApi")
@@ -41,7 +36,6 @@ object ProfileApi {
     @Volatile
     private var tokenExpires = 0L
 
-    /** Completes on the client thread. */
     fun fetch(name: String): CompletableFuture<ProfileData> =
         CompletableFuture.supplyAsync({ load(name) }, executor)
             .thenApplyAsync({ it }, McCompat.mc)
@@ -49,7 +43,6 @@ object ProfileApi {
     private fun load(name: String): ProfileData {
         var response = request(name, session())
         if (response.statusCode() == 401) {
-            // Our session ran out or was cleared on the server. Sign in again once.
             token = null
             response = request(name, session())
         }
@@ -82,7 +75,6 @@ object ProfileApi {
         val nonce = post("/api/link/begin", null).get("nonce")?.asString
             ?: throw ProfileException("The profile service did not answer.")
 
-        // Same as joining any server: the token goes to Mojang only, never to us.
         try {
             mc.services().sessionService().joinServer(user.profileId, user.accessToken, nonce)
         } catch (error: Exception) {
@@ -97,7 +89,6 @@ object ProfileApi {
         val reply = post("/api/session", payload)
         val issued = reply.get("token")?.asString ?: throw ProfileException("Sign in to the profile service failed.")
         token = issued
-        // Renew well before the server's 7 day expiry.
         tokenExpires = System.currentTimeMillis() + Duration.ofDays(6).toMillis()
         return issued
     }

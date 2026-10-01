@@ -19,7 +19,6 @@ object Motes {
 
     private const val VIEW_LIMIT = 64.0
     private const val MAX_PLAYERS = 24
-    // FIXME still havent confirmed these actually render in game
     private const val BUDGET = 480
     private const val TAU = 6.2831855f
 

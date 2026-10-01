@@ -86,7 +86,6 @@ object SlayerManager {
 
         val currentHealth: Int?
             get() {
-                // TODO verify on tier 5
                 val health = parseHealth(stand.name.string) ?: return null
                 if (health > maxHealth) maxHealth = health
                 return health

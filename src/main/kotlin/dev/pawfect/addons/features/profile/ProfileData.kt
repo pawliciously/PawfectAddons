@@ -3,10 +3,8 @@ package dev.pawfect.addons.features.profile
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 
-/** What me.pawfectaddons.net/api/profile returns, already levelled by the server. */
 class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>) {
 
-    /** [into] and [next] (XP into this level, XP the level needs) only come from newer servers. */
     class Level(
         val level: Int,
         val progress: Float,
@@ -60,14 +58,11 @@ class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>
         val slayers: List<Slayer>,
         val dungeons: Dungeons,
         val pets: List<Pet>,
-        /** Base64 NBT per container, or null when hidden or empty. */
         val inventories: Map<String, String?>,
         val backpacks: Map<Int, String>,
         val backpackIcons: Map<Int, String>,
         val wardrobeSlot: Int?,
-        /** Sack contents by item id. Empty when the server doesn't send them yet. */
         val sacks: Map<String, Long>,
-        /** Essence by type (WITHER, DRAGON...). Empty when the server doesn't send it yet. */
         val essence: Map<String, Long>,
         val inventoryApi: Boolean,
         val bankApi: Boolean,

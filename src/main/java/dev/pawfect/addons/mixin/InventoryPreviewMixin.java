@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.pawfect.addons.features.visual.playerchams.PlayerScale;
 
-/** Marks the inventory's player preview, so player scale leaves it at its normal size. */
 @Mixin(InventoryScreen.class)
 public abstract class InventoryPreviewMixin {
 

@@ -5,11 +5,6 @@ import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 
-/**
- * Turns SkyBlock's `§` formatted strings into styled components. Keeping the codes as
- * raw text renders, but the colours then aren't real styles, so anything that reads an
- * item's rarity colour (the tooltip border, for one) can't see them.
- */
 object LegacyText {
 
     private val BASE: Style = Style.EMPTY.withItalic(false)
@@ -32,7 +27,6 @@ object LegacyText {
                 val format = ChatFormatting.getByCode(text[i + 1].lowercaseChar())
                 if (format != null) {
                     flush()
-                    // A colour code clears any bold/italic before it, as it did in 1.8.
                     style = when {
                         format == ChatFormatting.RESET -> BASE
                         format.isColor -> BASE.withColor(format)

@@ -11,7 +11,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.visual.playerchams.PlayerChams;
 
-/** Marks the cape while it's submitted, so chams can leave it alone (and PA capes with it). */
 @Mixin(CapeLayer.class)
 public abstract class CapeLayerMixin {
 

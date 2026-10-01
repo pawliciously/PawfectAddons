@@ -3,7 +3,6 @@ package dev.pawfect.addons.features.discord
 import net.hypixel.modapi.HypixelModAPI
 import net.hypixel.modapi.packet.impl.clientbound.event.ClientboundLocationPacket
 
-/** The only place that touches the Hypixel Mod API. Load it only when that mod is present. */
 internal object ModApiBridge {
 
     fun subscribe() {

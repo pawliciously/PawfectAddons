@@ -5,19 +5,12 @@ import java.awt.Color
 import kotlin.math.abs
 import kotlin.math.min
 
-/**
- * Four colours for the media card's backdrop. Pixels are binned by hue and the bins are
- * scored by how much of the art they cover and how vivid they are, so a small bright
- * accent can still beat a big dull background. The winners are then toned into a band
- * dark enough for white text to stay readable on top.
- */
 object MediaPalette {
 
     private const val HUE_BINS = 24
     private const val NEUTRAL_BINS = 3
     private const val MAX_SAMPLES = 6000
 
-    /** Shown when nothing is playing: a quiet slate. */
     val IDLE: IntArray = intArrayOf(0x2B2F3E, 0x363A4E, 0x23262F, 0x3B3652)
 
     fun extract(image: NativeImage): IntArray {
@@ -75,7 +68,6 @@ object MediaPalette {
             val n = count[bin]
             pack((red[bin] / n).toInt(), (green[bin] / n).toInt(), (blue[bin] / n).toInt())
         }.toMutableList()
-        // Too few distinct colours in the art: fill in with neighbours of the strongest.
         var shift = 0
         while (colours.size < 4) {
             shift++
@@ -84,7 +76,6 @@ object MediaPalette {
         return colours.map(::tone).toIntArray()
     }
 
-    /** A stand-in palette from a track's name, for players that send no artwork. */
     fun fromSeed(seed: String): IntArray {
         val hue = (abs(seed.hashCode()) % 360) / 360f
         return intArrayOf(
@@ -95,13 +86,11 @@ object MediaPalette {
         ).map(::tone).toIntArray()
     }
 
-    /** A light version of [rgb] for small accents drawn on top of the backdrop. */
     fun light(rgb: Int): Int {
         val hsv = Color.RGBtoHSB((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF, null)
         return hsv(hsv[0], min(hsv[1], 0.38f), 1f)
     }
 
-    /** Linear blend in RGB, [t] from 0 to 1. */
     fun mix(from: Int, to: Int, t: Float): Int {
         fun channel(shift: Int): Int {
             val a = (from shr shift) and 0xFF
@@ -111,7 +100,6 @@ object MediaPalette {
         return (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
     }
 
-    /** Keeps the colour's hue, squeezes brightness into a band white text reads well on. */
     private fun tone(rgb: Int): Int {
         val hsv = Color.RGBtoHSB((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF, null)
         val saturation = if (hsv[1] < 0.16f) hsv[1] else (hsv[1] * 1.2f).coerceAtMost(0.9f)

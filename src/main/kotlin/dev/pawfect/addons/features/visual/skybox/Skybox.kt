@@ -129,7 +129,6 @@ object Skybox {
         )
         val buffer = ensureBuffer()
 
-        // TODO drop the default here if the fps hit turns out to be real
         val scale = config.renderScale.coerceIn(0.25f, 1f)
         val scaled = scale < 0.999f
         if (!scaled && scaledView != null) releaseScaled()

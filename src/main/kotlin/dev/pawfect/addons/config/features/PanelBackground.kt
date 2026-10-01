@@ -1,6 +1,5 @@
 package dev.pawfect.addons.config.features
 
-/** Backgrounds shared by the scoreboard and chat. Glass is flat; the rest are the inventory's animated styles. */
 enum class PanelBackground(private val label: String, val style: Int) {
     GLASS("Glass", -1),
     AURORA("Aurora", 0),

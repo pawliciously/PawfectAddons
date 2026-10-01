@@ -32,10 +32,8 @@ if ($null -eq $manager) {
 }
 
 $commandFile = Join-Path $WorkDir 'pawfect_media_command.txt'
-# Two files, written in turn, so the game never reads a picture that is still being written.
 $thumbSlots = @((Join-Path $WorkDir 'pawfect_media_thumb_a.img'), (Join-Path $WorkDir 'pawfect_media_thumb_b.img'))
 $thumbSource = Join-Path $WorkDir 'MediaThumb.cs'
-# Renamed whenever SaveThumb's signature changes, so an older build's DLL is never loaded.
 $thumbDll = Join-Path $WorkDir 'PawfectMediaThumb2.dll'
 $thumbReady = $false
 $thumbState = 'not attempted'
@@ -95,9 +93,6 @@ function Invoke-Command-File($session) {
     } catch { }
 }
 
-# Which source to show. Windows' "current" session is whatever it last saw used, which can be
-# a paused YouTube tab while SoundCloud is playing. So: whatever is playing wins, and the one
-# already shown keeps winning while it plays. With nothing playing, stay on the last one shown.
 $chosen = $null
 function Pick-Session {
     $sessions = @($manager.GetSessions())
@@ -123,9 +118,6 @@ function Pick-Session {
     return $sessions[0]
 }
 
-# Thumbnail state. Browsers often swap the picture a moment after the title, so a change is
-# re-checked quickly for a few seconds, then every few seconds; the game is only told when the
-# picture actually differs.
 $slot = 0
 $lastHash = ''
 $artKey = ''
@@ -181,7 +173,6 @@ while ($true) {
                         }
                         $artKey = $key
                     } elseif ($artKey -ne $key -and ($now - $trackChangedAt) -gt 2500) {
-                        # This track has no picture; don't leave the last track's one up.
                         $lastHash = ''
                         $artKey = $key
                         $thumbChanged = $true

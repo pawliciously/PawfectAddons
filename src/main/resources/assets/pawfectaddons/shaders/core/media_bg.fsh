@@ -1,13 +1,5 @@
 #version 330
 
-// The media card's backdrop: four colours from the album art drifting through each other
-// like ink in water, inside an anti-aliased rounded card.
-//
-// vertexColor  rgb colour 1, a card opacity
-// borderColor  rgb colour 2, a how "awake" the motion is (1 playing, lower when paused)
-// local        xy pixel offset from the card centre, z animation phase, w corner radius
-// shape        xy half size, zw colours 3 and 4 packed as 0xRRGGBB in a float
-
 layout(std140) uniform DynamicTransforms {
     mat4 ModelViewMat;
     vec4 ColorModulator;
@@ -84,8 +76,6 @@ void main() {
     vec3 c3 = unpackRgb(shape.z);
     vec3 c4 = unpackRgb(shape.w);
 
-    // Warp the plane with slow noise so the blobs smear into each other instead of
-    // reading as circles.
     vec2 warp = vec2(
         fbm(p * 1.35 + vec2(t * 0.11, -t * 0.07)),
         fbm(p * 1.35 + vec2(-t * 0.08, t * 0.12) + 7.3)
@@ -103,24 +93,20 @@ void main() {
     float w3 = blob(q, b3, size * 1.10);
     float w4 = blob(q, b4, size * 0.90);
 
-    // A dark floor keeps the gaps between blobs from going flat grey.
     vec3 floorColour = min(min(c1, c2), min(c3, c4)) * 0.45;
     float floorWeight = 0.18;
     vec3 colour = (c1 * w1 + c2 * w2 + c3 * w3 + c4 * w4 + floorColour * floorWeight)
         / (w1 + w2 + w3 + w4 + floorWeight);
 
-    // Light from above like frosted glass, a slow sheen sweeping across, and a vignette.
     colour += vec3(0.07) * smoothstep(0.55, 0.0, uv.y);
     float sweep = 1.0 - abs(fract(uv.x * 0.45 - uv.y * 0.25 - t * 0.035) - 0.5) * 2.0;
     colour += vec3(0.05) * smoothstep(0.7, 1.0, sweep) * awake;
     float vignette = length((uv - vec2(0.5, 0.45)) * vec2(1.0, 0.9));
     colour *= mix(1.0, 0.72, smoothstep(0.35, 0.85, vignette));
 
-    // Thin bright rim, strongest along the top edge.
     float rim = clamp(1.0 - abs(dist + 0.75) / max(edge * 1.2, 0.75), 0.0, 1.0);
     colour = mix(colour, vec3(1.0), rim * mix(0.22, 0.06, uv.y));
 
-    // Dither so the soft gradients don't band.
     colour += (hash12(local.xy * 1.7 + fract(t)) - 0.5) / 160.0;
 
     float alpha = vertexColor.a * coverage;

@@ -13,17 +13,11 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
-/**
- * The current track's thumbnail as a texture: cropped to a square (video thumbnails are
- * 16:9), scaled to the card's size at the GUI scale, with the rounded corners baked into
- * its alpha. Also pulls a palette out of it for the card's backdrop.
- */
 object MediaArt {
 
     private val TEXTURE: Identifier =
         Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "media_art")
 
-    /** Size and corner radius on screen, in GUI pixels. */
     const val SIZE = 40
     const val RADIUS = 7f
 
@@ -41,7 +35,6 @@ object MediaArt {
     var height: Int = 0
         private set
 
-    /** Four backdrop colours from the art, or null without art. */
     var palette: IntArray? = null
         private set
 
@@ -73,7 +66,6 @@ object MediaArt {
         }
     }
 
-    /** One texel per screen pixel: GUI textures aren't filtered, so any mismatch shimmers. */
     private fun targetPixels(): Int {
         val factor = McCompat.mc.window.guiScale.coerceIn(1, 8)
         val hud = ConfigManager.features.media.position.effectiveScale
@@ -107,7 +99,6 @@ object MediaArt {
         lastError = if (available) "ok ${width}x${height}" else "zero size"
     }
 
-    /** The centred square of [source], box-filtered down to at most [target] pixels. */
     private fun squared(source: NativeImage, target: Int): NativeImage {
         val side = min(source.width, source.height)
         require(side > 0) { "empty image" }
@@ -154,7 +145,6 @@ object MediaArt {
             ((blue / count).toInt() and 0xFF)
     }
 
-    /** Fades the corners out with a one-pixel anti-aliased edge, so a plain blit looks rounded. */
     private fun roundCorners(image: NativeImage, radius: Float) {
         val size = image.width
         val r = radius.coerceIn(0f, size / 2f)

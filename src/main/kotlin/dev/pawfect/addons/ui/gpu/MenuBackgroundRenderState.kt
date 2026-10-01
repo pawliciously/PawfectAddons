@@ -24,7 +24,6 @@ class MenuBackgroundRenderState(
     private val time: Float,
     private val style: Float = 0f,
     private val renderPipeline: RenderPipeline = UiPipelines.MENU_BACKGROUND,
-    /** Corner radius in whole pixels; only the inventory pipeline reads it (inv_bg.fsh). */
     private val radius: Int = 0,
 ) : GuiElementRenderState {
 

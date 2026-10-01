@@ -23,21 +23,12 @@ import java.io.ByteArrayInputStream
 import java.util.Base64
 import java.util.concurrent.CompletableFuture
 
-/**
- * Hypixel stores containers as base64, gzipped NBT in the 1.8 item format. Each item runs
- * through legacy-item-dfu (Minecraft's own data fixers, extended back to 1.8) so it comes
- * out as a real modern stack with the right model, head texture, glint and dye. If that
- * ever fails, the item is rebuilt from the NEU repo by its SkyBlock id instead.
- *
- * Safe to call off the render thread.
- */
 object ProfileItems {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/ProfileItems")
 
     private val TIERS = listOf("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC")
 
-    /** One entry per slot; empty slots are [ItemStack.EMPTY]. */
     fun decode(base64: String?): List<ItemStack> {
         if (base64.isNullOrEmpty()) return emptyList()
         return try {
@@ -51,7 +42,6 @@ object ProfileItems {
         }
     }
 
-    /** The SkyBlock id of a decoded stack, or "" for vanilla items and empty slots. */
     fun skyblockId(stack: ItemStack): String =
         stack.get(DataComponents.CUSTOM_DATA)?.copyTag()?.getStringOr("id", "") ?: ""
 
@@ -74,17 +64,13 @@ object ProfileItems {
             .orElse(ItemStack.EMPTY)
         if (stack.isEmpty || stack.`is`(Items.AIR)) return ItemStack.EMPTY
 
-        // The fixer leaves names and lore as plain strings full of § codes.
         stack.get(DataComponents.CUSTOM_NAME)?.let { stack.set(DataComponents.CUSTOM_NAME, LegacyText.parse(it.string)) }
         stack.get(DataComponents.LORE)?.let { lore ->
             stack.set(DataComponents.LORE, ItemLore(lore.lines().map { LegacyText.parse(it.string) }))
         }
-        // SkyBlock's own data (id, enchantments, gems...) lives under ExtraAttributes; lift it up
-        // so custom data reads the same as it does for items on a live server.
         stack.get(DataComponents.CUSTOM_DATA)?.let {
             stack.set(DataComponents.CUSTOM_DATA, CustomData.of(it.copyTag().getCompoundOrEmpty("ExtraAttributes")))
         }
-        // SkyBlock lore already spells out stats and enchants; vanilla would repeat them.
         val display = stack.getOrDefault(DataComponents.TOOLTIP_DISPLAY, TooltipDisplay.DEFAULT)
             .withHidden(DataComponents.ATTRIBUTE_MODIFIERS, true)
             .withHidden(DataComponents.ENCHANTMENTS, true)
@@ -100,7 +86,6 @@ object ProfileItems {
         val texture = tag.getCompoundOrEmpty("SkullOwner").getCompoundOrEmpty("Properties")
             .getListOrEmpty("textures").getCompoundOrEmpty(0).getStringOr("Value", "")
 
-        // NeuRepo's caches belong to the render thread, so ask it there.
         val base = runCatching {
             CompletableFuture.supplyAsync({
                 when {
@@ -122,10 +107,6 @@ object ProfileItems {
         return stack
     }
 
-    /**
-     * A pet as an item: the NEU head for its type and rarity, with its level and XP in the lore.
-     * Uses NeuRepo's caches, so call it on the render thread.
-     */
     fun pet(pet: ProfileData.Pet): ItemStack {
         val tierIndex = TIERS.indexOf(pet.tier).coerceAtLeast(0)
         val repo = NeuRepo.item("${pet.type};$tierIndex") ?: NeuRepo.item("${pet.type};${tierIndex.coerceAtMost(4)}")
@@ -148,11 +129,9 @@ object ProfileItems {
             lines += LegacyText.parse("§7Held item: §f${NeuRepo.item(held)?.displayName ?: held}")
         }
         if (pet.active) lines += LegacyText.parse("§aActive pet")
-        // Rarity goes last, the way SkyBlock writes it, which is where the tooltip border looks.
         lines += Component.empty()
         lines += LegacyText.parse("$color§l${pet.tier}")
         base.set(DataComponents.LORE, ItemLore(lines))
-        // Pets carry SkyBlock rarity in the name colour; give the tooltip border something to read.
         base.set(DataComponents.CUSTOM_DATA, CustomData.of(CompoundTag().apply { putString("id", "PET") }))
         return base
     }

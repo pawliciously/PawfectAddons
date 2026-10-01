@@ -7,16 +7,10 @@ import net.minecraft.client.renderer.entity.state.AvatarRenderState
 import net.minecraft.world.entity.Avatar
 import net.minecraft.world.entity.player.Player
 
-/**
- * Draws players bigger or smaller. Purely visual: it scales the render state vanilla already
- * scales the model by, along with the shadow and nametag height so they still line up.
- * Hitboxes, reach and what the server sees are unchanged.
- */
 object PlayerScale {
 
     private val config get() = ConfigManager.features.playerChams
 
-    /** The inventory's own player preview builds a render state too; that one stays normal size. */
     @JvmStatic
     var inPreview = false
 
@@ -41,7 +35,6 @@ object PlayerScale {
         state.nameTagAttachment = state.nameTagAttachment?.scale(scale.toDouble())
     }
 
-    /** Hypixel NPCs use player models with non-random (version 2) UUIDs; leave them alone. */
     private fun isRealPlayer(player: Player): Boolean = player.uuid.version() == 4
 
     const val MIN = 0.25f

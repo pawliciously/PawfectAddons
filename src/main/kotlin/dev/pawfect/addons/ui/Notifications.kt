@@ -48,8 +48,6 @@ object Notifications {
 
     fun render() {
         if (active.isEmpty()) return
-        // Under most screens a toast would sit behind their background; chat has none, so it
-        // still shows there (right click to copy confirms with one).
         val screen = McCompat.mc.screen
         if (McCompat.hideGui || (screen != null && screen !is ChatScreen)) return
         if (!RenderContext.isActive) return

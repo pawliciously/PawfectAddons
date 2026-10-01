@@ -15,14 +15,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 
-/**
- * Just enough of Discord's local RPC socket to set an activity. The desktop app listens on a
- * named pipe on Windows and a Unix socket elsewhere; every frame is an opcode and a length,
- * both little-endian ints, followed by that many bytes of JSON.
- *
- * Not thread safe: [DiscordPresence] drives it from a single worker thread. Every command is
- * answered, so each one reads until its reply comes back, which also keeps the pipe drained.
- */
 internal class DiscordIpc(private val clientId: String) {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/DiscordIpc")
@@ -31,7 +23,6 @@ internal class DiscordIpc(private val clientId: String) {
 
     val connected: Boolean get() = pipe != null
 
-    /** Finds a running Discord and introduces ourselves. False if there isn't one. */
     fun connect(): Boolean {
         close()
         pipe = candidates().firstNotNullOfOrNull { runCatching { open(it) }.getOrNull() } ?: return false
@@ -51,7 +42,6 @@ internal class DiscordIpc(private val clientId: String) {
         }
     }
 
-    /** Null clears the activity. Throws [IOException] when Discord has gone away. */
     fun setActivity(activity: JsonObject?) {
         val nonce = UUID.randomUUID().toString()
         send(OP_FRAME, JsonObject().apply {
@@ -136,7 +126,6 @@ internal class DiscordIpc(private val clientId: String) {
     private fun open(path: String): Pipe =
         if (WINDOWS) WindowsPipe(path) else UnixPipe(Path.of(path).also { if (!Files.exists(it)) throw IOException("No socket") })
 
-    /** Discord takes the first free slot of ten; on Linux it may also sit inside a Flatpak or Snap. */
     private fun candidates(): List<String> {
         if (WINDOWS) return (0..9).map { """\\.\pipe\discord-ipc-$it""" }
         val roots = listOf("XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP").mapNotNull { System.getenv(it) } + "/tmp"

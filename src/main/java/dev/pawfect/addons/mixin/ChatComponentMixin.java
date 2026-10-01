@@ -9,12 +9,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.chat.ChatStyle;
 
-/**
- * Vanilla draws chat in two passes: every line's background, then every line's text. The
- * background pass is recorded instead of drawn, and the styled panel goes in right after it,
- * so it still sits under the text. Text, layout, clicks and hover are left to vanilla and to
- * the mods that patch them (Chat Patches, Chat Heads, SkyHanni's chat peek and so on).
- */
 @Mixin(ChatComponent.class)
 public abstract class ChatComponentMixin {
 
@@ -45,7 +39,6 @@ public abstract class ChatComponentMixin {
         ChatStyle.endLines(access);
     }
 
-    /** The background pass's per-line callback: fills one black strip behind a line. */
     @Inject(method = "lambda$extractRenderState$1", at = @At("HEAD"), cancellable = true)
     private static void pawfectaddons$recordLine(
         int baseY,

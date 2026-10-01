@@ -66,7 +66,6 @@ object UiFont {
         }
     }
 
-    /** The UI font as a style, for text built from several styled parts. */
     fun style(bold: Boolean = false): Style {
         checkChoice()
         return styleFor(bold)

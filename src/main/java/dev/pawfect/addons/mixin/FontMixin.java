@@ -11,11 +11,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.pawfect.addons.features.chat.LevelPrestige;
 
-/**
- * All GUI text and nametags are drawn through prepareText, which is where level prestige draws
- * its symbol in. Widths are bumped to match, so chat backgrounds, tab columns and nametag
- * backings make room for it. Both are no-ops unless a prestige level was seen recently.
- */
 @Mixin(Font.class)
 public abstract class FontMixin {
 

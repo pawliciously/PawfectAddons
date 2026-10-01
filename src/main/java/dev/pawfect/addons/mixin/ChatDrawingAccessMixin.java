@@ -11,12 +11,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import dev.pawfect.addons.chat.ChatGraphicsHolder;
 import dev.pawfect.addons.features.chat.ChatStyle;
 
-/**
- * The two chat passes that actually draw: unfocused (fading lines) and focused (chat open).
- * Line backgrounds are handled in ChatComponentMixin; what reaches fill here is the scrollbar
- * and the pending-message line.
- */
-// Two targets means nothing in here may be remappable; 26.1 is unobfuscated, so none of it needs to be.
 @Mixin(
     targets = {
         "net.minecraft.client.gui.components.ChatComponent$DrawingBackgroundGraphicsAccess",

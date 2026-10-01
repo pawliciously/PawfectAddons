@@ -12,23 +12,6 @@ import net.minecraft.util.FormattedCharSequence
 import java.util.IdentityHashMap
 import java.util.Optional
 
-/**
- * Prestige for SkyBlock levels past 480, where Hypixel stops adding colours and everything is
- * dark red. Each 40 levels gets a symbol after the number, in Hypixel's own colours, and the
- * top tiers warm the number up too:
- *
- *  520  [520✧]   dark red, dark red ✧
- *  560  [560✦]   dark red, dark red ✦
- *  600  [600✯]   red, gold ✯
- *  640  [640✪]   gold, yellow ✪
- *  680  [680❂]   a digit-by-digit rainbow with coloured brackets, like Bed Wars' top prestige
- *
- * Nothing is sent and the text itself never changes, so mods reading chat or the tab list (Odin's
- * party commands parse "[520] Name: !cmd", for instance) see exactly what they did before. Only
- * colours are restyled; the symbol is drawn in at render time. The number's last digit carries a
- * colour one step off its real one, which [decorate] (drawing) and [extraWidth] (measuring) look
- * for. Only a "[NNN]" whose digits Hypixel coloured dark red counts.
- */
 object LevelPrestige {
 
     enum class Where { CHAT, TAB, NAMETAG }
@@ -43,7 +26,6 @@ object LevelPrestige {
     private const val AQUA = 0x55FFFF
     private const val LIGHT_PURPLE = 0xFF55FF
 
-    /** A marker colour on the last digit: the colour it really is, and the symbol drawn after it. */
     private class Symbol(val realColor: Int, val glyph: String, val color: Int)
 
     private val SYMBOLS = mapOf(
@@ -68,14 +50,11 @@ object LevelPrestige {
 
     private class Run(val style: Style, val text: String)
 
-    /** One character of a level: which level, and its place (0 opening bracket, then digits, then closing). */
     private class Mark(val level: Int, val position: Int, val length: Int)
 
-    /** The level in [source] restyled, or null when there's nothing to change. */
     @JvmStatic
     fun restyle(source: Component, where: Where): Component? = if (enabled) styleLevels(source, where) else null
 
-    /** [restyle] without the setting check, for the dev preview. */
     @JvmStatic
     fun styleLevels(source: Component, @Suppress("UNUSED_PARAMETER") where: Where): Component? {
         val runs = ArrayList<Run>()
@@ -90,8 +69,6 @@ object LevelPrestige {
         )
         if (runs.isEmpty()) return null
 
-        // Hypixel often writes § codes inside the text instead of styles, so the colour a
-        // character is drawn in is its run's colour, overridden by any code before it.
         val visible = StringBuilder()
         val colours = ArrayList<Int?>()
         for (run in runs) {
@@ -146,7 +123,6 @@ object LevelPrestige {
                     val colour = colourFor(mark) ?: colours[visibleIndex]
                     val style = if (colour == null) run.style else run.style.withColor(TextColor.fromRgb(colour))
                     out.append(Component.literal(c.toString()).setStyle(style))
-                    // Codes seen so far in this run still apply to what follows.
                     buffer.append(codes)
                 }
                 visibleIndex++
@@ -159,7 +135,6 @@ object LevelPrestige {
         return out
     }
 
-    /** Null keeps the character's own colour (Hypixel's dark grey brackets). */
     private fun colourFor(mark: Mark): Int? {
         val tier = tierOf(mark.level)
         val last = mark.length - 1
@@ -170,8 +145,6 @@ object LevelPrestige {
             else -> tier.digits[(mark.position - 1) % tier.digits.size]
         }
     }
-
-    // Tab entries are read many times a second by several mods; restyle each one once.
 
     private val tabCache = IdentityHashMap<Component, Component>()
     private val UNCHANGED: Component = Component.empty()
@@ -188,12 +161,9 @@ object LevelPrestige {
         }
     }
 
-    // Drawing and measuring: put the symbol after the marked digit, and count its width.
-
     @Volatile
     private var seenAt = 0L
 
-    /** Nothing is wrapped unless a prestige level was seen recently, so drawing is untouched otherwise. */
     private val active: Boolean get() = System.nanoTime() - seenAt < IDLE_NANOS
 
     @JvmStatic
@@ -209,7 +179,6 @@ object LevelPrestige {
         }
     }
 
-    /** How much wider [text] draws than it measures, for the symbols [decorate] adds. */
     @JvmStatic
     fun extraWidth(text: FormattedCharSequence): Int {
         if (!active) return 0
@@ -245,7 +214,6 @@ object LevelPrestige {
 
     private const val IDLE_NANOS = 30_000_000_000L
 
-    /** For the dev preview: one sample line per tier, as Hypixel formats them. */
     fun previewLines(): List<Component> = listOf(480, 520, 560, 600, 640, 680).map { level ->
         val raw = "§8[§4$level§8] §b[MVP§c+§b] pawliciously§f: level $level preview"
         val line: MutableComponent = Component.literal(raw)

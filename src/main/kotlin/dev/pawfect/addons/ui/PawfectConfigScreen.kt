@@ -301,7 +301,6 @@ class PawfectConfigScreen(
 
     private fun sidebarViewHeight(): Float = WINDOW_HEIGHT - TITLE_HEIGHT - FOOTER_HEIGHT - 16f
 
-    /** Sections get a small header each, once there's more than one. */
     private val headed: Boolean get() = sections.size > 1
 
     private fun sidebarContentHeight(): Float =

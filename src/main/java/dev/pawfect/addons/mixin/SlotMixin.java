@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.pawfect.addons.features.visual.menu.InventoryStyle;
 
-/** SkyBlock has no use for the off-hand, so the styled inventory leaves its slot out. */
 @Mixin(Slot.class)
 public abstract class SlotMixin {
 

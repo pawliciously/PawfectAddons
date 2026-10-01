@@ -24,8 +24,6 @@ object InventoryStyle {
 
     private var drawnThisFrame = false
 
-    // Other mods draw container art inside tooltips (Skyblocker's compactor/deletor preview blits
-    // generic_54 for its slot grid). Anything drawn while a tooltip is open is left alone.
     private var tooltipDepth = 0
 
     @JvmStatic
@@ -67,8 +65,6 @@ object InventoryStyle {
         val panelWidth = geometry.`pawfectaddons$imageWidth`()
         val panelHeight = geometry.`pawfectaddons$imageHeight`()
         val fits = x == left && y == top && width == panelWidth && height == panelHeight
-        // Chests draw their panel in pieces, so a container texture counts when it lands inside
-        // the panel. The same texture drawn anywhere else belongs to another mod's overlay.
         val named = id.path.startsWith("textures/gui/container/") &&
             x >= left && y >= top && x + width <= left + panelWidth && y + height <= top + panelHeight
         if (!fits && !named) return false
@@ -141,7 +137,6 @@ object InventoryStyle {
         }
     }
 
-    /** One slot's plate, 18 pixels square at [x], [y]; brighter under the mouse. */
     private fun plate(graphics: GuiGraphicsExtractor, x: Float, y: Float, mouseX: Int, mouseY: Int) {
         val alpha = (config.slotOpacity.coerceIn(0f, 1f) * 255f).toInt().coerceIn(0, 255)
         if (alpha <= 2) return
@@ -159,11 +154,6 @@ object InventoryStyle {
         Shapes.rect(graphics, x, y, 18f, 18f, config.slotRadius.coerceIn(0f, 8f), fill, fill, 1f, border)
     }
 
-    /**
-     * Other mods draw vanilla's slot frame for slots they add themselves; Skyblocker does for
-     * its equipment column and for the off-hand, which it moves. Those frames become plates
-     * to match the rest, and the off-hand's is dropped along with the slot (see SlotMixin).
-     */
     @JvmStatic
     fun replaceSlotFrame(graphics: GuiGraphicsExtractor, sprite: Identifier, x: Int, y: Int): Boolean {
         if (!active() || tooltipDepth > 0) return false
@@ -180,15 +170,8 @@ object InventoryStyle {
 
     private val SLOT_FRAME: Identifier = Identifier.withDefaultNamespace("container/slot")
 
-    /** Skyblocker's quick-nav tabs, and the vanilla creative tabs it falls back to. */
     private val NAV_TAB = Regex("""^(?:quick_nav/|container/creative_inventory/)tab_(top|bottom)_(selected|unselected)_\d+$""")
 
-    /**
-     * Tabs drawn above and below the panel in vanilla's light grey look out of place on the
-     * styled panel, so they're redrawn in its colours. A resting tab stops at the panel's edge;
-     * the selected one runs into the panel so it reads as attached. [color] carries the alpha
-     * Skyblocker fades tabs with.
-     */
     @JvmStatic
     fun replaceNavTab(graphics: GuiGraphicsExtractor, sprite: Identifier, x: Int, y: Int, width: Int, height: Int, color: Int): Boolean {
         if (!active() || tooltipDepth > 0) return false
@@ -209,7 +192,6 @@ object InventoryStyle {
         val fill = withAlpha(fillRgb, alpha)
         val border = withAlpha(accentColor(), alpha * if (selected) 0.85f else if (hovered) 0.55f else 0.3f)
 
-        // Vanilla tabs overlap the panel by 4 pixels.
         val overlap = 4f
         val left = x + 1f
         val tabWidth = width - 2f
@@ -224,7 +206,6 @@ object InventoryStyle {
             bodyBottom = y + height - 2f
         }
         Shapes.rect(graphics, left, bodyTop, tabWidth, bodyBottom - bodyTop, radius, fill, fill, 1f, border)
-        // Square off the corners that meet the panel, hiding the border along that edge.
         val seam = radius + 1f
         if (top) {
             Shapes.rect(graphics, left + 1f, bodyBottom - seam, tabWidth - 2f, seam, 0f, fill)

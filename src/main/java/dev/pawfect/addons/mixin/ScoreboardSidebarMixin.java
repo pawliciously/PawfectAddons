@@ -10,12 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.visual.ScoreboardRenderer;
 
-/**
- * Priority 1100 puts this after other mods' hooks on the same method. SkyHanni cancels here
- * for its custom scoreboard, and NoammAddons cancels the caller, so either one being on means
- * this never runs and there's never a second scoreboard. Vanilla's own reasons to hide the
- * sidebar (F1, no objective) are already handled before this method is called.
- */
 @Mixin(value = Gui.class, priority = 1100)
 public abstract class ScoreboardSidebarMixin {
 

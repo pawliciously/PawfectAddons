@@ -82,7 +82,6 @@ vec3 ember(vec2 uv, vec2 px, vec3 base, vec3 accent, float t, float k) {
     vec2 cell = floor(g);
     float seed = hash12(cell);
     if (seed > 0.90) {
-        // Keep the spark well inside its cell; one near the edge was cut off by its neighbour.
         vec2 o = 0.26 + 0.48 * vec2(hash12(cell + 5.3), hash12(cell + 2.7));
         float d = length((fract(g) - o) * vec2(1.0, 1.45));
         float spark = smoothstep(0.24, 0.0, d);
@@ -97,7 +96,6 @@ void main() {
     vec2 uv = (local.xy + extent) / max(extent * 2.0, vec2(1.0));
     vec2 px = local.xy + extent;
 
-    // local.z packs radius * 16 + style * 2 + intensity. The inventory passes radius 0.
     float packedBits = local.z;
     float radius = floor(packedBits / 16.0);
     float styleBits = packedBits - radius * 16.0;
@@ -105,7 +103,6 @@ void main() {
     float intensity = styleBits - style * 2.0;
     float time = local.w;
 
-    // Rounded edge, anti-aliased. With radius 0 this is the plain rectangle it always was.
     radius = min(radius, min(extent.x, extent.y));
     vec2 corner = abs(local.xy) - extent + radius;
     float dist = min(max(corner.x, corner.y), 0.0) + length(max(corner, 0.0)) - radius;
@@ -131,7 +128,6 @@ void main() {
         colour = aurora(uv, px, base, accent, time, intensity);
     }
 
-    // Distance in from the edge; follows the rounded corners when there are any.
     float inset = max(-dist, 0.0);
     colour = mix(base, colour, smoothstep(0.0, 4.0, inset));
 

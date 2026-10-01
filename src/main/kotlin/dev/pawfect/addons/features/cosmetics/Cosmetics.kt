@@ -119,10 +119,8 @@ object Cosmetics {
         return styled.append(Component.literal(" ")).append(base)
     }
 
-    /** How a player's name looks on their nametag, for drawing it somewhere else. */
     class Display(val name: ResolvedName?, val badges: List<Badge>, val emoji: Component?)
 
-    /** Null when [uuid] has no cosmetics, or the settings hide them. Takes dashed or plain UUIDs. */
     fun displayFor(uuid: String): Display? {
         if (!config.enabled) return null
         val id = parseUuid(uuid) ?: return null
@@ -134,7 +132,6 @@ object Cosmetics {
         return Display(name, badges, emoji)
     }
 
-    /** [text] in [name]'s colours, animated if it is, on top of [base]. */
     fun paint(text: String, base: Style, name: ResolvedName): Component {
         val painted = Component.empty()
         appendName(painted, text, base, name)
@@ -171,7 +168,6 @@ object Cosmetics {
         return if (uuid == McCompat.mc.player?.uuid) self else null
     }
 
-    /** Swaps the owner's name in [source] for the coloured version, with their emoji right after it. */
     private fun recolor(source: Component, ownerName: String, name: ResolvedName?, emoji: Component?): Component? {
         if (ownerName.isEmpty()) return null
 

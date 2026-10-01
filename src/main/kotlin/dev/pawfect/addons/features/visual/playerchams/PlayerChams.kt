@@ -102,7 +102,6 @@ object PlayerChams {
         filling = false
     }
 
-    /** True while the cape layer is submitting (CapeLayerMixin). */
     @JvmStatic
     var inCape = false
 

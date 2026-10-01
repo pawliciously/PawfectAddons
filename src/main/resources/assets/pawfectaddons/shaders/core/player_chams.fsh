@@ -148,12 +148,6 @@ float lumaOf(vec4 c) {
     return dot(c.rgb, vec3(0.299, 0.587, 0.114));
 }
 
-// Ink Sketch: the model as a living ink drawing. Cream paper tinted by the main colour, shaded
-// in three flat tones; shadows hatched with pencil lines that live on the skin (cross-hatched
-// where darker); ink line art wherever neighbouring skin pixels differ, so it draws that
-// player's actual face, hair and clothes; brushed ink on faces turned away. The drawing
-// "boils", redrawing a few times a second with a slight wobble, like hand-drawn animation.
-// Far away, lines give way to soft shading so nothing shimmers.
 vec3 inkSketch(vec4 tex, float luma, vec3 fill, vec3 accent, vec3 light, float amount, float cover, float gameTime) {
     float t = gameTime * 1200.0;
     float gain = (amount - 0.10) / 1.40;
@@ -172,11 +166,9 @@ vec3 inkSketch(vec4 tex, float luma, vec3 fill, vec3 accent, vec3 light, float a
     float tone = lit * (0.45 + 0.55 * luma);
     float band = tone > 0.62 ? 1.0 : (tone > 0.32 ? 0.84 : 0.68);
     paper *= band * (0.95 + 0.05 * noise(gl_FragCoord.xy * 0.9));
-    // A watercolour wash of the skin's own colours, pooling unevenly like pigment does.
     vec3 wash = min(tex.rgb * 1.15 + 0.08, vec3(1.0));
     paper *= mix(vec3(1.0), wash, 0.55 + 0.25 * noise(skin * 0.45));
 
-    // Hatching: diagonal lines in skin space, so they ride on the body.
     float density = mix(1.5, 2.5, gain);
     vec2 h = skin * density;
     float jitter = noise(skin * 0.7 + frame * 3.1) * 0.6;
@@ -187,8 +179,6 @@ vec3 inkSketch(vec4 tex, float luma, vec3 fill, vec3 accent, vec3 light, float a
     float line2 = 1.0 - smoothstep(0.28 - aa, 0.28 + aa, d2);
     float hatch = line1 * (1.0 - smoothstep(0.42, 0.62, tone)) + line2 * (1.0 - smoothstep(0.18, 0.38, tone));
 
-    // Line art along the borders between skin pixels that differ in brightness. Each pixel
-    // draws its half of every such border, so lines sit centred between the two.
     ivec2 at = ivec2(floor(cell));
     ivec2 limit = ivec2(size) - 1;
     vec2 inside = fract(skin);
@@ -202,11 +192,9 @@ vec3 inkSketch(vec4 tex, float luma, vec3 fill, vec3 accent, vec3 light, float a
         lineArt = max(lineArt, 1.0 - smoothstep(stroke - aa, stroke + aa, dist));
     }
 
-    // Far away the lines get thinner than a pixel; settle into plain shading instead.
     float far = smoothstep(0.35, 0.9, texel * density);
     float marks = mix(max(hatch, lineArt), (1.0 - tone) * 0.45, far);
 
-    // Brushed ink on faces turned away from you.
     float brush = noise(skin * 0.5 + frame * 1.7);
     float outline = smoothstep(0.66 - 0.14 * brush, 0.86 - 0.14 * brush, rimFactor);
 
@@ -214,9 +202,6 @@ vec3 inkSketch(vec4 tex, float luma, vec3 fill, vec3 accent, vec3 light, float a
     return mix(col, ink, outline * 0.9);
 }
 
-// Neon Pixels: the skin's own pixel grid as an LED panel. Each skin pixel is a lit tile in the
-// palette (dark pixels lean to the main colour, bright ones to the rim colour), pulsing on its
-// own, with a scan sweeping up the rows. Seams fade out with distance so tiles never shimmer.
 vec3 neon(float luma, vec3 fill, vec3 accent, vec3 light, float amount, float gameTime) {
     float t = gameTime * 1200.0;
     float gain = (amount - 0.10) / 1.40;
@@ -240,7 +225,6 @@ vec3 neon(float luma, vec3 fill, vec3 accent, vec3 light, float amount, float ga
     vec3 col = hue * glow * mix(0.80, 1.60, gain);
     col += mix(hue, vec3(1.0), 0.5) * sweep * 0.35;
     col = mix(hue * 0.08, col, tile);
-    // Mostly self-lit, like a screen: only a quarter of the world light comes through.
     float lit = clamp(dot(light, vec3(0.333)) * 1.4, 0.0, 1.0);
     return col * mix(1.0, lit, 0.25);
 }

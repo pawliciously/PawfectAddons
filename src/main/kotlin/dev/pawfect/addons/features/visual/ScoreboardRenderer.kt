@@ -22,12 +22,6 @@ import net.minecraft.world.scores.PlayerTeam
 import org.joml.Matrix3x2f
 import java.util.Optional
 
-/**
- * Draws the sidebar in place of vanilla's (see ScoreboardSidebarMixin). It hooks the same
- * spot custom-scoreboard mods cancel, and runs after them, so when SkyHanni's or NoammAddons'
- * scoreboard is on this one simply never draws. Lines are read the way vanilla reads them;
- * only the presentation changes: no red numbers, a themed panel, optional Hypixel clean-up.
- */
 object ScoreboardRenderer {
 
     private val config get() = ConfigManager.features.scoreboard
@@ -45,13 +39,11 @@ object ScoreboardRenderer {
     private val DATE = Regex("""^\s*\d{1,2}/\d{1,2}/\d{2,4}""")
     private val WEBSITE = Regex("""(?:www|alpha)\.hypixel\.net""", RegexOption.IGNORE_CASE)
 
-    /** Vanilla's order: highest score first, ties by holder name. */
     private val ORDER: Comparator<PlayerScoreEntry> =
         compareByDescending<PlayerScoreEntry> { it.value() }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.owner() }
 
     private class Line(val text: Component?, val height: Int)
 
-    /** Returns true when it drew, so vanilla's sidebar is skipped. */
     @JvmStatic
     fun render(graphics: GuiGraphicsExtractor, objective: Objective): Boolean {
         if (!config.enabled) return false
@@ -68,7 +60,6 @@ object ScoreboardRenderer {
         if (config.placement == Placement.CUSTOM) {
             RenderContext.withContext(graphics) { config.position.render(card, "Scoreboard") }
         } else {
-            // Vanilla's spot: hugging the right edge, centred a little below the middle.
             val x = graphics.guiWidth() - width - 2
             val y = graphics.guiHeight() / 2 + height / 3 - height
             graphics.pose().pushMatrix()
@@ -91,9 +82,6 @@ object ScoreboardRenderer {
             val team = scoreboard.getPlayersTeam(entry.owner())
             var text: Component = PlayerTeam.formatNameForTeam(team, entry.ownerName())
             val raw = text.string
-            // Hypixel writes each line as prefix + holder + suffix, where the holder is a hidden
-            // marker that keeps lines unique. Checks read prefix + suffix only (that's the line as
-            // you see it), with the § codes Hypixel puts inside the text stripped too.
             val plain = (team?.let { it.playerPrefix.string + it.playerSuffix.string } ?: raw).removeColor()
 
             if (plain.isBlank()) {
@@ -102,7 +90,6 @@ object ScoreboardRenderer {
             }
             if (index == entries.lastIndex && config.hideWebsite && WEBSITE.containsMatchIn(plain)) continue
             if (index == 0 && (config.hideDate || config.hideServerId)) {
-                // Hypixel's first line is "MM/DD/YY m12AB": the date, then the server.
                 val date = DATE.find(plain)
                 if (date != null) {
                     val dateEnd = rawLength(raw, date.range.last + 1)
@@ -115,12 +102,10 @@ object ScoreboardRenderer {
             }
             out += Line(text, LINE)
         }
-        // A trailing spacer left behind by a hidden website line looks like padding; drop it.
         while (out.isNotEmpty() && out.last().text == null) out.removeAt(out.lastIndex)
         return out
     }
 
-    /** How many raw characters (§ codes included) it takes to show [visible] characters. */
     private fun rawLength(raw: String, visible: Int): Int {
         var shown = 0
         var index = 0
@@ -135,10 +120,6 @@ object ScoreboardRenderer {
         return index
     }
 
-    /**
-     * Raw characters [from] until [to] of [source], styles intact. [trimStart] drops the spaces
-     * the cut leaves at the front. § codes before [from] still apply to what's kept.
-     */
     private fun slice(source: Component, from: Int, to: Int, trimStart: Boolean = false): Component {
         val out = Component.empty()
         var position = 0
@@ -150,7 +131,6 @@ object ScoreboardRenderer {
                     if (position >= to) return Optional.of(Unit)
                     val start = (from - position).coerceIn(0, text.length)
                     val end = (to - position).coerceIn(0, text.length)
-                    // Colour codes in the skipped part still colour what follows.
                     codes += Regex("§.").findAll(text.substring(0, start)).joinToString("") { it.value }
                     var piece = text.substring(start, end)
                     if (trimming) {
