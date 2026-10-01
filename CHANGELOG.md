@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.82.0
+- Profile viewer. `/pa pv <player>` opens anyone's SkyBlock profile: skills, slayers, dungeons, inventory, storage, accessories and pets, with real item models, networth and SkyBlock level XP. PawfectAddons users show up with their name colours, badges and emoji.
+- Custom chat. Chat sits on one rounded panel in your theme, with optional animated backgrounds, and old lines still fade out smoothly. Find it under Chat.
+- Right click a chat message to copy it. Shift + right click still opens other mods' menus.
+- Custom scoreboard. A themed sidebar without the red numbers, with Glass or animated backgrounds, and options to hide the date, server ID and website line or shrink the blank lines. It steps aside if SkyHanni's or NoammAddons' scoreboard is on.
+- SkyBlock levels past 480 get a prestige symbol, and the highest ones warmer colours, in chat, the tab list and nametags. Only you see it, and other mods read the same text as before.
+- Discord status. Shows what you're doing in SkyBlock on your Discord profile, from the island you're on to your dungeon floor. Turn it on under Discord.
+- Emoji in cosmetic names. Pick up to three on the website and they show after your name for everyone with PawfectAddons.
+- The media player has a new look: the background swirls with your album art's colours, with a bigger cover, scrolling titles and new controls. It also follows whichever app is actually playing now, and keeps the cover art in sync.
+- Player chams: new Ink Sketch and Neon Pixels styles replace Prism and Ripple, plus Ignore Cape and a Player Scale for you, everyone else or both.
+- The custom inventory hides the off-hand slot and restyles Skyblocker's quick-nav tabs and equipment slots to match.
+- The settings sidebar is grouped under headers, and General and Main Menu moved into Recipe Tracker and Theme.
+- Chat emojis no longer have a toggle; they're always on.
+- Fixed Ember sparks being cut off in the inventory and scoreboard.
+
 ## 0.81.0
 - Hand chams outline can take the rarity colour of the item you're holding. Turn on Match Item Rarity under Chams, Outline. Items without a rarity keep your outline colour.
 - Fixed the custom inventory hiding or covering other mods' compactor and deletor previews, like Skyblocker's.
