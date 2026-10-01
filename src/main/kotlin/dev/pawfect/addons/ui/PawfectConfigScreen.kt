@@ -301,22 +301,37 @@ class PawfectConfigScreen(
 
     private fun sidebarViewHeight(): Float = WINDOW_HEIGHT - TITLE_HEIGHT - FOOTER_HEIGHT - 16f
 
+    /** Sections get a small header each, once there's more than one. */
+    private val headed: Boolean get() = sections.size > 1
+
     private fun sidebarContentHeight(): Float =
-        categories.size * (TAB_HEIGHT + TAB_GAP) + categories.count { it.dividerAbove } * DIVIDER_SPAN
+        categories.size * (TAB_HEIGHT + TAB_GAP) +
+            categories.count { it.dividerAbove } * DIVIDER_SPAN +
+            (if (headed) sections.count { it.categories.isNotEmpty() } * HEADER_SPAN else 0f)
 
     private fun sidebarMaxScroll(): Float =
         (sidebarContentHeight() - sidebarViewHeight()).coerceAtLeast(0f)
 
-    private fun sidebarRows(): List<Row> {
+    private fun sidebarRows(): List<Row> = sidebarLayout().first
+
+    private fun sidebarLayout(): Pair<List<Row>, List<Band>> {
         val offset = sidebarScrollAnim.value
         var y = sidebarTop() - offset
         val rows = ArrayList<Row>(categories.size)
-        categories.forEachIndexed { index, category ->
-            if (category.dividerAbove && index > 0) y += DIVIDER_SPAN
-            rows.add(Row(category, y))
-            y += TAB_HEIGHT + TAB_GAP
+        val headers = ArrayList<Band>(sections.size)
+        for (section in sections) {
+            if (section.categories.isEmpty()) continue
+            if (headed) {
+                headers.add(Band(section.title, y))
+                y += HEADER_SPAN
+            }
+            section.categories.forEachIndexed { index, category ->
+                if (category.dividerAbove && index > 0) y += DIVIDER_SPAN
+                rows.add(Row(category, y))
+                y += TAB_HEIGHT + TAB_GAP
+            }
         }
-        return rows
+        return rows to headers
     }
 
     private fun drawSidebar(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float) {
@@ -340,7 +355,16 @@ class PawfectConfigScreen(
 
         Shapes.pushScissor(graphics, windowX + 1f, sidebarTop() - 4f, SIDEBAR_WIDTH - 1f, sidebarViewHeight() + 8f)
 
-        val rows = sidebarRows()
+        val (rows, headers) = sidebarLayout()
+        for (header in headers) {
+            graphics.string(
+                header.label,
+                entryX + 6f,
+                header.y + HEADER_SPAN - Draw.LINE_HEIGHT - 4f,
+                Theme.withAlpha(Theme.textDim, 150),
+                bold = true,
+            )
+        }
         val activeRow = rows.firstOrNull { it.category.id == selectedId }
         if (activeRow != null) {
             val target = activeRow.y - windowY
@@ -761,6 +785,7 @@ class PawfectConfigScreen(
         const val WINDOW_RADIUS = 10f
         const val LOGO_SIZE = 16f
         const val DIVIDER_SPAN = 9f
+        const val HEADER_SPAN = 20f
         const val CARD_RADIUS = 8f
         const val TITLE_HEIGHT = 30f
         const val SIDEBAR_WIDTH = 140f

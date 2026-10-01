@@ -4,7 +4,6 @@ import com.google.gson.JsonParser
 import com.mojang.brigadier.suggestion.Suggestions
 import com.mojang.brigadier.suggestion.SuggestionsBuilder
 import dev.pawfect.addons.PawfectAddons
-import dev.pawfect.addons.config.ConfigManager
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
 import net.minecraft.network.chat.MutableComponent
@@ -37,7 +36,6 @@ object Emojis {
 
     private val codes: Map<String, String> by lazy { load() }
 
-    private val config get() = ConfigManager.features.emojis
 
     fun names(): List<String> = codes.keys.sorted()
 
@@ -47,7 +45,7 @@ object Emojis {
     private val listed: List<String> by lazy { codes.keys.sorted().map { ":" + it + ":" } }
 
     fun apply(message: Component): Component {
-        if (!config.enabled || codes.isEmpty()) return message
+        if (codes.isEmpty()) return message
         return convert(message)
     }
 
@@ -62,7 +60,7 @@ object Emojis {
     }
 
     fun suggest(text: String, cursor: Int): CompletableFuture<Suggestions>? {
-        if (!config.enabled || codes.isEmpty()) return null
+        if (codes.isEmpty()) return null
 
         val typed = text.substring(0, cursor.coerceIn(0, text.length))
         val start = typed.lastIndexOf(':')

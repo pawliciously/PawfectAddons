@@ -21,7 +21,7 @@ public abstract class TitleScreenMixin extends Screen {
     @Inject(method = "init", at = @At("TAIL"))
     private void pawfectaddons$addConfigButton(CallbackInfo callback) {
         addRenderableWidget(
-            Button.builder(Component.literal("PawfectAddons"), button -> ConfigGuiManager.INSTANCE.open("menu"))
+            Button.builder(Component.literal("PawfectAddons"), button -> ConfigGuiManager.INSTANCE.open("theme"))
                 .bounds(4, this.height - 24, 98, 20)
                 .build()
         );

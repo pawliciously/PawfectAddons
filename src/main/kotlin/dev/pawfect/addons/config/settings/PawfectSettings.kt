@@ -50,7 +50,6 @@ object PawfectSettings {
     fun build(): List<SettingCategory> {
         val tracker = config.recipeTracker
         val slayers = config.slayers
-        val emojis = config.emojis
         val chat = config.chat
         val scoreboard = config.scoreboard
         val visuals = config.visuals
@@ -530,7 +529,6 @@ object PawfectSettings {
                 group(
                     "Messages",
                     ToggleSetting("Right Click to Copy", "Right click a message while chat is open to copy it. Shift + right click still opens other mods' menus.", chat::rightClickCopy),
-                    ToggleSetting("Chat Emojis", "Draw :shortcodes: in chat as real emojis. Only you see them, everyone else sees the text.", emojis::enabled),
                 ),
             ),
             category(
@@ -979,21 +977,60 @@ object PawfectSettings {
         ),
     )
 
-    private val ORDER = listOf(
-        "visuals", "chams", "skybox", "media", "discord",
-        "hitsounds",
-        "slayers", "dungeon",
-        "recipetracker", "chat", "scoreboard", "general", "experiments",
-        "cosmetics",
-        "inventory",
-        "menu", "theme", "dev",
+    /** The sidebar's headers, top to bottom, and which categories sit under each. */
+    private val SECTIONS = listOf(
+        Triple("skyblock", "SkyBlock", listOf("dungeon", "slayers", "experiments", "recipetracker")),
+        Triple("interface", "Interface", listOf("chat", "scoreboard", "inventory", "media", "theme")),
+        Triple("effects", "Effects", listOf("visuals", "chams", "skybox", "hitsounds")),
+        Triple("social", "Social", listOf("cosmetics", "discord")),
+        Triple("dev", "Dev", listOf("dev")),
+    )
+
+    /** Small categories folded into a related one: merged id to the category that takes it in. */
+    private val MERGES = mapOf(
+        // Sacks and item sources exist to feed the recipe tracker.
+        "general" to "recipetracker",
+        // The title screen's look belongs with the rest of the theme.
+        "menu" to "theme",
     )
 
     fun buildSections(): List<SettingSection> {
-        val all = build()
-        val byId = all.associateBy { it.id }
-        val ordered = ORDER.mapNotNull { byId[it] }
-        val rest = all.filter { it.id !in ORDER }
-        return listOf(section("all", "All", Icons.GEAR, *(ordered + rest).toTypedArray()))
+        val built = build().associateBy { it.id }.toMutableMap()
+        for ((from, into) in MERGES) {
+            val source = built.remove(from) ?: continue
+            val target = built[into] ?: continue
+            // Each half keeps its own banner in the content, so "Branding" still reads as the
+            // main menu's branding once it sits inside Theme.
+            fun under(name: String, groups: List<SettingGroup>) =
+                groups.map { SettingGroup(it.title, it.settings, it.section ?: name) }
+            built[into] = SettingCategory(
+                target.id,
+                target.title,
+                target.icon,
+                newer(target.updated, source.updated),
+                under(target.title, target.groups) + under(source.title, source.groups),
+            )
+        }
+
+        val placed = HashSet<String>()
+        val sections = SECTIONS.map { (id, title, ids) ->
+            val categories = ids.mapNotNull { built[it] }.onEach { placed += it.id }
+            section(id, title, Icons.GEAR, *categories.toTypedArray())
+        }
+        // Anything new that hasn't been given a section yet still shows up, under Other.
+        val rest = built.values.filter { it.id !in placed }
+        return if (rest.isEmpty()) sections else sections + section("other", "Other", Icons.GEAR, *rest.toTypedArray())
+    }
+
+    /** The later of two "x.y.z" versions. */
+    private fun newer(a: String, b: String): String {
+        val left = a.split('.').map { it.toIntOrNull() ?: 0 }
+        val right = b.split('.').map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(left.size, right.size)) {
+            val x = left.getOrElse(i) { 0 }
+            val y = right.getOrElse(i) { 0 }
+            if (x != y) return if (x > y) a else b
+        }
+        return a
     }
 }
