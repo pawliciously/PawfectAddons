@@ -34,6 +34,11 @@ repositories {
         forRepository { maven("https://api.modrinth.com/maven") }
         filter { includeGroup("maven.modrinth") }
     }
+    exclusiveContent {
+        // legacy-item-dfu's Minecraft 26.1.2 build isn't published upstream, so it lives in libs/maven.
+        forRepositories(maven("https://maven.azureaaron.net/releases"), maven(uri("libs/maven")))
+        filter { includeGroup("net.azureaaron") }
+    }
 }
 
 val shadowImpl: Configuration = configurations.create("shadowImpl") {
@@ -47,6 +52,12 @@ dependencies {
     implementation("net.fabricmc.fabric-api:fabric-api:${prop("fabric_api_version")}")
     implementation("net.fabricmc:fabric-language-kotlin:${prop("flk_version")}")
     compileOnly("com.terraformersmc:modmenu:${prop("modmenu_version")}")
+
+    // Profile viewer: rebuilds Hypixel's 1.8 item NBT into modern stacks, and prices items
+    // the same way SkyHelper does. Both are Apache-2.0 and nested jar-in-jar, so Fabric loads
+    // a single copy even when Skyblocker ships them too.
+    include(implementation("net.azureaaron:legacy-item-dfu:${prop("legacy_item_dfu_version")}")!!)
+    include(implementation("net.azureaaron:networth-calculator:${prop("networth_calculator_version")}")!!)
 }
 
 loom {
@@ -76,8 +87,13 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(javaVersion)
 }
 
+// Nothing is shaded today (shadowImpl is empty), and Shadow's jar is built from the raw class
+// output, which lacks Loom's nested jar-in-jar libraries and the fabric.mod.json that lists
+// them. So Loom's own jar is the release jar. Turn this back on if something needs shading,
+// and build it from Loom's jar when you do.
 tasks.named<ShadowJar>("shadowJar") {
-    archiveClassifier.set("")
+    enabled = false
+    archiveClassifier.set("shadow")
     configurations = listOf(shadowImpl)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     exclude("META-INF/versions/**")
@@ -86,9 +102,5 @@ tasks.named<ShadowJar>("shadowJar") {
 }
 
 tasks.jar {
-    archiveClassifier.set("nodeps")
-}
-
-tasks.assemble {
-    dependsOn(tasks.shadowJar)
+    archiveClassifier.set("")
 }

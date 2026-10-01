@@ -6,7 +6,16 @@ import com.google.gson.JsonObject
 /** What me.pawfectaddons.net/api/profile returns, already levelled by the server. */
 class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>) {
 
-    class Level(val level: Int, val progress: Float, val xp: Double, val maxed: Boolean, val cap: Int)
+    /** [into] and [next] (XP into this level, XP the level needs) only come from newer servers. */
+    class Level(
+        val level: Int,
+        val progress: Float,
+        val xp: Double,
+        val maxed: Boolean,
+        val cap: Int,
+        val into: Double? = null,
+        val next: Double? = null,
+    )
 
     class Skill(val id: String, val name: String, val level: Level)
 
@@ -56,6 +65,10 @@ class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>
         val backpacks: Map<Int, String>,
         val backpackIcons: Map<Int, String>,
         val wardrobeSlot: Int?,
+        /** Sack contents by item id. Empty when the server doesn't send them yet. */
+        val sacks: Map<String, Long>,
+        /** Essence by type (WITHER, DRAGON...). Empty when the server doesn't send it yet. */
+        val essence: Map<String, Long>,
         val inventoryApi: Boolean,
         val bankApi: Boolean,
     )
@@ -122,6 +135,8 @@ class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>
                 backpacks = slotted(p.obj("backpacks")),
                 backpackIcons = slotted(p.obj("backpack_icons")),
                 wardrobeSlot = p.get("wardrobe_slot")?.takeUnless { it.isJsonNull }?.asInt,
+                sacks = counts(p.obj("sacks")),
+                essence = counts(p.obj("essence")),
                 inventoryApi = api.bool("inventory"),
                 bankApi = api.bool("bank"),
             )
@@ -133,7 +148,12 @@ class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>
             xp = o.num("xp"),
             maxed = o.bool("maxed"),
             cap = o.int("cap"),
+            into = o.get("into")?.takeUnless { it.isJsonNull }?.asDouble,
+            next = o.get("next")?.takeUnless { it.isJsonNull }?.asDouble,
         )
+
+        private fun counts(o: JsonObject): Map<String, Long> =
+            o.entrySet().mapNotNull { (k, v) -> runCatching { k to v.asLong }.getOrNull() }.filter { it.second > 0 }.toMap()
 
         private fun floors(array: com.google.gson.JsonArray?): List<Pair<Int, Int>> =
             array?.map { it.asJsonObject.int("floor") to it.asJsonObject.int("runs") } ?: emptyList()

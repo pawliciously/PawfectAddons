@@ -17,3 +17,15 @@ Inter
 
 Refract
   Licensed under the MIT License. Full text at src/main/resources/licenses/Refract-MIT.txt
+
+This product bundles third party libraries:
+
+legacy-item-dfu
+  Copyright AzureAaron
+  https://github.com/AzureAaron/legacy-item-dfu
+  Licensed under the Apache License 2.0.
+
+networth-calculator
+  Copyright AzureAaron
+  https://github.com/AzureAaron/networth-calculator
+  Licensed under the Apache License 2.0. Calculations are based on SkyHelper's networth calculator.
