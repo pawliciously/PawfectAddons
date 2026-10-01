@@ -249,7 +249,7 @@ object MediaOverlay {
                     argb(MediaPalette.light(shown[0]), 90f), argb(shown[1], 255f),
                 )
                 val glyph = Icons.MUSIC
-                graphics.icon(glyph, PAD + (ART - UiFont.iconWidth(glyph)) / 2f, PAD + (ART - Draw.LINE_HEIGHT) / 2f, argb(0xFFFFFF, 230f))
+                graphics.icon(glyph, PAD + ART / 2f - inkCentre(glyph), PAD + (ART - Draw.LINE_HEIGHT) / 2f, argb(0xFFFFFF, 230f))
             }
             Shapes.outline(graphics, PAD, PAD, ART, ART, MediaArt.RADIUS, argb(0xFFFFFF, 34f))
         }
@@ -361,11 +361,9 @@ object MediaOverlay {
                     Shapes.shadow(graphics, cx - radius, cy - radius, radius * 2f, radius * 2f, radius, 3f, argb(0x000000, 90f), 1f)
                     Shapes.circle(graphics, cx, cy, radius, argb(0xFFFFFF, if (track == null) 120f else 250f))
                     val glyph = if (playing) Icons.PAUSE else Icons.PLAY
-                    // The play triangle's weight sits left of its box; nudge it to look centred.
-                    val nudge = if (playing) 0f else 0.6f
                     graphics.icon(
                         glyph,
-                        cx - UiFont.iconWidth(glyph) / 2f + nudge,
+                        cx - inkCentre(glyph),
                         cy - Draw.LINE_HEIGHT / 2f + 0.5f,
                         argb(MediaPalette.mix(shown[0], 0x000000, 0.45f), 255f),
                     )
@@ -379,11 +377,22 @@ object MediaOverlay {
                 val glyph = if (box.control == Control.PREVIOUS) Icons.SKIP_BACK else Icons.SKIP_FORWARD
                 graphics.icon(
                     glyph,
-                    cx - UiFont.iconWidth(glyph) / 2f,
+                    cx - inkCentre(glyph),
                     cy - Draw.LINE_HEIGHT / 2f + 0.5f,
                     argb(0xFFFFFF, if (enabled) 235f else 80f),
                 )
             }
+        }
+
+        /**
+         * Where an icon's ink is centred, from its left edge. The glyphs sit left of their
+         * advance box, so centring on the advance puts them off; these were measured in game.
+         * The play triangle is placed by its visual weight, a little left of its box centre.
+         */
+        private fun inkCentre(glyph: String): Float = when (glyph) {
+            Icons.PAUSE -> 2.8f
+            Icons.PLAY -> 3.0f
+            else -> 3.5f
         }
 
         private fun argb(rgb: Int, alpha: Float): Int = (alpha.toInt().coerceIn(0, 255) shl 24) or (rgb and 0xFFFFFF)
