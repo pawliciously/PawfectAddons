@@ -23,6 +23,12 @@ class VisualsConfig {
     var batRange: Int = 30
 
     @Expose
+    var healerBox: Boolean = true
+
+    @Expose
+    var healerBoxColor: Int = 0x55FF55
+
+    @Expose
     var starGlow: Boolean = false
 
     @Expose

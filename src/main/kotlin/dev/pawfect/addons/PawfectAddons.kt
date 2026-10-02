@@ -38,6 +38,7 @@ import dev.pawfect.addons.features.discord.DiscordPresence
 import dev.pawfect.addons.features.media.MediaBridge
 import dev.pawfect.addons.utils.SessionTracker
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
+import dev.pawfect.addons.features.dungeon.HealerBox
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
@@ -105,6 +106,7 @@ object PawfectAddons : ClientModInitializer {
         registerHud()
         registerScreenInput()
         DungeonWaypointRenderer.register()
+        HealerBox.register()
         Trails.register()
         Ripples.register()
         Motes.register()

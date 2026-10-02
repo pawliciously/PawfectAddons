@@ -27,6 +27,14 @@ object SkyBlockData {
     val inDungeons: Boolean
         get() = sidebarLines.any { it.contains("The Catacombs") || it.contains("Dungeon Cleared") }
 
+    private val floorRegex = Regex("""The Catacombs \((E|[FM]\d)\)""")
+
+    val dungeonFloor: String?
+        get() = sidebarLines.firstNotNullOfOrNull { floorRegex.find(it)?.groupValues?.get(1) }
+
+    val inFloor7: Boolean
+        get() = dungeonFloor.let { it == "F7" || it == "M7" }
+
     fun refreshSidebar() {
         val level = McCompat.mc.level
         if (level == null) {

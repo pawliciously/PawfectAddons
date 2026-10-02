@@ -171,6 +171,12 @@ object PawfectSettings {
                 Icons.SHIELD,
                 "0.52.0",
                 group(
+                    "Floor 7",
+                    ToggleSetting("Healer Box", "Outline the 3x3 healer spot from 53 64 113 to 56 64 116 in Floor 7 and Master Mode 7.", visuals::healerBox),
+                    ColorSetting("Box Colour", "Colour of the healer box outline.", visuals::healerBoxColor, false)
+                        .showIf { visuals.healerBox },
+                ),
+                group(
                     "Starred Mobs",
                     ToggleSetting("Starred Mob Glow", "Soft glow around starred mobs in your current room.", visuals::starGlow),
                     ColorSetting("Glow Colour", "Colour of the starred mob glow.", visuals::starColor, false)
