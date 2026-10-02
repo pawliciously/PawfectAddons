@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.profile
 
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import dev.pawfect.addons.utils.McCompat
@@ -40,29 +41,55 @@ object ProfileApi {
         CompletableFuture.supplyAsync({ load(name) }, executor)
             .thenApplyAsync({ it }, McCompat.mc)
 
+    fun saveDescription(lines: List<String>): CompletableFuture<List<String>> =
+        CompletableFuture.supplyAsync({ storeDescription(lines) }, executor)
+            .thenApplyAsync({ it }, McCompat.mc)
+
     private fun load(name: String): ProfileData {
-        var response = request(name, session())
+        val encoded = URLEncoder.encode(name, StandardCharsets.UTF_8)
+        val body = authorized { session ->
+            HttpRequest.newBuilder(URI.create("$BASE/api/profile/$encoded"))
+                .header("Authorization", "Bearer $session")
+                .timeout(Duration.ofSeconds(30))
+                .GET()
+        }
+        return ProfileData.parse(body)
+    }
+
+    private fun storeDescription(lines: List<String>): List<String> {
+        val payload = JsonObject().apply {
+            add("lines", JsonArray().apply { lines.forEach(::add) })
+        }
+        val body = authorized { session ->
+            HttpRequest.newBuilder(URI.create("$BASE/api/description"))
+                .header("Authorization", "Bearer $session")
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(20))
+                .PUT(HttpRequest.BodyPublishers.ofString(payload.toString()))
+        }
+        return body.getAsJsonArray("lines")?.map { it.asString } ?: emptyList()
+    }
+
+    private fun authorized(build: (String) -> HttpRequest.Builder): JsonObject {
+        fun send(): HttpResponse<String> {
+            val request = build(session())
+                .header("User-Agent", "PawfectAddons")
+                .header("Accept", "application/json")
+                .build()
+            return client.send(request, HttpResponse.BodyHandlers.ofString())
+        }
+
+        var response = send()
         if (response.statusCode() == 401) {
             token = null
-            response = request(name, session())
+            response = send()
         }
         val body = runCatching { JsonParser.parseString(response.body()).asJsonObject }.getOrNull()
         if (response.statusCode() != 200 || body == null) {
             val message = body?.get("message")?.asString ?: "The profile service returned HTTP ${response.statusCode()}."
             throw ProfileException(message)
         }
-        return ProfileData.parse(body)
-    }
-
-    private fun request(name: String, session: String): HttpResponse<String> {
-        val encoded = URLEncoder.encode(name, StandardCharsets.UTF_8)
-        val request = HttpRequest.newBuilder(URI.create("$BASE/api/profile/$encoded"))
-            .header("User-Agent", "PawfectAddons")
-            .header("Authorization", "Bearer $session")
-            .timeout(Duration.ofSeconds(30))
-            .GET()
-            .build()
-        return client.send(request, HttpResponse.BodyHandlers.ofString())
+        return body
     }
 
     private fun session(): String {

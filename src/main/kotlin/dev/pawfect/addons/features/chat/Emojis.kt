@@ -42,6 +42,22 @@ object Emojis {
     fun search(query: String): List<String> =
         codes.keys.filter { it.contains(query, ignoreCase = true) }.sorted()
 
+    fun ranked(query: String, limit: Int): List<String> =
+        codes.keys.asSequence()
+            .filter { it.contains(query) }
+            .sortedWith(compareBy({ !it.startsWith(query) }, { it.length }, { it }))
+            .take(limit)
+            .toList()
+
+    fun glyph(code: String): Component? = codes[code]?.let { Component.literal(it).setStyle(style) }
+
+    fun spans(text: String): List<IntRange> {
+        if (codes.isEmpty()) return emptyList()
+        return shortcode.findAll(text).filter { codes.containsKey(it.groupValues[1]) }.map { it.range }.toList()
+    }
+
+    fun isWordChar(character: Char): Boolean = character in WORD
+
     private val listed: List<String> by lazy { codes.keys.sorted().map { ":" + it + ":" } }
 
     fun apply(message: Component): Component {

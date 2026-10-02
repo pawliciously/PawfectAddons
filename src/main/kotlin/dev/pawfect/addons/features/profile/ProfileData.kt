@@ -3,7 +3,7 @@ package dev.pawfect.addons.features.profile
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 
-class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>) {
+class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>, val description: List<String>) {
 
     class Level(
         val level: Int,
@@ -73,6 +73,9 @@ class ProfileData(val uuid: String, val ign: String, val profiles: List<Profile>
             uuid = json.str("uuid"),
             ign = json.str("ign"),
             profiles = json.getAsJsonArray("profiles")?.map { profile(it.asJsonObject) } ?: emptyList(),
+            description = json.get("description")?.takeIf { it.isJsonArray }?.asJsonArray
+                ?.mapNotNull { it.takeIf { line -> line.isJsonPrimitive }?.asString }
+                ?.take(4) ?: emptyList(),
         )
 
         private fun profile(p: JsonObject): Profile {

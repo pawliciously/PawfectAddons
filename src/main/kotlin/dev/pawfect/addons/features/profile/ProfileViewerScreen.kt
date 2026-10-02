@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.profile
 
+import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.cosmetics.Cosmetics
 import dev.pawfect.addons.features.visual.tooltip.TooltipStyle
 import dev.pawfect.addons.ui.Draw
@@ -22,6 +23,7 @@ import dev.pawfect.addons.utils.ItemUtil.rarityColor
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
+import net.minecraft.client.input.CharacterEvent
 import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.core.component.DataComponents
@@ -68,6 +70,12 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
     private var backpack = 0
     private var dropdownOpen = false
 
+    private var about: List<String> = emptyList()
+    private var editor: AboutEditor? = null
+    private var saving: CompletableFuture<List<String>>? = null
+    private var aboutStatus: String? = null
+    private var aboutSpace = 0f
+
     private val clickables = ArrayList<Clickable>()
     private var mx = 0f
     private var my = 0f
@@ -90,6 +98,10 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         error = null
         data = null
         loads.clear()
+        about = emptyList()
+        editor = null
+        saving = null
+        aboutStatus = null
         val pending = ProfileApi.fetch(target)
         request = pending
         pending.whenComplete { result, failure ->
@@ -99,6 +111,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
                 error = cause.message ?: "Could not load that profile."
             } else {
                 data = result
+                about = result.description
                 profileIndex = result.profiles.indexOfFirst { it.selected }.coerceAtLeast(0)
             }
         }
@@ -120,20 +133,22 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
     }
 
     override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
+        aboutSpace = if (error == null && profile != null && (about.isNotEmpty() || isSelf)) aboutHeight() + 12f else 0f
+        val h = H + aboutSpace
         UiScale.minWidth = W + 24f
-        UiScale.minHeight = H + 24f
+        UiScale.minHeight = h + 24f
         UiScale.push(graphics)
         mx = UiScale.mouseX(mouseX.toDouble())
         my = UiScale.mouseY(mouseY.toDouble())
         wx = ((UiScale.width - W) / 2f).toInt().toFloat()
-        wy = ((UiScale.height - H) / 2f).toInt().toFloat()
+        wy = ((UiScale.height - h) / 2f).toInt().toFloat()
         clickables.clear()
         itemTooltip = ItemStack.EMPTY
         itemTooltipValue = null
         textTooltip = null
 
-        graphics.dropShadow(wx, wy, W, H, 14f, 22f, Theme.withAlpha(0x000000, 180), 6f)
-        graphics.roundPanel(wx, wy, W, H, 14f, Theme.surface(Theme.background), Theme.opaque(Theme.border))
+        graphics.dropShadow(wx, wy, W, h, 14f, 22f, Theme.withAlpha(0x000000, 180), 6f)
+        graphics.roundPanel(wx, wy, W, h, 14f, Theme.surface(Theme.background), Theme.opaque(Theme.border))
         graphics.roundGradient(wx + 1f, wy + 1f, W - 2f, 96f, 13f, Theme.withAlpha(Theme.accent, 34), Theme.withAlpha(Theme.accent, 0))
 
         val p = profile
@@ -144,6 +159,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
             p == null -> drawError(graphics, "$target has never played SkyBlock.")
             else -> {
                 drawHeader(graphics, p)
+                drawAbout(graphics)
                 drawTabs(graphics)
                 val l = loaded
                 if (l == null) drawSkeleton(graphics) else when (tab) {
@@ -154,6 +170,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
                     Tab.PETS -> drawPets(graphics, l)
                 }
                 if (dropdownOpen) drawDropdown(graphics)
+                drawSuggestions(graphics)
             }
         }
         UiScale.pop(graphics)
@@ -175,9 +192,9 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
     }
 
     private val contentX get() = wx + PAD
-    private val contentY get() = wy + PAD + HEADER + 12f + TAB_HEIGHT + 12f
+    private val contentY get() = wy + PAD + HEADER + 12f + aboutSpace + TAB_HEIGHT + 12f
     private val contentW get() = W - PAD * 2f
-    private val contentH get() = wy + H - PAD - contentY
+    private val contentH get() = wy + H + aboutSpace - PAD - contentY
 
     private fun hover(x: Float, y: Float, w: Float, h: Float) = Draw.inside(mx, my, x, y, w, h)
 
@@ -293,6 +310,162 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         }
     }
 
+    private val isSelf: Boolean
+        get() {
+            val viewed = data?.uuid?.replace("-", "") ?: return false
+            val own = McCompat.mc.user?.profileId?.toString()?.replace("-", "") ?: return false
+            return viewed.equals(own, ignoreCase = true)
+        }
+
+    private fun aboutHeight(): Float =
+        if (editor != null) 14f + AboutText.LINES * ABOUT_LINE + 14f else 14f + about.size.coerceIn(1, AboutText.LINES) * ABOUT_LINE
+
+    private val aboutY get() = wy + PAD + HEADER + 12f
+
+    private fun drawAbout(graphics: GuiGraphicsExtractor) {
+        if (aboutSpace <= 0f) return
+        val x = wx + PAD
+        val y = aboutY
+        val w = contentW
+        val h = aboutHeight()
+        val edit = editor
+        val accent = data?.let { Cosmetics.displayFor(it.uuid) }?.name?.colorAt(0f, 0f) ?: Theme.accent
+        graphics.roundPanel(x, y, w, h, 10f, Theme.surface(Theme.panel), if (edit != null) Theme.withAlpha(Theme.accent, 200) else Theme.opaque(Theme.border))
+        graphics.roundRect(x + 12f, y + 8f, 2f, (if (edit != null) AboutText.LINES * ABOUT_LINE + 2f else h - 16f), 1f, Theme.withAlpha(accent, 210))
+        val textX = x + 24f
+        val buttonX = x + w - 12f - ABOUT_BUTTON
+
+        if (edit == null) {
+            if (about.isEmpty()) {
+                graphics.string("Add a few lines about yourself. Other PawfectAddons players see them on your profile.", textX, y + 8f, Theme.withAlpha(Theme.textDim, 200))
+            } else {
+                about.forEachIndexed { i, line -> aboutLine(graphics, line, textX, y + 8f + i * ABOUT_LINE, Theme.opaque(Theme.text)) }
+            }
+            if (isSelf) {
+                val buttonY = if (about.size > 1) y + 7f else y + (h - 16f) / 2f
+                aboutButton(graphics, if (about.isEmpty()) "Add" else "Edit", buttonX, buttonY, primary = about.isEmpty(), enabled = true) {
+                    editor = AboutEditor(about, ABOUT_TEXT_WIDTH)
+                    aboutStatus = null
+                    dropdownOpen = false
+                }
+            }
+            return
+        }
+
+        val fieldX = x + 18f
+        val fieldW = buttonX - 12f - fieldX
+        graphics.roundRect(fieldX, y + 5f, fieldW, AboutText.LINES * ABOUT_LINE + 6f, 7f, Theme.surface(Theme.background))
+        edit.lines.forEachIndexed { i, line ->
+            val rowY = y + 8f + i * ABOUT_LINE
+            val tooWide = AboutText.width(line) > ABOUT_TEXT_WIDTH
+            when {
+                tooWide -> graphics.roundRect(fieldX + 2f, rowY - 1.5f, fieldW - 4f, ABOUT_LINE, 4f, Theme.withAlpha(0xFF5C7A, 60))
+                i == edit.row -> graphics.roundRect(fieldX + 2f, rowY - 1.5f, fieldW - 4f, ABOUT_LINE, 4f, Theme.withAlpha(Theme.text, 12))
+            }
+            aboutLine(graphics, line, textX, rowY, Theme.opaque(Theme.text))
+            if (saving == null) click(fieldX, rowY - 1.5f, fieldW, ABOUT_LINE) { edit.place(i, mx - textX) }
+        }
+        if (edit.empty) aboutLine(graphics, "Say hi, flex a drop, anything you like :sparkles:", textX + 2f, y + 8f, Theme.withAlpha(Theme.textDim, 170))
+        if (saving == null && (System.currentTimeMillis() / 530) % 2 == 0L) {
+            graphics.roundRect(textX + edit.caretX(), y + 7f + edit.row * ABOUT_LINE, 1f, 10f, 0.5f, Theme.opaque(Theme.text))
+        }
+
+        val footY = y + 14f + AboutText.LINES * ABOUT_LINE + 1f
+        val status = aboutStatus
+        if (status != null) {
+            graphics.string(Draw.truncate(status, fieldW), fieldX + 2f, footY, 0xFFFF7A90.toInt())
+        } else {
+            graphics.string("Enter adds a line, Tab picks an emoji, Ctrl + Enter saves", fieldX + 2f, footY, Theme.withAlpha(Theme.textDim, 170))
+        }
+
+        val busy = saving != null
+        val columnY = y + (h - 38f) / 2f
+        aboutButton(graphics, if (busy) "Saving" else "Save", buttonX, columnY, primary = true, enabled = !busy && edit.changed) { saveAbout() }
+        aboutButton(graphics, "Cancel", buttonX, columnY + 22f, primary = false, enabled = !busy) {
+            editor = null
+            aboutStatus = null
+        }
+    }
+
+    private fun aboutLine(graphics: GuiGraphicsExtractor, line: String, x: Float, y: Float, color: Int) {
+        if (line.isEmpty()) return
+        graphics.pose().pushMatrix()
+        graphics.pose().translate(x, y + Theme.textOffset)
+        graphics.text(McCompat.font, AboutText.render(line), 0, 0, color, Theme.fontShadow)
+        graphics.pose().popMatrix()
+    }
+
+    private fun aboutButton(graphics: GuiGraphicsExtractor, label: String, x: Float, y: Float, primary: Boolean, enabled: Boolean, action: () -> Unit) {
+        val hovered = enabled && hover(x, y, ABOUT_BUTTON, 16f)
+        val fill = when {
+            primary && enabled -> Theme.withAlpha(Theme.accent, if (hovered) 255 else 175)
+            hovered -> Theme.surface(Theme.border)
+            else -> Theme.surface(Theme.header)
+        }
+        graphics.pill(x, y, ABOUT_BUTTON, 16f, fill, 1f, Theme.withAlpha(if (primary) Theme.accent else Theme.border, if (enabled) 220 else 90))
+        val color = if (primary && enabled) 0xFFFFFFFF.toInt() else Theme.withAlpha(Theme.text, if (enabled) 255 else 110)
+        graphics.stringCentered(label, x + ABOUT_BUTTON / 2f, y + 4f, color)
+        if (enabled) click(x, y, ABOUT_BUTTON, 16f, action)
+    }
+
+    private fun drawSuggestions(graphics: GuiGraphicsExtractor) {
+        val edit = editor ?: return
+        if (saving != null) return
+        val options = edit.suggestions()
+        if (options.isEmpty()) return
+        val rowH = 14f
+        val w = options.maxOf { Draw.width(":$it:") } + 34f
+        val h = options.size * rowH + 6f
+        val x = (wx + PAD + 24f + edit.caretX() - 12f).coerceAtMost(wx + W - PAD - w)
+        val y = aboutY + 8f + (edit.row + 1) * ABOUT_LINE + 2f
+        graphics.dropShadow(x, y, w, h, 7f, 10f, Theme.withAlpha(0x000000, 150), 3f)
+        graphics.roundPanel(x, y, w, h, 7f, Theme.opaque(Theme.header), Theme.opaque(Theme.border))
+        options.forEachIndexed { i, code ->
+            val ry = y + 3f + i * rowH
+            val hovered = hover(x + 3f, ry, w - 6f, rowH)
+            when {
+                i == edit.pick -> graphics.roundRect(x + 3f, ry, w - 6f, rowH, 5f, Theme.withAlpha(Theme.accent, 70))
+                hovered -> graphics.roundRect(x + 3f, ry, w - 6f, rowH, 5f, Theme.withAlpha(Theme.text, 14))
+            }
+            Emojis.glyph(code)?.let { glyph ->
+                graphics.pose().pushMatrix()
+                graphics.pose().translate(x + 9f, ry + 3f + Theme.textOffset)
+                graphics.text(McCompat.font, glyph, 0, 0, 0xFFFFFFFF.toInt(), false)
+                graphics.pose().popMatrix()
+            }
+            graphics.string(":$code:", x + 24f, ry + 3f, Theme.opaque(if (i == edit.pick) Theme.text else Theme.textDim))
+            click(x + 3f, ry, w - 6f, rowH) { edit.accept(i) }
+        }
+    }
+
+    private fun saveAbout() {
+        val edit = editor ?: return
+        if (saving != null) return
+        val wide = edit.overflowing()
+        if (wide >= 0) {
+            aboutStatus = "Line ${wide + 1} is too long to fit."
+            return
+        }
+        if (!edit.changed) {
+            editor = null
+            return
+        }
+        aboutStatus = null
+        val pending = ProfileApi.saveDescription(edit.result)
+        saving = pending
+        pending.whenComplete { result, failure ->
+            if (saving !== pending) return@whenComplete
+            saving = null
+            if (failure != null) {
+                val cause = (failure as? CompletionException)?.cause ?: failure
+                aboutStatus = cause.message ?: "Could not save your description."
+            } else {
+                about = result
+                if (editor === edit) editor = null
+            }
+        }
+    }
+
     private fun statCard(graphics: GuiGraphicsExtractor, x: Float, y: Float, w: Float, label: String, value: String, sub: String, accent: Int?) {
         val hovered = hover(x, y, w, HEADER)
         graphics.roundPanel(x, y, w, HEADER, 10f, Theme.surface(if (hovered) Theme.header else Theme.panel), Theme.opaque(Theme.border))
@@ -338,7 +511,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
 
     private fun drawTabs(graphics: GuiGraphicsExtractor) {
         var x = wx + PAD
-        val y = wy + PAD + HEADER + 12f
+        val y = wy + PAD + HEADER + 12f + aboutSpace
         Tab.entries.forEach { entry ->
             val w = Draw.width(entry.label) + 42f
             val selected = entry == tab
@@ -785,7 +958,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
 
     private fun drawError(graphics: GuiGraphicsExtractor, message: String) {
         val cx = wx + W / 2f
-        val cy = wy + H / 2f
+        val cy = wy + (H + aboutSpace) / 2f
         graphics.circle(cx, cy - 34f, 16f, Theme.withAlpha(0xFF5C7A, 50))
         graphics.icon(Icons.CLOSE, cx - 4f, cy - 38f, 0xFFFF7A90.toInt())
         graphics.stringCentered(message, cx, cy - 6f, Theme.opaque(Theme.text))
@@ -822,11 +995,36 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
     }
 
     override fun keyPressed(event: KeyEvent): Boolean {
+        val edit = editor
+        if (edit != null) {
+            when {
+                event.key() == 256 -> if (!edit.dismiss() && saving == null) {
+                    editor = null
+                    aboutStatus = null
+                }
+                saving != null -> Unit
+                (event.key() == 257 || event.key() == 335) && event.hasControlDown() -> saveAbout()
+                else -> {
+                    aboutStatus = null
+                    edit.key(event)
+                }
+            }
+            return true
+        }
         if (dropdownOpen && event.key() == 256) {
             dropdownOpen = false
             return true
         }
         return super.keyPressed(event)
+    }
+
+    override fun charTyped(event: CharacterEvent): Boolean {
+        val edit = editor ?: return super.charTyped(event)
+        if (saving == null) {
+            aboutStatus = null
+            edit.type(event.codepointAsString())
+        }
+        return true
     }
 
     private fun levelColor(level: ProfileData.Level): Int =
@@ -918,6 +1116,9 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         private const val LEVEL_BAR = 128f
         private const val STAT_CARDS_WIDTH = 116f * 3 + 8f * 2
         private const val NAME_SCALE = 1.6f
+        private const val ABOUT_LINE = 11f
+        private const val ABOUT_BUTTON = 64f
+        private const val ABOUT_TEXT_WIDTH = 568f
 
         fun coins(value: Double): String = when {
             value >= 1e12 -> "%.2fT".format(value / 1e12)
