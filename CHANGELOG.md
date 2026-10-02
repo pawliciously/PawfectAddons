@@ -2,6 +2,8 @@
 
 ## 0.82.0
 - Profile viewer. `/pa pv <player>` opens anyone's SkyBlock profile: skills, slayers, dungeons, inventory, storage, accessories and pets, with real item models, networth and SkyBlock level XP. PawfectAddons users show up with their name colours, badges and emoji.
+- Profile descriptions. Open your own profile with `/pa pv` and write up to four lines about yourself, emoji included. Anyone with PawfectAddons who views your profile sees them.
+- Name cosmetics in chat and the tab list. Name colours, badges and emoji now show on player names in chat and tab. In tab, emoji and then badges are left out when a name would make the list wider. Toggle both under Chat.
 - Custom chat. Chat sits on one rounded panel in your theme, with optional animated backgrounds, and old lines still fade out smoothly. Find it under Chat.
 - Right click a chat message to copy it. Shift + right click still opens other mods' menus.
 - Custom scoreboard. A themed sidebar without the red numbers, with Glass or animated backgrounds, and options to hide the date, server ID and website line or shrink the blank lines. It steps aside if SkyHanni's or NoammAddons' scoreboard is on.
