@@ -229,7 +229,9 @@ class CosmeticEntry {
         val resolvedTrail = trail?.resolve()
         val resolvedMotes = motes?.resolve()
         val resolvedBadges = Badge.ordered(badges.orEmpty() + if (og) listOf(Badge.FOUNDER.id) else emptyList())
-        val resolvedEmoji = name?.emoji?.take(MAX_NAME_EMOJI)?.let(Emojis::glyphs)
+        val emojiCodes = name?.emoji?.take(MAX_NAME_EMOJI).orEmpty()
+        val resolvedEmoji = emojiCodes.takeIf { it.isNotEmpty() }?.let(Emojis::glyphs)
+        val emojiParts = emojiCodes.mapNotNull(Emojis::glyph)
         if (resolvedName == null &&
             resolvedCape == null &&
             resolvedTrail == null &&
@@ -239,7 +241,7 @@ class CosmeticEntry {
         ) {
             return null
         }
-        return ResolvedCosmetic(resolvedName, resolvedCape, resolvedTrail, resolvedMotes, resolvedBadges, resolvedEmoji)
+        return ResolvedCosmetic(resolvedName, resolvedCape, resolvedTrail, resolvedMotes, resolvedBadges, resolvedEmoji, emojiParts)
     }
 
     private companion object {
@@ -254,6 +256,7 @@ class ResolvedCosmetic(
     val motes: ResolvedMotes?,
     val badges: List<Badge>,
     val emoji: Component?,
+    val emojiParts: List<Component>,
 )
 
 class ResolvedTrail(

@@ -540,6 +540,8 @@ object PawfectSettings {
                     "Messages",
                     ToggleSetting("Right Click to Copy", "Right click a message while chat is open to copy it. Shift + right click still opens other mods' menus.", chat::rightClickCopy),
                     ToggleSetting("Level Prestige", "SkyBlock levels past 480 get a prestige symbol, and the highest ones warmer colours, in chat, tab and nametags. Only on your screen; the text other mods read is unchanged.", chat::levelPrestige),
+                    ToggleSetting("Name Cosmetics", "Show name colours, badges and emoji on players' names in chat. Drawn on your screen only; the text other mods read is unchanged.", chat::chatCosmetics),
+                    ToggleSetting("Tab Cosmetics", "The same in the tab list. Emoji, then badges, are left out when a name would make the list wider.", chat::tabCosmetics),
                 ),
             ),
             category(

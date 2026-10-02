@@ -34,6 +34,12 @@ class ChatConfig {
     @Expose
     var levelPrestige: Boolean = true
 
+    @Expose
+    var chatCosmetics: Boolean = true
+
+    @Expose
+    var tabCosmetics: Boolean = true
+
     @Suppress("SENSELESS_COMPARISON")
     fun sanitize() {
         if (background == null) background = PanelBackground.GLASS

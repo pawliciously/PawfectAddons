@@ -55,6 +55,9 @@ object Cosmetics {
     private var selfEntry: ResolvedCosmetic? = null
 
     @Volatile
+    private var names: Map<String, Named> = emptyMap()
+
+    @Volatile
     private var refreshing = false
 
     private var etag: String? = null
@@ -130,6 +133,35 @@ object Cosmetics {
         val badges = if (badgeVisible(id)) entry.badges else emptyList()
         if (name == null && emoji == null && badges.isEmpty()) return null
         return Display(name, badges, emoji)
+    }
+
+    class Named(val uuid: UUID, val cosmetic: ResolvedCosmetic)
+
+    class Look(val name: ResolvedName?, val badges: List<Badge>, val emoji: List<Component>)
+
+    val hasNames: Boolean get() = config.enabled && (names.isNotEmpty() || selfEntry != null)
+
+    fun byName(name: String): Named? {
+        names[name.lowercase()]?.let { return it }
+        val self = selfEntry ?: return null
+        val user = McCompat.mc.user ?: return null
+        return if (user.name.equals(name, ignoreCase = true)) Named(user.profileId, self) else null
+    }
+
+    fun lookFor(named: Named): Look? {
+        if (!config.enabled) return null
+        val entry = named.cosmetic
+        val name = if (config.nameColors) entry.name else null
+        val emoji = if (config.nameColors) entry.emojiParts else emptyList()
+        val badges = if (badgeVisible(named.uuid)) entry.badges else emptyList()
+        if (name == null && emoji.isEmpty() && badges.isEmpty()) return null
+        return Look(name, badges, emoji)
+    }
+
+    fun nameColor(name: ResolvedName, index: Int, length: Int): Int {
+        val time = if (config.animate && name.isAnimated) seconds() else 0f
+        val span = (length - 1).coerceAtLeast(1)
+        return name.colorAt(index.toFloat() / span, time)
     }
 
     fun paint(text: String, base: Style, name: ResolvedName): Component {
@@ -321,18 +353,22 @@ object Cosmetics {
             return false
         }
 
-        entries = parsed.first
-        selfEntry = parsed.second
+        entries = parsed.entries
+        selfEntry = parsed.self
+        names = parsed.names
         Capes.retain(activeCapeUrls())
         logger.info("Loaded {} cosmetics from {}.", count, source)
         return true
     }
 
-    private fun parse(json: String): Pair<Map<UUID, ResolvedCosmetic>, ResolvedCosmetic?> {
+    private class Parsed(val entries: Map<UUID, ResolvedCosmetic>, val self: ResolvedCosmetic?, val names: Map<String, Named>)
+
+    private fun parse(json: String): Parsed {
         val root = JsonParser.parseString(json).asJsonObject
-        val people = root.getAsJsonObject("cosmetics") ?: return emptyMap<UUID, ResolvedCosmetic>() to null
+        val people = root.getAsJsonObject("cosmetics") ?: return Parsed(emptyMap(), null, emptyMap())
 
         val resolved = HashMap<UUID, ResolvedCosmetic>(people.size())
+        val named = HashMap<String, Named>(people.size())
         var self: ResolvedCosmetic? = null
 
         for ((key, element) in people.entrySet()) {
@@ -348,10 +384,13 @@ object Cosmetics {
             resolved[uuid] = cosmetic
 
             val ign = entry.ign?.trim()
-            if (!ign.isNullOrEmpty()) resolved.putIfAbsent(offlineUuid(ign), cosmetic)
+            if (!ign.isNullOrEmpty()) {
+                resolved.putIfAbsent(offlineUuid(ign), cosmetic)
+                named[ign.lowercase()] = Named(uuid, cosmetic)
+            }
         }
 
-        return resolved to self
+        return Parsed(resolved, self, named)
     }
 
     private fun activeCapeUrls(): Set<String> {

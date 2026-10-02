@@ -49,7 +49,8 @@ object Emojis {
             .take(limit)
             .toList()
 
-    fun glyph(code: String): Component? = codes[code]?.let { Component.literal(it).setStyle(style) }
+    fun glyph(code: String): Component? =
+        codes[code.trim().lowercase().removePrefix(":").removeSuffix(":")]?.let { Component.literal(it).setStyle(style) }
 
     fun spans(text: String): List<IntRange> {
         if (codes.isEmpty()) return emptyList()
