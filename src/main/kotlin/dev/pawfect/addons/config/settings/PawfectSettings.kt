@@ -123,7 +123,7 @@ object PawfectSettings {
                         .showIf { slayers.nukekubiGlow },
                     FloatSliderSetting("Glow Opacity", "How solid the glow looks. Its size is the Glow Radius slider in the Dungeon tab.", slayers::nukekubiOpacity, 0.15f, 0.9f, 0.05f)
                         .showIf { slayers.nukekubiGlow },
-                    ToggleSetting("Hits Phase Notification", "Pop up a notification when your Voidgloom's shield goes up.", slayers::hitPhaseNotify),
+                    ToggleSetting("Hits Phase Title", "Flash a title on screen for a moment when your Voidgloom's shield goes up.", slayers::hitPhaseNotify),
                     ToggleSetting("Hits Phase Sound", "Play a sound when your Voidgloom's shield goes up.", slayers::hitPhaseSound),
                     SoundListSetting(
                         "Hits Phase Sound Choice",

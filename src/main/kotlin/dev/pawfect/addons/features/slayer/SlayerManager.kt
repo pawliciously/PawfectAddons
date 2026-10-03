@@ -3,12 +3,11 @@ package dev.pawfect.addons.features.slayer
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.SlayersConfig.SlayerTarget
 import dev.pawfect.addons.data.SkyBlockData
-import dev.pawfect.addons.ui.Icons
-import dev.pawfect.addons.ui.Notifications
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.SoundCue
 import dev.pawfect.addons.utils.NumberUtil.parseHypixelInt
 import dev.pawfect.addons.utils.StringUtil.removeColor
+import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.phys.Vec3
 
@@ -160,7 +159,10 @@ object SlayerManager {
         inHitPhase = true
         if (!current.owned) return
         if (config.hitPhaseNotify) {
-            Notifications.push("Voidgloom", "Hits phase: $hits hits to break the shield", Icons.SHIELD, lifetime = HIT_PHASE_TOAST_MS)
+            val gui = McCompat.mc.gui
+            gui.setTimes(HIT_PHASE_FADE_IN, HIT_PHASE_STAY, HIT_PHASE_FADE_OUT)
+            gui.setSubtitle(Component.literal("§f$hits hits to break the shield"))
+            gui.setTitle(Component.literal("§d§lHITS PHASE"))
         }
         if (config.hitPhaseSound) SoundCue.play(config.hitPhaseSoundId, config.alertVolume, config.alertPitch)
     }
@@ -273,5 +275,8 @@ object SlayerManager {
 
     private const val SLAIN_RANGE_SQ = 900.0
 
-    private const val HIT_PHASE_TOAST_MS = 3_000L
+    // Title timings in ticks.
+    private const val HIT_PHASE_FADE_IN = 3
+    private const val HIT_PHASE_STAY = 30
+    private const val HIT_PHASE_FADE_OUT = 8
 }

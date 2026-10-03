@@ -48,7 +48,26 @@ object StandDebug {
             val verdict = if (NukekubiGlow.isNukekubi(stand)) "§aNukekubi" else "§7other"
             out += "§8${"%.1f".format(player.distanceTo(stand))}m $verdict §7${slots.joinToString { it.name.lowercase() }}" +
                 " marker=${stand.isMarker} invisible=${stand.isInvisible} skin=§f$hash"
+            if (NukekubiGlow.isNukekubi(stand)) out += "  " + glowStages(stand)
         }
+        out += "§7Shader pack in use: §f${shaderPackInUse() ?: "no Iris"}"
         return out
     }
+
+    // Each step a glow passes through, so whichever one comes back false or 0 is where it's lost.
+    private fun glowStages(stand: ArmorStand): String {
+        val mc = McCompat.mc
+        val ours = NukekubiGlow.shouldGlow(stand)
+        val glowing = stand.isCurrentlyGlowing
+        val appears = mc.shouldEntityAppearGlowing(stand)
+        val outline = runCatching {
+            "%08X".format(mc.entityRenderDispatcher.getRenderer(stand).createRenderState(stand, 1f).outlineColor)
+        }.getOrElse { "error ${it.javaClass.simpleName}" }
+        return "§7ours=§f$ours §7glowing=§f$glowing §7appears=§f$appears §7outline=§f$outline"
+    }
+
+    private fun shaderPackInUse(): Boolean? = runCatching {
+        val api = Class.forName("net.irisshaders.iris.api.v0.IrisApi").getMethod("getInstance").invoke(null)
+        api.javaClass.getMethod("isShaderPackInUse").invoke(api) as Boolean
+    }.getOrNull()
 }
