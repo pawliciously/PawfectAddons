@@ -12,7 +12,7 @@ internal object HubAtmosphere {
 
     const val MOONLIGHT = 0.45f
 
-    /** The sky's colour at the horizon, which the scene also fades in from. */
+    /** The sky's colour at the horizon. */
     val HORIZON = Vector3f(0.05f, 0.07f, 0.13f)
 
     /** Writes the light colour for a sky and block light level into [into] at [at]. */

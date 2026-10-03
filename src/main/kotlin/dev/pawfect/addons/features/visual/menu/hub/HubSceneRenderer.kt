@@ -45,9 +45,8 @@ object HubSceneRenderer {
     private const val NEAR = 0.05f
     private const val FAR = 700f
     private const val INTRO_SECONDS = 10.0
-    // How long the uploaded scene sits unseen before the fade, so its first frames have settled.
-    private const val SETTLE_BEFORE_FADE_NANOS = 1_000_000_000L
-    private const val FADE_SECONDS = 1.6
+    // How long the uploaded scene settles before the intro starts, so its first frames have passed.
+    private const val SETTLE_BEFORE_INTRO_NANOS = 1_000_000_000L
     private const val SETTLE_SECONDS = 2.5
     // Until the scene is ready the camera gazes up at the sky, then tips down into the descent.
     private const val GAZE_PITCH = -50.0
@@ -189,7 +188,7 @@ object HubSceneRenderer {
         lastFrame = now
         val ready = state == State.READY && layers.isNotEmpty()
         if (!ready) readyAt = 0L else if (readyAt == 0L) readyAt = now
-        if (ready && introStart < 0L && mc.overlay == null && now - readyAt >= SETTLE_BEFORE_FADE_NANOS) introStart = now
+        if (ready && introStart < 0L && mc.overlay == null && now - readyAt >= SETTLE_BEFORE_INTRO_NANOS) introStart = now
         val sinceStart = if (introStart < 0L) 0.0 else (now - introStart) / 1e9
 
         if (newVisit) {
@@ -206,12 +205,7 @@ object HubSceneRenderer {
         }
         val rotation = Quaternionf().rotationYXZ((PI - Math.toRadians(camera.yaw)).toFloat(), (-Math.toRadians(camera.pitch)).toFloat(), 0f)
         val tanHalf = tan(Math.toRadians(FOV / 2.0)).toFloat()
-        val fade = when {
-            !ready -> 0f
-            introPlayed && introStart < 0L -> 1f
-            else -> smooth((sinceStart / FADE_SECONDS).coerceIn(0.0, 1.0)).toFloat()
-        }
-        val buffer = writeUniforms(rotation, tanHalf, width / height, fade, ((now - clockStart) / 1e9).toFloat())
+        val buffer = writeUniforms(rotation, tanHalf, width / height, ((now - clockStart) / 1e9).toFloat())
 
         projection.setupPerspective(NEAR, FAR, FOV, width, height)
         val projectionSlice = projectionBuffer.getBuffer(projection)
@@ -425,7 +419,7 @@ object HubSceneRenderer {
         ).normalize()
     }
 
-    private fun writeUniforms(rotation: Quaternionf, tanHalf: Float, aspect: Float, fade: Float, time: Float): GpuBuffer {
+    private fun writeUniforms(rotation: Quaternionf, tanHalf: Float, aspect: Float, time: Float): GpuBuffer {
         val buffer = uniforms ?: RenderSystem.getDevice()
             .createBuffer({ "pawfect hub scene uniforms" }, GpuBuffer.USAGE_UNIFORM or GpuBuffer.USAGE_COPY_DST, UNIFORM_SIZE.toLong())
             .also { uniforms = it }
@@ -436,7 +430,7 @@ object HubSceneRenderer {
         scratch.clear()
         scratch.putFloat(right.x).putFloat(right.y).putFloat(right.z).putFloat(tanHalf * aspect)
         scratch.putFloat(up.x).putFloat(up.y).putFloat(up.z).putFloat(tanHalf)
-        scratch.putFloat(forward.x).putFloat(forward.y).putFloat(forward.z).putFloat(fade)
+        scratch.putFloat(forward.x).putFloat(forward.y).putFloat(forward.z).putFloat(1f)
         scratch.putFloat(HubAtmosphere.HORIZON.x).putFloat(HubAtmosphere.HORIZON.y).putFloat(HubAtmosphere.HORIZON.z).putFloat(0f)
         scratch.putFloat(SKY.x).putFloat(SKY.y).putFloat(SKY.z).putFloat(0f)
         scratch.putFloat(moon.x).putFloat(moon.y).putFloat(moon.z).putFloat(MOON_RADIUS)

@@ -24,7 +24,6 @@ void main() {
         discard;
     }
 #endif
-    // No fog: every block stays in view however far off it is. The scene only fades in from
-    // the horizon colour as it first appears.
-    fragColor = vec4(mix(color.rgb, FogColor.rgb, 1.0 - CameraForward.w), color.a);
+    // No fog and no fade: every block shows at its full colour, near or far, from the first frame.
+    fragColor = color;
 }
