@@ -48,9 +48,9 @@ object HubSceneRenderer {
     private const val UNIFORM_SIZE = 256
     private const val MOONLIGHT = 0.3f
     private const val MOON_RADIUS = 0.05f
-    private const val LOOK_YAW = 7.0
-    private const val LOOK_PITCH = 4.0
-    private const val LOOK_RATE = 2.2
+    private const val LOOK_YAW = 3.0
+    private const val LOOK_PITCH = 1.5
+    private const val LOOK_RATE = 1.1
 
     private val FOG = Vector3f(0.05f, 0.07f, 0.13f)
     private val SKY = Vector3f(0.008f, 0.014f, 0.045f)
@@ -307,12 +307,15 @@ object HubSceneRenderer {
                     state = State.FAILED
                     return@Thread
                 }
+                val loaded = System.nanoTime()
                 val mesh = HubMesher.build(world, ox, oy, oz, eyeX, eyeY, eyeZ)
                 logger.info(
-                    "Built the hub scene: {} sections, {} quads in {} ms.",
+                    "Built the hub scene: {} sections, {} quads in {} parts, read in {} ms, meshed in {} ms.",
                     world.allSections.size,
                     mesh.quads,
-                    (System.nanoTime() - started) / 1_000_000,
+                    mesh.parts.size,
+                    (loaded - started) / 1_000_000,
+                    (System.nanoTime() - loaded) / 1_000_000,
                 )
                 built = mesh
                 state = State.BUILT
@@ -330,8 +333,18 @@ object HubSceneRenderer {
         val mesh = built ?: return
         built = null
         val device = RenderSystem.getDevice()
-        val order = listOf(ChunkSectionLayer.SOLID, ChunkSectionLayer.CUTOUT, ChunkSectionLayer.TRANSLUCENT)
-        val sorted = mesh.layers.entries.sortedBy { order.indexOf(it.key).let { i -> if (i < 0) 1 else i } }
+        // Opaque layers first, then translucent parts from the farthest band to the nearest.
+        val rank = { which: ChunkSectionLayer ->
+            when (which) {
+                ChunkSectionLayer.SOLID -> 0
+                ChunkSectionLayer.TRANSLUCENT -> 2
+                else -> 1
+            }
+        }
+        val sorted = mesh.parts
+            .flatMap { part -> part.layers.entries.map { Triple(rank(it.key), part.distance, it) } }
+            .sortedWith(compareBy<Triple<Int, Double, Map.Entry<ChunkSectionLayer, com.mojang.blaze3d.vertex.MeshData>>> { it.first }.thenByDescending { it.second })
+            .map { it.third }
         layers = sorted.mapNotNull { (which, data) ->
             val draw = data.drawState()
             if (draw.indexCount() == 0) return@mapNotNull null

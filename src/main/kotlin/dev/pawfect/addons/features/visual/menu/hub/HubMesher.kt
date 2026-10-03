@@ -15,13 +15,16 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.block.RenderShape
 import org.slf4j.LoggerFactory
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import kotlin.math.ceil
+import kotlin.math.sqrt
 
-class HubMesh(
-    val originX: Int,
-    val originY: Int,
-    val originZ: Int,
+/** One worker's share of the scene: a band of sections at a similar distance from the camera. */
+class HubMeshPart(
     val layers: Map<ChunkSectionLayer, MeshData>,
     private val buffers: List<ByteBufferBuilder>,
+    val distance: Double,
 ) : AutoCloseable {
 
     val quads: Int get() = layers.values.sumOf { it.drawState().vertexCount() / 4 }
@@ -32,14 +35,69 @@ class HubMesh(
     }
 }
 
+class HubMesh(val originX: Int, val originY: Int, val originZ: Int, val parts: List<HubMeshPart>) : AutoCloseable {
+
+    val quads: Int get() = parts.sumOf { it.quads }
+
+    override fun close() {
+        parts.forEach { it.close() }
+    }
+}
+
 object HubMesher {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/HubMesher")
 
-    private const val INITIAL_BYTES = 4 * 1024 * 1024
+    private const val INITIAL_BYTES = 2 * 1024 * 1024
 
-    /** Runs Minecraft's own block and fluid renderers over every captured block. */
+    /**
+     * Runs Minecraft's own block and fluid renderers over every captured block, split across
+     * a few threads. Sections are handed out by distance from the camera, so each part is a
+     * band and translucent parts can be drawn far to near.
+     */
     fun build(world: HubWorld, originX: Int, originY: Int, originZ: Int, eyeX: Float, eyeY: Float, eyeZ: Float): HubMesh {
+        val worldEyeX = originX + eyeX.toDouble()
+        val worldEyeY = originY + eyeY.toDouble()
+        val worldEyeZ = originZ + eyeZ.toDouble()
+        fun distance(section: HubWorld.Section): Double {
+            val dx = (section.x shl 4) + 8 - worldEyeX
+            val dy = (section.y shl 4) + 8 - worldEyeY
+            val dz = (section.z shl 4) + 8 - worldEyeZ
+            return sqrt(dx * dx + dy * dy + dz * dz)
+        }
+
+        val sections = world.allSections.sortedBy(::distance)
+        val workers = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(1, 6)
+        val groups = if (sections.isEmpty()) emptyList() else sections.chunked(ceil(sections.size / workers.toDouble()).toInt())
+        val pool = Executors.newFixedThreadPool(groups.size.coerceAtLeast(1)) { runnable ->
+            Thread(runnable, "PawfectAddons Hub Mesher").apply {
+                isDaemon = true
+                priority = Thread.NORM_PRIORITY - 1
+            }
+        }
+        try {
+            val futures = groups.map { group ->
+                pool.submit(Callable {
+                    val part = buildPart(world, group, originX, originY, originZ, eyeX, eyeY, eyeZ)
+                    HubMeshPart(part.first, part.second, group.sumOf(::distance) / group.size)
+                })
+            }
+            return HubMesh(originX, originY, originZ, futures.map { it.get() })
+        } finally {
+            pool.shutdown()
+        }
+    }
+
+    private fun buildPart(
+        world: HubWorld,
+        sections: List<HubWorld.Section>,
+        originX: Int,
+        originY: Int,
+        originZ: Int,
+        eyeX: Float,
+        eyeY: Float,
+        eyeZ: Float,
+    ): Pair<Map<ChunkSectionLayer, MeshData>, List<ByteBufferBuilder>> {
         val mc = McCompat.mc
         val models = mc.modelManager.blockStateModelSet
         val blocks = ModelBlockRenderer(true, true, mc.blockColors)
@@ -62,7 +120,7 @@ object HubMesher {
         BlockModelLighter.enableCaching()
         var failures = 0
         try {
-            for (section in world.allSections) {
+            for (section in sections) {
                 val baseX = section.x shl 4
                 val baseY = section.y shl 4
                 val baseZ = section.z shl 4
@@ -72,10 +130,7 @@ object HubMesher {
                 for (index in 0 until 4096) {
                     val state = section.state(index)
                     if (state.isAir) continue
-                    val lx = index and 15
-                    val lz = (index shr 4) and 15
-                    val ly = index shr 8
-                    pos.set(baseX + lx, baseY + ly, baseZ + lz)
+                    pos.set(baseX + (index and 15), baseY + (index shr 8), baseZ + ((index shr 4) and 15))
                     try {
                         val fluid = state.fluidState
                         if (!fluid.isEmpty) {
@@ -115,7 +170,7 @@ object HubMesher {
             }
             layers[which] = mesh
         }
-        return HubMesh(originX, originY, originZ, layers, buffers.values.toList())
+        return layers to buffers.values.toList()
     }
 
     private class Shifted(
