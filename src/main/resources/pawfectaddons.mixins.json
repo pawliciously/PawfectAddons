@@ -27,6 +27,7 @@
     "FluidStateModelSetMixin",
     "GameRendererMixin",
     "GuiGraphicsAccessor",
+    "GuiRendererMixin",
     "MenuBackgroundMixin",
     "MultiPlayerGameModeMixin",
     "PlayerInfoMixin",

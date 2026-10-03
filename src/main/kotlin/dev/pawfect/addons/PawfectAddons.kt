@@ -39,6 +39,7 @@ import dev.pawfect.addons.features.media.MediaBridge
 import dev.pawfect.addons.utils.SessionTracker
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
 import dev.pawfect.addons.features.visual.menu.hub.HubCapture
+import dev.pawfect.addons.features.visual.menu.hub.HubPipelines
 import dev.pawfect.addons.features.dungeon.HealerBox
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker
@@ -102,6 +103,7 @@ object PawfectAddons : ClientModInitializer {
         UiPipelines.bootstrap()
         SkyboxPipelines.bootstrap()
         MotionBlurPipelines.bootstrap()
+        HubPipelines.bootstrap()
         SlayerWorldRender.register()
 
         registerHud()

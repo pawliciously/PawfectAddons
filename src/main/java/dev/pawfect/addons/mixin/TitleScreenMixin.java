@@ -1,5 +1,6 @@
 package dev.pawfect.addons.mixin;
 
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -10,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.config.ConfigGuiManager;
+import dev.pawfect.addons.features.visual.menu.hub.HubSceneRenderer;
 
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen {
@@ -25,5 +27,12 @@ public abstract class TitleScreenMixin extends Screen {
                 .bounds(4, this.height - 24, 98, 20)
                 .build()
         );
+    }
+
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void pawfectaddons$hubCredit(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo callback) {
+        if (!HubSceneRenderer.active()) return;
+        String credit = "SkyBlock Hub by Hypixel";
+        graphics.text(this.font, credit, this.width - this.font.width(credit) - 2, this.height - 20, 0xB3FFFFFF, true);
     }
 }

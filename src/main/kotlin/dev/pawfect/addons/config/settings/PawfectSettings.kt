@@ -878,6 +878,12 @@ object PawfectSettings {
                         .showIf { menu.enabled && menu.styleButtons },
                 ),
                 group(
+                    "SkyBlock Hub",
+                    ToggleSetting("Hub Background", "Show the SkyBlock hub in 3D behind the main menu, flying in from the sky. Stand where the camera should end and run /pa menu here.", menu::hubScene),
+                    ToggleSetting("Capture While Playing", "Keep the hub scene up to date by saving the blocks around your spot whenever you're in the hub. Nothing is sent anywhere.", menu::hubCapture)
+                        .showIf { menu.hubScene },
+                ),
+                group(
                     "Branding",
                     ToggleSetting("Hide Splash", "Remove the yellow splash text.", menu::hideSplash)
                         .showIf { menu.enabled },

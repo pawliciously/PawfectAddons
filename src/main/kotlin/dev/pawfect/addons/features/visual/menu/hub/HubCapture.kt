@@ -5,6 +5,8 @@ import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.features.discord.HypixelLocation
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.multiplayer.ClientLevel
+import net.minecraft.client.renderer.BiomeColors
+import net.minecraft.core.BlockPos
 import net.minecraft.core.SectionPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -28,7 +30,7 @@ import kotlin.math.floor
 
 object HubScene {
 
-    const val VERSION = 1
+    const val VERSION = 2
     const val RADIUS_CHUNKS = 8
 
     val file: Path get() = ConfigManager.configDirectory.resolve("hub_scene.nbt")
@@ -46,6 +48,7 @@ object HubCapture {
     private const val MOVED_FAR_BLOCKS = 32.0
 
     private val sections = LinkedHashMap<Long, CompoundTag>()
+    private val columns = LinkedHashMap<Long, CompoundTag>()
     private val doneThisVisit = HashSet<Long>()
     private var loadedFromDisk = false
     private var dirty = false
@@ -92,6 +95,7 @@ object HubCapture {
             (abs(config.anchorX - x) > MOVED_FAR_BLOCKS || abs(config.anchorZ - z) > MOVED_FAR_BLOCKS)
         if (moved) {
             sections.clear()
+            columns.clear()
             dirty = true
         }
         config.anchorSet = true
@@ -107,6 +111,7 @@ object HubCapture {
 
     fun clear() {
         sections.clear()
+        columns.clear()
         doneThisVisit.clear()
         loadedFromDisk = true
         dirty = false
@@ -145,6 +150,34 @@ object HubCapture {
             }
             val where = SectionPos.of(cx, sy, cz)
             sections[key] = encode(section, cx, sy, cz, sky.getDataLayerData(where), block.getDataLayerData(where))
+        }
+        columns[SectionPos.asLong(cx, 0, cz)] = tints(level, cx, cz)
+    }
+
+    // Biome colours come from server data the title screen doesn't have, so each column's
+    // finished grass, foliage and water colours are stored with the blocks.
+    private fun tints(level: ClientLevel, cx: Int, cz: Int): CompoundTag {
+        val y = floor(config.anchorY).toInt()
+        val pos = BlockPos.MutableBlockPos()
+        val grass = IntArray(256)
+        val foliage = IntArray(256)
+        val dry = IntArray(256)
+        val water = IntArray(256)
+        for (z in 0 until 16) for (x in 0 until 16) {
+            pos.set((cx shl 4) + x, y, (cz shl 4) + z)
+            val at = (z shl 4) or x
+            grass[at] = level.getBlockTint(pos, BiomeColors.GRASS_COLOR_RESOLVER)
+            foliage[at] = level.getBlockTint(pos, BiomeColors.FOLIAGE_COLOR_RESOLVER)
+            dry[at] = level.getBlockTint(pos, BiomeColors.DRY_FOLIAGE_COLOR_RESOLVER)
+            water[at] = level.getBlockTint(pos, BiomeColors.WATER_COLOR_RESOLVER)
+        }
+        return CompoundTag().apply {
+            putInt("x", cx)
+            putInt("z", cz)
+            putIntArray("grass", grass)
+            putIntArray("foliage", foliage)
+            putIntArray("dry_foliage", dry)
+            putIntArray("water", water)
         }
     }
 
@@ -201,6 +234,10 @@ object HubCapture {
                 val tag = element as? CompoundTag ?: return@forEach
                 sections[SectionPos.asLong(tag.getIntOr("x", 0), tag.getIntOr("y", 0), tag.getIntOr("z", 0))] = tag
             }
+            root.getListOrEmpty("columns").forEach { element ->
+                val tag = element as? CompoundTag ?: return@forEach
+                columns[SectionPos.asLong(tag.getIntOr("x", 0), 0, tag.getIntOr("z", 0))] = tag
+            }
             logger.info("Loaded {} hub sections from disk.", sections.size)
         }.onFailure { logger.warn("Could not read the saved hub scene; starting fresh.", it) }
     }
@@ -212,6 +249,7 @@ object HubCapture {
         root.putString("source", "local")
         root.putLong("captured", System.currentTimeMillis())
         root.put("sections", ListTag().apply { sections.values.forEach { add(it) } })
+        root.put("columns", ListTag().apply { columns.values.forEach { add(it) } })
         dirty = false
         lastSave = System.currentTimeMillis()
 
@@ -221,6 +259,7 @@ object HubCapture {
                 val temp = target.resolveSibling("hub_scene.nbt.tmp")
                 NbtIo.writeCompressed(root, temp)
                 Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+                HubSceneRenderer.invalidate()
             } catch (error: Exception) {
                 logger.warn("Could not save the hub scene.", error)
                 dirty = true

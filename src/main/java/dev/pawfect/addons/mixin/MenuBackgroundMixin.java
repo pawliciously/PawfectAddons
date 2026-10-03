@@ -8,12 +8,14 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.visual.menu.MenuStyle;
+import dev.pawfect.addons.features.visual.menu.hub.HubSceneRenderer;
 
 @Mixin(Screen.class)
 public abstract class MenuBackgroundMixin {
 
     @Inject(method = "extractPanorama", at = @At("HEAD"), cancellable = true)
     private void pawfectaddons$panorama(GuiGraphicsExtractor graphics, float alpha, CallbackInfo callback) {
+        if (HubSceneRenderer.active()) return;
         if (!MenuStyle.stylesBackground()) return;
         MenuStyle.drawBackground(graphics);
         callback.cancel();
@@ -21,6 +23,7 @@ public abstract class MenuBackgroundMixin {
 
     @Inject(method = "extractMenuBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V", at = @At("HEAD"), cancellable = true)
     private void pawfectaddons$menuBackground(GuiGraphicsExtractor graphics, CallbackInfo callback) {
+        if (HubSceneRenderer.active()) return;
         if (!MenuStyle.stylesBackground()) return;
         MenuStyle.drawBackground(graphics);
         callback.cancel();
