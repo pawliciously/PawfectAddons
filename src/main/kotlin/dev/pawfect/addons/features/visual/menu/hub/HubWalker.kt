@@ -44,8 +44,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * A player walking through the menu's hub scene in their cosmetics: in from off screen, a
- * greeting to the camera, then up the hill and into the castle. They move the way a player does,
+ * A player walking through a menu scene in their cosmetics: along the route its
+ * scene sets out, stopping once to greet the camera. They move the way a player does,
  * ticked twenty times a second, and are drawn by the game's own player renderer, so the skin,
  * cape, name, trail and motes look exactly as they do in a world.
  */
@@ -56,20 +56,6 @@ internal object HubWalker {
     private const val NAME = "pawliciously"
     private val ID: UUID = UUID.fromString("59abdd8f-1279-4822-bb24-7dc27b261f97")
 
-    // Feet positions in the hub, from off screen to the spot inside the castle where the walk ends.
-    private val ROUTE = listOf(
-        WalkPlanner.Waypoint(-127.0, 70.0, 13.0),
-        WalkPlanner.Waypoint(-155.0, 71.0, 29.4),
-        WalkPlanner.Waypoint(-166.0, 73.0, 34.0),
-        WalkPlanner.Waypoint(-165.0, 75.0, 46.0),
-        WalkPlanner.Waypoint(-159.0, 77.0, 53.0),
-        WalkPlanner.Waypoint(-177.0, 83.0, 68.0),
-        WalkPlanner.Waypoint(-187.0, 84.0, 68.0),
-        WalkPlanner.Waypoint(-191.0, 88.0, 43.0),
-        WalkPlanner.Waypoint(-205.0, 91.0, 43.0),
-        WalkPlanner.Waypoint(-217.0, 91.0, 60.0),
-    )
-    private const val GREETING_STOP = 1
 
     // Seconds after the camera settles; starting a little early means walking into a settled frame.
     private const val START_AT = -1.0
@@ -158,6 +144,7 @@ internal object HubWalker {
 
     @Volatile
     private var walk: WalkPlanner.Walk? = null
+    private var greetingStop = 0
     private var broken = false
 
     private var phase = Phase.WAITING
@@ -186,9 +173,10 @@ internal object HubWalker {
     fun lightmapOverride(): GpuTextureView? = lightmap
 
     /** Plans the walk on the scene's build thread, while its blocks are loaded. */
-    fun prepare(world: HubWorld) {
+    fun prepare(world: HubWorld, script: MenuScenes.Script) {
         val started = System.nanoTime()
-        val planned = runCatching { WalkPlanner.plan(world, ROUTE) }
+        greetingStop = script.greeting
+        val planned = runCatching { WalkPlanner.plan(world, script.walk) }
             .onFailure { logger.warn("Could not plan the menu walk.", it) }
             .getOrNull()
         walk = planned
@@ -303,7 +291,7 @@ internal object HubWalker {
         var jump = false
         when (phase) {
             Phase.WALKING -> {
-                val stop = if (greeted) walk.length else walk.marks[GREETING_STOP]
+                val stop = if (greeted) walk.length else walk.marks[greetingStop]
                 val left = stop - body.distance
                 val target = if (left < 0.6) (left * 0.45).coerceIn(0.02, WALK_SPEED) else WALK_SPEED
                 body.speed += (target - body.speed) * 0.5

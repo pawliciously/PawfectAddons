@@ -9,6 +9,7 @@ import dev.pawfect.addons.config.features.MenuSpot
 import dev.pawfect.addons.mixin.LoadingOverlayAccessor
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.gui.screens.LoadingOverlay
+import net.minecraft.util.Mth
 import net.minecraft.client.renderer.Projection
 import net.minecraft.client.renderer.ProjectionMatrixBuffer
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer
@@ -28,7 +29,10 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.math.tan
 
 object HubSceneRenderer {
@@ -48,6 +52,10 @@ object HubSceneRenderer {
     // Until the scene is ready the camera gazes up at the sky, then tips down into the descent.
     private const val GAZE_PITCH = -50.0
     private const val TIP_SECONDS = 2.5
+    // A scripted camera path is flown at this pace, within these bounds.
+    private const val PATH_SPEED = 14.0
+    private const val MIN_PATH_SECONDS = 6.0
+    private const val MAX_PATH_SECONDS = 20.0
     private const val EYE_HEIGHT = 1.62
     private const val UNIFORM_SIZE = 256
     private const val MOON_RADIUS = 0.05f
@@ -160,12 +168,12 @@ object HubSceneRenderer {
             HubWalker.restart()
         }
         val camera = camera(sinceStart, delta)
-        if (settledAt == 0L && introPlayed) settledAt = introStart + (INTRO_SECONDS * 1e9).toLong()
+        if (settledAt == 0L && introPlayed) settledAt = introStart + (introSeconds() * 1e9).toLong()
         // Seconds since the camera settled for this visit, counting up through the fly-in.
         val showtime = when {
             settledAt != 0L -> (now - settledAt) / 1e9
-            introStart >= 0L -> sinceStart - INTRO_SECONDS
-            else -> -INTRO_SECONDS
+            introStart >= 0L -> sinceStart - introSeconds()
+            else -> -introSeconds()
         }
         val rotation = Quaternionf().rotationYXZ((PI - Math.toRadians(camera.yaw)).toFloat(), (-Math.toRadians(camera.pitch)).toFloat(), 0f)
         val tanHalf = tan(Math.toRadians(FOV / 2.0)).toFloat()
@@ -232,9 +240,10 @@ object HubSceneRenderer {
         val yaw = spot.yaw.toDouble()
         val pitch = spot.pitch.toDouble()
 
-        if (!introPlayed && sinceStart >= INTRO_SECONDS) introPlayed = true
-        val settled = if (introPlayed) sinceStart - INTRO_SECONDS else -1.0
-        val settle = if (introPlayed && introStart >= 0L && sinceStart < INTRO_SECONDS + SETTLE_SECONDS) {
+        val intro = introSeconds()
+        if (!introPlayed && sinceStart >= intro) introPlayed = true
+        val settled = if (introPlayed) sinceStart - intro else -1.0
+        val settle = if (introPlayed && introStart >= 0L && sinceStart < intro + SETTLE_SECONDS) {
             smooth((settled / SETTLE_SECONDS).coerceIn(0.0, 1.0))
         } else if (introPlayed) {
             1.0
@@ -259,7 +268,11 @@ object HubSceneRenderer {
             return Pose(endX, endY + bob, endZ, yaw + swayYaw + lookYaw, pitch + swayPitch + lookPitch)
         }
 
-        val t = smooth((sinceStart / INTRO_SECONDS).coerceIn(0.0, 1.0))
+        val t = smooth((sinceStart / intro).coerceIn(0.0, 1.0))
+        val gaze = if (introStart < 0L) 1.0 else 1.0 - smooth((sinceStart / TIP_SECONDS).coerceIn(0.0, 1.0))
+        val path = MenuScenes.forArea(spot.area)?.camera.orEmpty()
+        if (path.size >= 2) return along(path, t, gaze)
+
         val radians = Math.toRadians(yaw)
         val forwardX = -sin(radians)
         val forwardZ = cos(radians)
@@ -277,13 +290,54 @@ object HubSceneRenderer {
         fun bezier(a: Double, b: Double, c: Double, d: Double) = u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d
 
         val descent = pitch + (52.0 - pitch) * u * u
-        val gaze = if (introStart < 0L) 1.0 else 1.0 - smooth((sinceStart / TIP_SECONDS).coerceIn(0.0, 1.0))
         return Pose(
             bezier(p0x, p1x, p2x, endX),
             bezier(p0y, p1y, p2y, endY),
             bezier(p0z, p1z, p2z, endZ),
             yaw - 28.0 * u,
             descent + (GAZE_PITCH - descent) * gaze,
+        )
+    }
+
+    private fun introSeconds(): Double {
+        val path = MenuScenes.forArea(scene?.area)?.camera.orEmpty()
+        if (path.size < 2) return INTRO_SECONDS
+        return (pathLengths(path).sum() / PATH_SPEED).coerceIn(MIN_PATH_SECONDS, MAX_PATH_SECONDS)
+    }
+
+    private fun pathLengths(path: List<MenuScenes.Shot>): List<Double> =
+        path.zipWithNext { a, b -> sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z)) }
+
+    // Glides through the recorded shots on a Catmull-Rom curve, at an even pace by distance, so
+    // the camera passes through every one of them facing the way it was recorded.
+    private fun along(path: List<MenuScenes.Shot>, t: Double, gaze: Double): Pose {
+        val lengths = pathLengths(path)
+        var left = t * lengths.sum()
+        var i = 0
+        while (i < lengths.size - 1 && left > lengths[i]) {
+            left -= lengths[i]
+            i++
+        }
+        val u = if (lengths[i] > 0.0) (left / lengths[i]).coerceIn(0.0, 1.0) else 0.0
+        val a = path[max(i - 1, 0)]
+        val b = path[i]
+        val c = path[i + 1]
+        val d = path[min(i + 2, path.size - 1)]
+        fun spline(p0: Double, p1: Double, p2: Double, p3: Double) =
+            0.5 * (2 * p1 + (p2 - p0) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (3 * p1 - p0 - 3 * p2 + p3) * u * u * u)
+
+        // Yaws are unwrapped against their neighbours so the camera always turns the short way.
+        val yawB = b.yaw.toDouble()
+        val yawA = yawB - Mth.wrapDegrees(yawB - a.yaw)
+        val yawC = yawB + Mth.wrapDegrees(c.yaw - yawB)
+        val yawD = yawC + Mth.wrapDegrees(d.yaw - yawC)
+        val pitch = spline(a.pitch.toDouble(), b.pitch.toDouble(), c.pitch.toDouble(), d.pitch.toDouble())
+        return Pose(
+            spline(a.x, b.x, c.x, d.x),
+            spline(a.y, b.y, c.y, d.y) + EYE_HEIGHT,
+            spline(a.z, b.z, c.z, d.z),
+            spline(yawA, yawB, yawC, yawD),
+            pitch + (GAZE_PITCH - pitch) * gaze,
         )
     }
 
@@ -353,8 +407,8 @@ object HubSceneRenderer {
                 )
                 built = mesh
                 state = State.BUILT
-                // The walk is laid out in hub coordinates, so other areas go without it.
-                if (spot.area == HubScene.HUB) HubWalker.prepare(world) else HubWalker.forget()
+                val script = MenuScenes.forArea(spot.area)
+                if (script != null && script.walk.size >= 2) HubWalker.prepare(world, script) else HubWalker.forget()
             } catch (error: Throwable) {
                 logger.error("Could not build the hub scene.", error)
                 state = State.FAILED

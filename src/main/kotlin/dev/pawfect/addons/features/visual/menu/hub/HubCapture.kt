@@ -40,8 +40,8 @@ object HubScene {
         if (area == HUB) "hub_scene.nbt" else "menu_scene_${area.lowercase().replace(Regex("[^a-z0-9_]"), "_")}.nbt",
     )
 
-    /** Every camera spot. A spot saved before scenes were kept per area carries over as the hub's. */
-    fun spots(): MutableList<MenuSpot> {
+    /** The spots set with /pa menu here. One saved before scenes were kept per area carries over as the hub's. */
+    fun configSpots(): MutableList<MenuSpot> {
         val config = ConfigManager.features.menu
         if (config.anchorSet && config.spots.none { it.area == HUB }) {
             config.spots += MenuSpot().apply {
@@ -56,6 +56,12 @@ object HubScene {
             ConfigManager.save(ConfigFileType.FEATURES, "menu spots")
         }
         return config.spots
+    }
+
+    /** Every scene's spot: a scripted scene's own, otherwise the one set in game. */
+    fun spots(): List<MenuSpot> {
+        val scripted = listOf(HUB, "combat_3").mapNotNull { area -> MenuScenes.forArea(area)?.spot?.also { it.area = area } }
+        return scripted + configSpots().filter { spot -> scripted.none { it.area == spot.area } }
     }
 
     fun spot(area: String?): MenuSpot? = area?.let { name -> spots().firstOrNull { it.area == name } }
@@ -128,7 +134,7 @@ object HubCapture {
 
     /** Saves [area]'s camera spot, returning true if it moved far enough to start its capture over. */
     fun setAnchor(area: String, x: Double, y: Double, z: Double, yaw: Float, pitch: Float): Boolean {
-        val spots = HubScene.spots()
+        val spots = HubScene.configSpots()
         val old = spots.firstOrNull { it.area == area }
         val moved = old != null && (abs(old.x - x) > MOVED_FAR_BLOCKS || abs(old.z - z) > MOVED_FAR_BLOCKS)
         if (moved) clear(area)
@@ -161,7 +167,7 @@ object HubCapture {
     /** Forgets [area]'s camera spot and its blocks, taking it out of the menu's rotation. */
     fun remove(area: String): Boolean {
         clear(area)
-        val removed = HubScene.spots().removeIf { it.area == area }
+        val removed = HubScene.configSpots().removeIf { it.area == area }
         if (removed) ConfigManager.save(ConfigFileType.FEATURES, "menu spot removed")
         return removed
     }
