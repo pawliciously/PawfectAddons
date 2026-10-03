@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.cosmetics.Cosmetics;
 import dev.pawfect.addons.features.chat.LevelPrestige;
+import dev.pawfect.addons.features.slayer.NukekubiGlow;
 import dev.pawfect.addons.features.visual.DungeonBats;
 import dev.pawfect.addons.features.visual.StarMobGlow;
 
@@ -25,6 +26,8 @@ public abstract class EntityRendererMixin {
             state.outlineColor = ARGB.opaque(DungeonBats.getGlowColor());
         } else if (StarMobGlow.shouldGlow(entity)) {
             state.outlineColor = StarMobGlow.outlineColor();
+        } else if (NukekubiGlow.shouldGlow(entity)) {
+            state.outlineColor = NukekubiGlow.outlineColor();
         }
     }
 

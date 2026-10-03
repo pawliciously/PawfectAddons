@@ -117,6 +117,14 @@ object PawfectSettings {
                     ToggleSetting("Show Hit Phase", "Show hits left while the Voidgloom Seraph shield is up.", slayers::showHitPhase),
                 ),
                 group(
+                    "Voidgloom",
+                    ToggleSetting("Nukekubi Head Glow", "Glow the floating heads that keep damaging you during a Voidgloom Seraph fight.", slayers::nukekubiGlow),
+                    ColorSetting("Glow Colour", "Colour of the head glow.", slayers::nukekubiColor, false)
+                        .showIf { slayers.nukekubiGlow },
+                    FloatSliderSetting("Glow Opacity", "Strength of the glow.", slayers::nukekubiOpacity, 0.15f, 0.9f, 0.05f)
+                        .showIf { slayers.nukekubiGlow },
+                ),
+                group(
                     "World Text",
                     FloatSliderSetting("Text Scale", "Size of the health text drawn at the boss.", slayers::worldScale, 0.5f, 3f)
                         .showIf { slayers.display != SlayerDisplay.HUD },

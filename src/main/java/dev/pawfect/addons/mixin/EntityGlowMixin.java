@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import dev.pawfect.addons.features.slayer.NukekubiGlow;
 import dev.pawfect.addons.features.visual.DungeonBats;
 import dev.pawfect.addons.features.visual.StarMobGlow;
 
@@ -15,6 +16,6 @@ public abstract class EntityGlowMixin {
     @Inject(method = "isCurrentlyGlowing", at = @At("HEAD"), cancellable = true)
     private void pawfectaddons$forceGlow(CallbackInfoReturnable<Boolean> cir) {
         Entity entity = (Entity) (Object) this;
-        if (DungeonBats.shouldHighlight(entity) || StarMobGlow.shouldGlow(entity)) cir.setReturnValue(true);
+        if (DungeonBats.shouldHighlight(entity) || StarMobGlow.shouldGlow(entity) || NukekubiGlow.shouldGlow(entity)) cir.setReturnValue(true);
     }
 }

@@ -25,6 +25,15 @@ class SlayersConfig {
     var showHitPhase: Boolean = true
 
     @Expose
+    var nukekubiGlow: Boolean = true
+
+    @Expose
+    var nukekubiColor: Int = 0x55FF55
+
+    @Expose
+    var nukekubiOpacity: Float = 0.75f
+
+    @Expose
     var worldScale: Float = 1f
 
     @Expose
