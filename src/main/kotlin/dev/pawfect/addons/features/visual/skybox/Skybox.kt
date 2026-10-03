@@ -23,8 +23,16 @@ import kotlin.math.tan
 
 object Skybox {
 
-    private const val UNIFORM_STRIDE = 256
+    private const val UNIFORM_STRIDE = 512
     private const val LUT_INTERVAL_MS = 50L
+
+    // The Milky Way drifts by rotating its lookup per frame, so its LUT only refreshes for the
+    // slow internal motion of the clouds, which moves far less than a texel in this time. Its LUT
+    // is also the largest, so it refreshes a band of rows at a time: the cost is spread evenly
+    // over several frames instead of landing on one.
+    private const val GALAXY_LUT_INTERVAL_MS = 100L
+    private const val GALAXY_LUT_SLICES = 8
+
     private const val STAR_CHANCE = 0.11f
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Skybox")
@@ -49,6 +57,7 @@ object Skybox {
     private var lastLut = 0L
     private var lastSignature = 0
     private var lutDirty = true
+    private var lutSlice = 0
 
     private val scratch: ByteBuffer =
         ByteBuffer.allocateDirect(UNIFORM_STRIDE).order(ByteOrder.nativeOrder())
@@ -111,7 +120,10 @@ object Skybox {
         val colorView = target.colorTextureView ?: return
 
         val quality = config.quality
-        if (!ensureTarget(quality.lutWidth, quality.lutHeight)) return
+        val milky = config.effect == SkyEffect.MILKY_WAY
+        val lutWidth = if (milky) quality.galaxyLutWidth else quality.lutWidth
+        val lutHeight = if (milky) quality.galaxyLutHeight else quality.lutHeight
+        if (!ensureTarget(lutWidth, lutHeight)) return
         val lutView = view ?: return
 
         val now = System.currentTimeMillis()
@@ -132,17 +144,28 @@ object Skybox {
         val scale = config.renderScale.coerceIn(0.25f, 1f)
         val scaled = scale < 0.999f
         if (!scaled && scaledView != null) releaseScaled()
+        val outputWidth = if (scaled) (target.width * scale).toInt().coerceAtLeast(1) else target.width
+        val outputHeight = if (scaled) (target.height * scale).toInt().coerceAtLeast(1) else target.height
 
-        writeUniforms(encoder, buffer, target.width.toFloat() / target.height.toFloat(), scaled)
+        writeUniforms(encoder, buffer, target.width.toFloat() / target.height.toFloat(), scaled, outputHeight)
 
         val signature = signature()
         val animated = config.speed > 0.001f && lutAnimates()
-        val refresh = lutDirty || signature != lastSignature || (animated && now - lastLut >= LUT_INTERVAL_MS)
+        val full = lutDirty || signature != lastSignature
+        val slices = if (milky) GALAXY_LUT_SLICES else 1
+        val interval = (if (milky) GALAXY_LUT_INTERVAL_MS else LUT_INTERVAL_MS) / slices
 
-        if (refresh) {
-            encoder.createRenderPass({ "pawfect_sky_lut" }, lutView, OptionalInt.of(0)).use { pass ->
+        if (full || (animated && now - lastLut >= interval)) {
+            val sliced = !full && slices > 1
+            encoder.createRenderPass({ "pawfect_sky_lut" }, lutView, if (sliced) OptionalInt.empty() else OptionalInt.of(0)).use { pass ->
                 pass.setPipeline(SkyboxPipelines.LUT)
                 pass.setUniform("SkyData", buffer.slice(0L, UNIFORM_STRIDE.toLong()))
+                if (sliced) {
+                    val top = lutSlice * height / slices
+                    val bottom = (lutSlice + 1) * height / slices
+                    pass.enableScissor(0, top, width, bottom - top)
+                    lutSlice = (lutSlice + 1) % slices
+                }
                 pass.draw(0, 6)
             }
             lastLut = now
@@ -160,10 +183,7 @@ object Skybox {
             return
         }
 
-        val lowView = ensureScaled(
-            (target.width * scale).toInt().coerceAtLeast(1),
-            (target.height * scale).toInt().coerceAtLeast(1),
-        ) ?: return
+        val lowView = ensureScaled(outputWidth, outputHeight) ?: return
         encoder.createRenderPass({ "pawfect_sky_composite_scaled" }, lowView, OptionalInt.of(0)).use { pass ->
             pass.setPipeline(SkyboxPipelines.COMPOSITE)
             pass.bindTexture("SkySampler", lutView, wrap)
@@ -178,7 +198,7 @@ object Skybox {
     }
 
     private fun lutAnimates(): Boolean =
-        config.effect == SkyEffect.LIQUID || config.effect == SkyEffect.NEBULA
+        config.effect == SkyEffect.LIQUID || config.effect == SkyEffect.NEBULA || config.effect == SkyEffect.MILKY_WAY
 
     private fun signature(): Int {
         var hash = config.effect.ordinal
@@ -240,7 +260,7 @@ object Skybox {
         else -> fromAngles(35f, 90f)
     }
 
-    private fun writeUniforms(encoder: CommandEncoder, buffer: GpuBuffer, aspect: Float, scaled: Boolean) {
+    private fun writeUniforms(encoder: CommandEncoder, buffer: GpuBuffer, aspect: Float, scaled: Boolean, screenHeight: Int) {
         val camera = McCompat.mc.gameRenderer.mainCamera
         val forward = Vector3f(camera.forwardVector())
         val up = Vector3f(camera.upVector())
@@ -278,10 +298,11 @@ object Skybox {
         scratch.putFloat(config.speed.coerceIn(0f, 3f))
         scratch.putFloat(config.brightness.coerceIn(0.2f, 3f))
 
-        scratch.putFloat(quality.marchSteps.toFloat())
+        val milky = config.effect == SkyEffect.MILKY_WAY
+        scratch.putFloat(if (milky) quality.galaxyOctaves.toFloat() else quality.marchSteps.toFloat())
         scratch.putFloat(config.featureScale.coerceIn(0.3f, 3f))
         scratch.putFloat(quality.starLayers.toFloat())
-        scratch.putFloat(quality.lutHeight.toFloat())
+        scratch.putFloat(height.toFloat())
 
         scratch.putFloat(config.seed.coerceIn(1, 999).toFloat() * 0.618f)
         scratch.putFloat(if (scaled) 1f else 0f)
@@ -297,6 +318,15 @@ object Skybox {
         scratch.putFloat(((colour3 shr 8) and 0xFF) / 255f)
         scratch.putFloat((colour3 and 0xFF) / 255f)
         scratch.putFloat(0f)
+
+        if (milky) {
+            val frequency = if (config.speed > 0.001f) config.shootingStars else 0f
+            MilkyWay.update(clock, config.seed, System.nanoTime() / 1e9, frequency)
+        } else {
+            MilkyWay.clear()
+        }
+        MilkyWay.writeFrame(scratch, right, up, config.twinkle, quality.ordinal, 2f * tanHalf / screenHeight)
+        MilkyWay.writeMeteors(scratch)
 
         while (scratch.position() < UNIFORM_STRIDE) scratch.put(0)
         scratch.flip()

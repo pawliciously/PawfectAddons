@@ -14,6 +14,15 @@ layout(std140) uniform SkyData {
     vec4 extra;
     vec4 tint2;
     vec4 tint3;
+    vec4 galX;
+    vec4 galY;
+    vec4 galZ;
+    vec4 galRight;
+    vec4 galUp;
+    vec4 meteorHead[3];
+    vec4 meteorPath[3];
+    vec4 meteorSide[3];
+    vec4 meteorTint[3];
 };
 
 const float PI = 3.14159265359;
@@ -88,6 +97,25 @@ float ridge3(vec3 p, int oct) {
         amp *= 0.52;
     }
     return sum;
+}
+
+// Each octave is turned by a fixed orthonormal matrix before it is scaled up. Value noise lines
+// up with its lattice axes; rotating between octaves stops those alignments from stacking into
+// visible horizontal and vertical streaks, for nine multiply-adds per octave.
+const mat3 OCTAVE_TURN = mat3(0.00, 0.80, 0.60, -0.80, 0.36, -0.48, -0.60, -0.48, 0.64);
+
+float fbmTurned(vec3 p, int oct) {
+    float sum = 0.0;
+    float amp = 0.5;
+    float norm = 0.0;
+    for (int i = 0; i < 6; i++) {
+        if (i >= oct) break;
+        sum += amp * paNoise3(p);
+        norm += amp;
+        p = OCTAVE_TURN * p * 2.03;
+        amp *= 0.55;
+    }
+    return sum / norm;
 }
 
 vec3 rotAxis(vec3 p, vec3 axis, float a) {
@@ -200,6 +228,99 @@ vec3 liquidLut(vec3 dir, float time, float seed, float intensity, float k, vec3 
     return max(col, vec3(0.0)) * mix(0.55, 1.55, intensity);
 }
 
+// The Milky Way is built in galactic coordinates: the band runs along the equator (y = 0) and the
+// galactic centre sits at +x. Baking it in that frame puts the band on the LUT's densest rows,
+// leaves the coarse rows near the poles with nothing but faint haze, and lets the composite drift
+// the whole sky every frame with one rotation, so this pass only refreshes for internal motion.
+vec4 milkyWayLut(vec3 d, float time, float seed, float intensity, float k, int oct, vec3 pink, vec3 deep, vec3 glow) {
+    vec3 off = mod(vec3(seed * 3.17, seed * 1.91, seed * 5.43), 97.0);
+
+    // Each layer drifts through the noise field in its own direction. The sky is a sphere sampled
+    // inside that field, so a drift reads as clouds churning and folding rather than one sheet
+    // sliding, and because nothing here is periodic the motion never visibly loops.
+    vec3 flowA = time * vec3(0.0012, 0.00046, -0.00084);
+    vec3 flowB = time * vec3(-0.00076, 0.00094, 0.00058);
+    vec3 flowC = time * vec3(0.00054, -0.00062, 0.00104);
+
+    // The band meanders and swells along its length and thickens into a bulge at the centre.
+    float toward = d.x * 0.5 + 0.5;
+    float bulge = toward * toward;
+    bulge *= bulge;
+    float meander = (paNoise3(d * (1.6 * k) + off) - 0.5) * 0.12 + (paNoise3(d * (4.3 * k) + off + 7.0) - 0.5) * 0.045;
+    float swell = 0.65 + 0.7 * paNoise3(d * (1.1 * k) + off + 3.3 + flowC * 0.5);
+    float width = (0.07 + 0.07 * bulge) * swell * mix(0.8, 1.3, intensity);
+    float b = (d.y - meander) / width;
+    float b2 = b * b;
+    float band = exp(-b2);
+    float halo = exp(-b2 * 0.09);
+    float wide = exp(-b2 * 0.02);
+
+    // Stretching y makes every structure run along the plane instead of forming round blobs.
+    vec3 p = vec3(d.x, d.y * 2.2, d.z) * (2.6 * k) + off;
+
+    // Two-level domain warp: q bends the space the clouds are read from. That folding is what
+    // turns plain fBm into wisps and filaments, for far less than marching through a volume.
+    vec3 q = vec3(
+        fbmTurned(p * 0.8 + flowA, 3),
+        fbmTurned(p * 0.8 + vec3(5.2, 1.3, 2.8) + flowB, 3),
+        fbmTurned(p * 0.8 + vec3(1.7, 9.2, 4.4) + flowC, 3)
+    );
+    vec3 w = p + (q - 0.5) * 1.2;
+
+    // Smooth fBm alone looks like liquid. Thresholded clumps at a higher frequency break it into
+    // the lumpy star clouds the real band is made of.
+    float lumps = smoothstep(0.45, 0.8, fbmTurned(w * 3.8 + flowA * 1.7, 3));
+    float cloud = fbmTurned(w * 1.6 + flowB * 1.3, oct) * 0.85 + lumps * 0.2;
+    vec3 dw = vec3(w.x, w.y * 1.5, w.z) * 2.1 + vec3(11.0, 3.0, 7.0) - flowA;
+    float dust = fbmTurned(dw, max(oct - 1, 2)) * 0.75 + fbmTurned(dw * 3.1 + 4.0, 2) * 0.25;
+    float region = fbmTurned(p * 0.45 + vec3(31.0, 17.0, 5.0) + flowC * 0.4, 3);
+    float haze = fbmTurned(d * (1.3 * k) + off + flowB * 0.3, 3);
+
+    float em = smoothstep(0.36, 0.76, cloud);
+    float bright = smoothstep(0.60, 0.86, cloud);
+
+    // Pink on one side of the plane and blue on the other, split by a slow region field so the
+    // boundary never runs straight. The bulge stays pink.
+    float blueSide = smoothstep(0.30, 0.62, region + clamp(b * 0.12, -0.3, 0.3)) * (1.0 - bulge * 0.7) * (1.0 - band * 0.85);
+
+    vec3 violet = mix(pink, deep, 0.55);
+    vec3 rose = mix(pink, glow, 0.55);
+    vec3 sky = mix(deep, vec3(0.45, 0.65, 1.0), 0.35);
+    vec3 warmRamp = mix(violet * 0.45, pink, smoothstep(0.0, 0.5, em));
+    warmRamp = mix(warmRamp, rose * 1.25, smoothstep(0.45, 0.9, em));
+    warmRamp = mix(warmRamp, glow * 1.6, bright * bright);
+    vec3 coolRamp = mix(deep * 0.6, sky * 1.25, smoothstep(0.0, 0.7, em));
+    coolRamp = mix(coolRamp, mix(sky, vec3(0.85, 0.92, 1.0), 0.5) * 1.2, bright * bright);
+    vec3 nebula = mix(warmRamp, coolRamp, blueSide);
+
+    float density = band * (0.26 + 1.6 * em + 1.1 * bright) + halo * (0.12 + 0.25 * em);
+    vec3 col = nebula * density;
+
+    float coreLine = exp(-b2 * 3.5);
+    col += mix(glow, vec3(1.0), 0.35) * coreLine * (0.10 + 0.9 * bulge) * (0.3 + bright);
+    col += rose * bulge * exp(-b2 * 0.6) * 0.30;
+
+    // Dust sits in a thinner slab than the glow and blocks it. Where it thins out, the light
+    // that gets through is reddened, which gives the dark lanes their warm rims.
+    float slab = exp(-b2 * 1.4);
+    float lane = smoothstep(0.45, 0.60, dust) * slab;
+    float rim = smoothstep(0.38, 0.50, dust) * slab;
+    col *= mix(vec3(1.0), vec3(1.0, 0.6, 0.46), rim * 0.7);
+    col *= 1.0 - 0.92 * lane;
+
+    // The night behind it is navy rather than black, with broad blue veils beside the band and a
+    // violet glow hugging it, the way the band's light scatters in long exposures.
+    float veil = smoothstep(0.42, 0.75, region) * wide;
+    vec3 night = deep * (0.09 + 0.14 * haze) + vec3(0.008, 0.008, 0.026);
+    night += mix(violet, deep, 0.3) * halo * 0.34 * (1.0 - 0.85 * lane);
+    night += sky * veil * (0.14 + 0.36 * haze);
+    col += night;
+
+    // Alpha carries the dust coverage, so the composite can roughen the lanes' edges at full
+    // resolution and keep stars out of them.
+    return vec4(col * mix(0.6, 1.3, intensity), lane);
+}
+
 vec3 voidBase(vec3 dir, float seed, float intensity, float k, vec3 warm, vec3 cool, vec3 hot) {
     vec3 off = vec3(seed * 4.13, seed * 2.37, seed * 6.71);
     float g = smoothstep(1.05, 2.60, spiralC(dir * (1.6 * k) + off, 5));
@@ -234,6 +355,10 @@ void main() {
     } else if (effect == 2) {
         radiance = liquidLut(dir, time, seed, intensity, k, warm, cool, hot);
         alpha = 0.0;
+    } else if (effect == 7) {
+        vec4 m = milkyWayLut(dir, time, seed, intensity, k, marchSteps, warm, cool, hot);
+        radiance = m.rgb;
+        alpha = m.a;
     } else {
         radiance = voidBase(dir, seed, intensity, k, warm, cool, hot);
         alpha = 1.0;

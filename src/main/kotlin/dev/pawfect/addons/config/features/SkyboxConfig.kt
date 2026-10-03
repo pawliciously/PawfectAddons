@@ -35,6 +35,12 @@ class SkyboxConfig {
     var onlyAtNight: Boolean = false
 
     @Expose
+    var twinkle: Float = 0.5f
+
+    @Expose
+    var shootingStars: Float = 0.5f
+
+    @Expose
     var customColors: Boolean = false
 
     @Expose
@@ -58,6 +64,8 @@ class SkyboxConfig {
         if (quality == null) quality = SkyQuality.MEDIUM
         if (seed < 1 || seed > 999) seed = 1
         if (featureScale < 0.3f || featureScale > 3f) featureScale = featureScale.coerceIn(0.3f, 3f)
+        twinkle = twinkle.coerceIn(0f, 1f)
+        shootingStars = shootingStars.coerceIn(0f, 1f)
     }
 
     enum class SkyEffect(
@@ -73,7 +81,8 @@ class SkyboxConfig {
         STARS("Stars", 3, false, 0x9D73FF, 0x1E2A5E, 0xFFF6E8),
         CAUSTICS("Caustics", 4, false, 0x53E0FF, 0x0B3A6B, 0xE8FFFF),
         AURORA("Aurora", 5, false, 0x3FFF9E, 0x8A5CFF, 0xD8FFF0),
-        GALAXY("Galaxy", 6, false, 0x8C6BFF, 0x4A3A8C, 0xFFB25E),
+        GALAXY("Black Hole", 6, false, 0x8C6BFF, 0x4A3A8C, 0xFFB25E),
+        MILKY_WAY("Milky Way", 7, true, 0xD84A93, 0x2B3FB0, 0xFFD0DA),
         ;
 
         override fun toString(): String = label
@@ -85,10 +94,13 @@ class SkyboxConfig {
         val lutHeight: Int,
         val marchSteps: Int,
         val starLayers: Int,
+        val galaxyLutWidth: Int,
+        val galaxyLutHeight: Int,
+        val galaxyOctaves: Int,
     ) {
-        LOW("Low", 192, 96, 18, 1),
-        MEDIUM("Medium", 320, 160, 28, 2),
-        HIGH("High", 448, 224, 40, 2),
+        LOW("Low", 192, 96, 18, 1, 1024, 320, 4),
+        MEDIUM("Medium", 320, 160, 28, 2, 1536, 448, 5),
+        HIGH("High", 448, 224, 40, 2, 2048, 576, 6),
         ;
 
         override fun toString(): String = label

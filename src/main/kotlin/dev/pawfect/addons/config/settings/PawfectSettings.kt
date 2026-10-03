@@ -760,6 +760,10 @@ object PawfectSettings {
                         .showIf { skybox.enabled },
                     IntSliderSetting("Seed", "Reshuffles the layout of this sky.", skybox::seed, 1, 999)
                         .showIf { skybox.enabled && skybox.effect.randomised },
+                    FloatSliderSetting("Twinkle", "How much individual stars shimmer.", skybox::twinkle, 0f, 1f, 0.05f)
+                        .showIf { skybox.enabled && skybox.effect == SkyEffect.MILKY_WAY },
+                    FloatSliderSetting("Shooting Stars", "How often a shooting star crosses the sky. Zero turns them off.", skybox::shootingStars, 0f, 1f, 0.05f)
+                        .showIf { skybox.enabled && skybox.effect == SkyEffect.MILKY_WAY },
                 ),
                 group(
                     "Colour",
