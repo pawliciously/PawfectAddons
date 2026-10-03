@@ -52,11 +52,14 @@ internal object MenuScenes {
     )
 
     // The camera dives off the island's edge and down into the hollow, where the walker comes
-    // round to greet it and heads back out of view.
+    // round to greet it and heads back out of view. The two shots partway down the dive were
+    // found by searching the captured blocks for open air, so the drop clears the island's rim.
     private val END = Script(
         camera = listOf(
             Shot(-500.14, 101.0, -275.14, 78.13f, -0.94f),
             Shot(-544.45, 102.64, -266.3, 110.41f, 64.58f),
+            Shot(-553.5, 27.88, -267.5, 94.44f, 2.64f),
+            Shot(-556.5, 24.88, -269.5, 93.45f, -1.22f),
             Shot(-564.26, 22.5, -274.28, 91.45f, -8.97f),
             Shot(-612.53, 27.97, -275.48, 90.43f, 0.77f),
         ),
@@ -76,4 +79,9 @@ internal object MenuScenes {
     private val scripts = mapOf(HubScene.HUB to HUB, "combat_3" to END)
 
     fun forArea(area: String?): Script? = area?.let(scripts::get)
+
+    private val titles = mapOf(HubScene.HUB to "SkyBlock Hub", "combat_3" to "The End")
+
+    /** The name shown for an area's scene on the menu. */
+    fun title(area: String): String = titles[area] ?: area.split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) }
 }

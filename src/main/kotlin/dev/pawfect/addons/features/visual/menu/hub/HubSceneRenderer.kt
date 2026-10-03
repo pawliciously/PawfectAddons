@@ -107,6 +107,34 @@ object HubSceneRenderer {
         return HubScene.spots().filter { HubScene.file(it.area).exists() }.randomOrNull()?.also { scene = it }
     }
 
+    private fun captured(): List<MenuSpot> = HubScene.spots().filter { HubScene.file(it.area).exists() }
+
+    /** True when there is more than one captured scene to switch between. */
+    @JvmStatic
+    fun canSwitch(): Boolean = enabled() && captured().size > 1
+
+    /** The name of the scene being shown, for the menu's button and credit. */
+    @JvmStatic
+    fun sceneTitle(): String = MenuScenes.title(scene()?.area ?: HubScene.HUB)
+
+    /** Moves on to the next captured scene and plays its intro, for the menu's background button. */
+    @JvmStatic
+    fun next() {
+        if (state == State.BUILDING) return
+        val scenes = captured()
+        if (scenes.size < 2) return
+        val at = scenes.indexOfFirst { it.area == scene?.area }
+        scene = scenes[(at + 1) % scenes.size]
+        release()
+        state = State.IDLE
+        HubWalker.forget()
+        HubWalker.restart()
+        introStart = -1L
+        introPlayed = false
+        readyAt = 0L
+        settledAt = 0L
+    }
+
     /** True when the menu should show a captured area instead of its usual background. */
     @JvmStatic
     fun active(): Boolean {

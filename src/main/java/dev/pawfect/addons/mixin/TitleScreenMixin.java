@@ -27,12 +27,26 @@ public abstract class TitleScreenMixin extends Screen {
                 .bounds(4, this.height - 24, 98, 20)
                 .build()
         );
+        if (HubSceneRenderer.canSwitch()) {
+            addRenderableWidget(
+                Button.builder(backgroundLabel(), button -> {
+                    HubSceneRenderer.next();
+                    button.setMessage(backgroundLabel());
+                })
+                    .bounds(106, this.height - 24, 140, 20)
+                    .build()
+            );
+        }
+    }
+
+    private static Component backgroundLabel() {
+        return Component.literal("Background: " + HubSceneRenderer.sceneTitle());
     }
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void pawfectaddons$hubCredit(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo callback) {
         if (!HubSceneRenderer.active()) return;
-        String credit = "SkyBlock Hub by Hypixel";
+        String credit = HubSceneRenderer.sceneTitle() + " by Hypixel";
         graphics.text(this.font, credit, this.width - this.font.width(credit) - 2, this.height - 20, 0xB3FFFFFF, true);
     }
 }
