@@ -35,6 +35,12 @@ class SkyboxConfig {
     var onlyAtNight: Boolean = false
 
     @Expose
+    var solidSky: Boolean = false
+
+    @Expose
+    var solidSkyColor: Int = 0x0B0D1A
+
+    @Expose
     var twinkle: Float = 0.5f
 
     @Expose

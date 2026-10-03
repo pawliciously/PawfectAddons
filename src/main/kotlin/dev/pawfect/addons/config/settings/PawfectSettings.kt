@@ -747,6 +747,9 @@ object PawfectSettings {
                         .showIf { skybox.enabled },
                     ToggleSetting("Night Only", "Only render between dusk and dawn.", skybox::onlyAtNight)
                         .showIf { skybox.enabled },
+                    ToggleSetting("Solid Colour Sky", "Paint the sky one flat colour instead of the vanilla sky. Works without the shader; the shader sky wins when both are on.", skybox::solidSky),
+                    ColorSetting("Sky Colour", "The colour the sky is painted.", skybox::solidSkyColor, false)
+                        .showIf { skybox.solidSky },
                 ),
                 group(
                     "Look",

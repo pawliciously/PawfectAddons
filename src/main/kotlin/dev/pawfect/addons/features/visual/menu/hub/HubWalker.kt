@@ -76,6 +76,8 @@ internal object HubWalker {
     private const val TICK_SECONDS = 0.05
     private const val MAX_TICKS_PER_FRAME = 10
     private const val SKIN_RETRY_MS = 30_000L
+    // Once inside the castle the walker is gone; this long after, the walk starts over.
+    private const val REAPPEAR_TICKS = 200
 
     // Vanilla's walking pace, jump and gravity, per tick.
     private const val WALK_SPEED = 0.2158
@@ -235,6 +237,10 @@ internal object HubWalker {
             ticks++
         }
         pending %= 1.0
+        if (phase == Phase.RESTING) {
+            if (phaseTicks >= REAPPEAR_TICKS) begin(walk)
+            return
+        }
         render(walk, skin, pending.toFloat(), cameraX, cameraY, cameraZ, rotation, view, projection, pixelAngle)
     }
 
@@ -366,10 +372,6 @@ internal object HubWalker {
                 body.bodyYaw = approach(body.bodyYaw, yaw, 0.35f)
                 body.headYaw = approach(body.headYaw, yaw, 0.6f)
                 body.headPitch += (pitch - body.headPitch) * 0.6f
-            }
-            Phase.RESTING -> {
-                body.headYaw = approach(body.headYaw, body.bodyYaw, 0.1f)
-                body.headPitch += (0f - body.headPitch) * 0.1f
             }
             else -> {
                 val yaw = travelYaw(walk, body.distance)

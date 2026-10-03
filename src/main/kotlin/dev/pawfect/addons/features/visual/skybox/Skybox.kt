@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.OptionalInt
+import net.minecraft.util.ARGB
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tan
@@ -72,6 +73,17 @@ object Skybox {
         return true
     }
 
+    /** A flat sky colour that stands in for the vanilla sky when no shader sky is showing. */
+    private fun solidActive(): Boolean {
+        if (!config.solidSky || isActive()) return false
+        val client = McCompat.mc
+        return client.player != null && client.level != null
+    }
+
+    /** True when the vanilla sky, sun, moon and stars should give way to this one. */
+    @JvmStatic
+    fun replacesSky(): Boolean = isActive() || solidActive()
+
     fun invalidate() {
         failed = false
         lutDirty = true
@@ -111,8 +123,12 @@ object Skybox {
 
     @JvmStatic
     fun renderSky() {
-        if (!isActive()) return
-        runCatching { draw() }.onFailure { fail(it) }
+        if (isActive()) {
+            runCatching { draw() }.onFailure { fail(it) }
+        } else if (solidActive()) {
+            val texture = McCompat.mc.mainRenderTarget.colorTexture ?: return
+            RenderSystem.getDevice().createCommandEncoder().clearColorTexture(texture, ARGB.opaque(config.solidSkyColor))
+        }
     }
 
     private fun draw() {

@@ -28,7 +28,7 @@ public abstract class LevelRendererMixin {
             CameraRenderState cameraRenderState,
             GpuBufferSlice fog,
             CallbackInfo callback) {
-        if (!Skybox.isActive()) return;
+        if (!Skybox.replacesSky()) return;
 
         FramePass pass = builder.addPass("pawfectaddons_sky");
         this.targets.main = pass.readsAndWrites(this.targets.main);

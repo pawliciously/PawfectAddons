@@ -13,6 +13,6 @@ public abstract class SkyRendererMixin {
 
     @Inject(method = "renderSunMoonAndStars", at = @At("HEAD"), cancellable = true)
     private void pawfectaddons$hideCelestialBodies(CallbackInfo callback) {
-        if (Skybox.isActive()) callback.cancel();
+        if (Skybox.replacesSky()) callback.cancel();
     }
 }
