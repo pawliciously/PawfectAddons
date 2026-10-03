@@ -184,6 +184,9 @@ object HubCapture {
                 val key = SectionPos.asLong(cx, 0, cz)
                 if (key in doneThisVisit) continue
                 val chunk = level.chunkSource.getChunk(cx, cz, ChunkStatus.FULL, false) ?: continue
+                // Light arrives from the server after the blocks; capturing before it lands saves the
+                // chunk pitch dark, so it waits and is picked up on a later scan.
+                if (!level.lightEngine.lightOnInColumn(SectionPos.getZeroNode(cx, cz))) continue
                 capture(level, chunk, cx, cz, spot)
                 doneThisVisit += key
                 dirty = true

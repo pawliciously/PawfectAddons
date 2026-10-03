@@ -24,7 +24,7 @@ public abstract class TitleScreenMixin extends Screen {
     private void pawfectaddons$addConfigButton(CallbackInfo callback) {
         addRenderableWidget(
             Button.builder(Component.literal("PawfectAddons"), button -> ConfigGuiManager.INSTANCE.open("theme"))
-                .bounds(4, this.height - 24, 98, 20)
+                .bounds(4, this.height - 30, 98, 20)
                 .build()
         );
         if (HubSceneRenderer.canSwitch()) {
@@ -33,7 +33,7 @@ public abstract class TitleScreenMixin extends Screen {
                     HubSceneRenderer.next();
                     button.setMessage(backgroundLabel());
                 })
-                    .bounds(106, this.height - 24, 140, 20)
+                    .bounds(106, this.height - 30, 140, 20)
                     .build()
             );
         }

@@ -56,6 +56,7 @@ object HubSceneRenderer {
     private const val PATH_SPEED = 14.0
     private const val MIN_PATH_SECONDS = 6.0
     private const val MAX_PATH_SECONDS = 20.0
+    private const val FLIGHT_STEPS = 48
     private const val EYE_HEIGHT = 1.62
     private const val UNIFORM_SIZE = 256
     private const val MOON_RADIUS = 0.05f
@@ -298,8 +299,7 @@ object HubSceneRenderer {
 
         val t = smooth((sinceStart / intro).coerceIn(0.0, 1.0))
         val gaze = if (introStart < 0L) 1.0 else 1.0 - smooth((sinceStart / TIP_SECONDS).coerceIn(0.0, 1.0))
-        val path = MenuScenes.forArea(spot.area)?.camera.orEmpty()
-        if (path.size >= 2) return along(path, t, gaze)
+        flight()?.let { return along(it, t, gaze) }
 
         val radians = Math.toRadians(yaw)
         val forwardX = -sin(radians)
@@ -328,45 +328,87 @@ object HubSceneRenderer {
     }
 
     private fun introSeconds(): Double {
-        val path = MenuScenes.forArea(scene?.area)?.camera.orEmpty()
-        if (path.size < 2) return INTRO_SECONDS
-        return (pathLengths(path).sum() / PATH_SPEED).coerceIn(MIN_PATH_SECONDS, MAX_PATH_SECONDS)
+        val flight = flight() ?: return INTRO_SECONDS
+        return (flight.length / PATH_SPEED).coerceIn(MIN_PATH_SECONDS, MAX_PATH_SECONDS)
     }
 
-    private fun pathLengths(path: List<MenuScenes.Shot>): List<Double> =
-        path.zipWithNext { a, b -> sqrt((b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z)) }
+    /** A scripted camera path as dense samples of x, y, z, yaw and pitch, and how far along each one is. */
+    private class Flight(val samples: Array<DoubleArray>, val along: DoubleArray) {
+        val length: Double get() = along.last()
+    }
 
-    // Glides through the recorded shots on a Catmull-Rom curve, at an even pace by distance, so
-    // the camera passes through every one of them facing the way it was recorded.
-    private fun along(path: List<MenuScenes.Shot>, t: Double, gaze: Double): Pose {
-        val lengths = pathLengths(path)
-        var left = t * lengths.sum()
-        var i = 0
-        while (i < lengths.size - 1 && left > lengths[i]) {
-            left -= lengths[i]
-            i++
+    private var flight: Flight? = null
+    private var flightArea: String? = null
+
+    private fun flight(): Flight? {
+        val area = scene?.area ?: return null
+        if (area != flightArea) {
+            flightArea = area
+            flight = MenuScenes.forArea(area)?.camera?.takeIf { it.size >= 2 }?.let(::fly)
         }
-        val u = if (lengths[i] > 0.0) (left / lengths[i]).coerceIn(0.0, 1.0) else 0.0
-        val a = path[max(i - 1, 0)]
-        val b = path[i]
-        val c = path[i + 1]
-        val d = path[min(i + 2, path.size - 1)]
-        fun spline(p0: Double, p1: Double, p2: Double, p3: Double) =
-            0.5 * (2 * p1 + (p2 - p0) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (3 * p1 - p0 - 3 * p2 + p3) * u * u * u)
+        return flight
+    }
 
-        // Yaws are unwrapped against their neighbours so the camera always turns the short way.
-        val yawB = b.yaw.toDouble()
-        val yawA = yawB - Mth.wrapDegrees(yawB - a.yaw)
-        val yawC = yawB + Mth.wrapDegrees(c.yaw - yawB)
-        val yawD = yawC + Mth.wrapDegrees(d.yaw - yawC)
-        val pitch = spline(a.pitch.toDouble(), b.pitch.toDouble(), c.pitch.toDouble(), d.pitch.toDouble())
-        return Pose(
-            spline(a.x, b.x, c.x, d.x),
-            spline(a.y, b.y, c.y, d.y) + EYE_HEIGHT,
-            spline(a.z, b.z, c.z, d.z),
-            spline(yawA, yawB, yawC, yawD),
-            pitch + (GAZE_PITCH - pitch) * gaze,
-        )
+    // Centripetal Catmull-Rom through the shots: unlike the plain kind it keeps its shape where
+    // shots are unevenly spaced, instead of whipping through a short leg after a long one. The
+    // curve is then measured by true distance, so the camera keeps an even pace along it.
+    private fun fly(shots: List<MenuScenes.Shot>): Flight {
+        val keys = ArrayList<DoubleArray>()
+        for (shot in shots) {
+            // Each yaw is unwrapped against the one before, so the camera turns the short way.
+            val yaw = keys.lastOrNull()?.let { it[3] + Mth.wrapDegrees(shot.yaw - it[3]) } ?: shot.yaw.toDouble()
+            keys += doubleArrayOf(shot.x, shot.y, shot.z, yaw, shot.pitch.toDouble())
+        }
+        val points = listOf(mirror(keys[0], keys[1])) + keys + listOf(mirror(keys.last(), keys[keys.size - 2]))
+        val knots = DoubleArray(points.size)
+        for (i in 1 until points.size) knots[i] = knots[i - 1] + max(sqrt(distance(points[i - 1], points[i])), 1e-4)
+
+        val samples = ArrayList<DoubleArray>()
+        for (s in 1 until points.size - 2) {
+            for (k in 0 until FLIGHT_STEPS) {
+                val at = knots[s] + (knots[s + 1] - knots[s]) * k / FLIGHT_STEPS
+                samples += curvePoint(points[s - 1], points[s], points[s + 1], points[s + 2], knots[s - 1], knots[s], knots[s + 1], knots[s + 2], at)
+            }
+        }
+        samples += keys.last()
+        val along = DoubleArray(samples.size)
+        for (i in 1 until samples.size) along[i] = along[i - 1] + distance(samples[i - 1], samples[i])
+        return Flight(samples.toTypedArray(), along)
+    }
+
+    private fun mirror(end: DoubleArray, next: DoubleArray) = DoubleArray(end.size) { 2 * end[it] - next[it] }
+
+    private fun distance(a: DoubleArray, b: DoubleArray): Double =
+        sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2]))
+
+    // Barry and Goldman's pyramid of blends, which evaluates the curve at knot time [at].
+    private fun curvePoint(
+        p0: DoubleArray, p1: DoubleArray, p2: DoubleArray, p3: DoubleArray,
+        t0: Double, t1: Double, t2: Double, t3: Double, at: Double,
+    ): DoubleArray {
+        fun mix(a: DoubleArray, b: DoubleArray, from: Double, to: Double) =
+            DoubleArray(a.size) { ((to - at) * a[it] + (at - from) * b[it]) / (to - from) }
+        val a1 = mix(p0, p1, t0, t1)
+        val a2 = mix(p1, p2, t1, t2)
+        val a3 = mix(p2, p3, t2, t3)
+        return mix(mix(a1, a2, t0, t2), mix(a2, a3, t1, t3), t1, t2)
+    }
+
+    private fun along(flight: Flight, t: Double, gaze: Double): Pose {
+        val reach = t * flight.length
+        var lo = 0
+        var hi = flight.along.size - 1
+        while (hi - lo > 1) {
+            val mid = (lo + hi) ushr 1
+            if (flight.along[mid] <= reach) lo = mid else hi = mid
+        }
+        val span = flight.along[hi] - flight.along[lo]
+        val blend = if (span > 0.0) ((reach - flight.along[lo]) / span).coerceIn(0.0, 1.0) else 0.0
+        val a = flight.samples[lo]
+        val b = flight.samples[hi]
+        fun at(i: Int) = a[i] + (b[i] - a[i]) * blend
+        val pitch = at(4)
+        return Pose(at(0), at(1) + EYE_HEIGHT, at(2), at(3), pitch + (GAZE_PITCH - pitch) * gaze)
     }
 
     private fun smooth(x: Double): Double = x * x * x * (x * (x * 6 - 15) + 10)
