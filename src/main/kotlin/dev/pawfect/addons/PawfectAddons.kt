@@ -40,6 +40,7 @@ import dev.pawfect.addons.utils.SessionTracker
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
 import dev.pawfect.addons.features.visual.menu.hub.HubCapture
 import dev.pawfect.addons.features.visual.menu.hub.HubPipelines
+import dev.pawfect.addons.features.visual.menu.hub.HubSceneRenderer
 import dev.pawfect.addons.features.dungeon.HealerBox
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker
@@ -265,6 +266,7 @@ object PawfectAddons : ClientModInitializer {
         runCatching { Ripples.onTick() }
         runCatching { CosmeticEnroll.onTick() }
         runCatching { HubCapture.onTick() }
+        runCatching { HubSceneRenderer.preload() }
 
         if (McCompat.player == null) return
 

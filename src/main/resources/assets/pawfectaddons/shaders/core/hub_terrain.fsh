@@ -6,6 +6,8 @@ layout(std140) uniform HubScene {
     vec4 CameraForward;
     vec4 FogColor;
     vec4 SkyColor;
+    vec4 MoonDir;
+    vec4 Params;
 };
 
 uniform sampler2D Sampler0;
@@ -24,5 +26,6 @@ void main() {
     }
 #endif
     float fog = smoothstep(FogColor.a, SkyColor.a, fogDistance);
-    fragColor = vec4(mix(color.rgb, FogColor.rgb, fog), color.a);
+    float shown = fog + (1.0 - fog) * (1.0 - CameraForward.w);
+    fragColor = vec4(mix(color.rgb, FogColor.rgb, shown), color.a);
 }

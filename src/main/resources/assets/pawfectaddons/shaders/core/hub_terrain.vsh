@@ -8,6 +8,8 @@ layout(std140) uniform HubScene {
     vec4 CameraForward;
     vec4 FogColor;
     vec4 SkyColor;
+    vec4 MoonDir;
+    vec4 Params;
 };
 
 in vec3 Position;
@@ -31,8 +33,9 @@ void main() {
 
     float sky = lightCurve(float(UV2.y) / 16.0);
     float block = lightCurve(float(UV2.x) / 16.0);
-    vec3 light = max(vec3(sky), vec3(1.0, 0.92, 0.8) * block);
-    light = mix(vec3(0.07), vec3(1.0), light);
+    vec3 moonlight = vec3(0.52, 0.64, 1.0) * sky * Params.y;
+    vec3 lamps = vec3(1.0, 0.8, 0.55) * block;
+    vec3 light = max(moonlight, lamps) + vec3(0.025, 0.03, 0.045);
 
     vertexColor = vec4(Color.rgb * light, Color.a);
     texCoord0 = UV0;
