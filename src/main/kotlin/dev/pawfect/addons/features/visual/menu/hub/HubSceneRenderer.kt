@@ -39,7 +39,9 @@ object HubSceneRenderer {
     private const val FOV = 70f
     private const val NEAR = 0.05f
     private const val FAR = 700f
-    private const val INTRO_SECONDS = 8.0
+    private const val INTRO_SECONDS = 10.0
+    // How long the uploaded scene sits unseen before the fade, so its first frames have settled.
+    private const val SETTLE_BEFORE_FADE_NANOS = 1_000_000_000L
     private const val FADE_SECONDS = 1.6
     private const val SETTLE_SECONDS = 2.5
     private const val EYE_HEIGHT = 1.62
@@ -71,6 +73,7 @@ object HubSceneRenderer {
     private var atlas: AbstractTexture? = null
 
     private var introStart = -1L
+    private var readyAt = 0L
     private var introPlayed = false
     private var lastFrame = 0L
     private var settledAt = 0L
@@ -137,7 +140,8 @@ object HubSceneRenderer {
         val delta = if (lastFrame == 0L) 0.0 else ((now - lastFrame) / 1e9).coerceIn(0.0, 0.25)
         lastFrame = now
         val ready = state == State.READY && layers.isNotEmpty()
-        if (ready && introStart < 0L && mc.overlay == null) introStart = now
+        if (!ready) readyAt = 0L else if (readyAt == 0L) readyAt = now
+        if (ready && introStart < 0L && mc.overlay == null && now - readyAt >= SETTLE_BEFORE_FADE_NANOS) introStart = now
         val sinceStart = if (introStart < 0L) 0.0 else (now - introStart) / 1e9
 
         if (newVisit) {
@@ -249,10 +253,10 @@ object HubSceneRenderer {
         val forwardZ = cos(radians)
 
         val p0x = endX - forwardX * 70.0
-        val p0y = endY + 80.0
+        val p0y = endY + 180.0
         val p0z = endZ - forwardZ * 70.0
         val p1x = p0x + forwardX * 30.0
-        val p1y = p0y - 12.0
+        val p1y = p0y - 40.0
         val p1z = p0z + forwardZ * 30.0
         val p2x = endX - forwardX * 16.0
         val p2y = endY + 10.0

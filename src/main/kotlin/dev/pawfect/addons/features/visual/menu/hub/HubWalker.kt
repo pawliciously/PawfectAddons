@@ -471,7 +471,7 @@ internal object HubWalker {
             // The name tag stays clear of both, so it reads against the night.
             lightmap = null
             sceneFog?.let(RenderSystem::setShaderFog)
-            nameTag(storage, x - cameraX, y + height + 0.5 - cameraY, z - cameraZ, crouching, distance, pixelAngle)
+            nameTag(storage, x - cameraX, y + height + 0.5 - cameraY, z - cameraZ, distance, pixelAngle)
             features.renderAllFeatures()
             buffers.endBatch()
         } finally {
@@ -525,13 +525,14 @@ internal object HubWalker {
         state.capeLean2 = Mth.clamp((dx * forwardZ - dz * forwardX).toFloat() * 100f, -20f, 20f)
     }
 
-    private fun nameTag(storage: SubmitNodeCollector, x: Double, y: Double, z: Double, crouching: Boolean, distance: Double, pixelAngle: Double) {
+    private fun nameTag(storage: SubmitNodeCollector, x: Double, y: Double, z: Double, distance: Double, pixelAngle: Double) {
         val name = Cosmetics.styleNameTag(ID, NAME, Component.literal(NAME)) ?: Component.literal(NAME)
         val scale = (MIN_TAG_PIXELS * distance * pixelAngle / TAG_HEIGHT).coerceIn(1.0, MAX_TAG_SCALE).toFloat()
         val pose = PoseStack()
         pose.translate(x, y, z)
         pose.scale(scale, scale, scale)
-        storage.submitNameTag(pose, TAG_ORIGIN, 0, name, !crouching, FULL_BRIGHT, distance * distance, camera)
+        // Not see-through: the tag hides behind blocks like the walker does.
+        storage.submitNameTag(pose, TAG_ORIGIN, 0, name, false, FULL_BRIGHT, distance * distance, camera)
     }
 
     // The game's fog is linear in distance and the scene's is not, so the fog starts just short
