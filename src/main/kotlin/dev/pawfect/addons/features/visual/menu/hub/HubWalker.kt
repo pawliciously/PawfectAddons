@@ -199,6 +199,11 @@ internal object HubWalker {
         }
     }
 
+    /** Drops the planned walk, for a scene it does not belong in. */
+    fun forget() {
+        walk = null
+    }
+
     /** Sends the walker back to the start, for a fresh visit to the menu. */
     fun restart() {
         phase = Phase.WAITING

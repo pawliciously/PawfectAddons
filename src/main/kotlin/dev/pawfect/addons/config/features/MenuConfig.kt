@@ -63,4 +63,29 @@ class MenuConfig {
 
     @Expose
     var anchorPitch: Float = 0f
+
+    /** One camera spot per SkyBlock area; each launch shows one of the captured ones. */
+    @Expose
+    var spots: MutableList<MenuSpot> = mutableListOf()
+}
+
+class MenuSpot {
+
+    @Expose
+    var area: String = "hub"
+
+    @Expose
+    var x: Double = 0.0
+
+    @Expose
+    var y: Double = 0.0
+
+    @Expose
+    var z: Double = 0.0
+
+    @Expose
+    var yaw: Float = 0f
+
+    @Expose
+    var pitch: Float = 0f
 }

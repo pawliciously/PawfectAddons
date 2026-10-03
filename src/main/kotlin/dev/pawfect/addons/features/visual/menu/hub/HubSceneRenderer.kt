@@ -5,6 +5,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.vertex.VertexFormat
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.config.features.MenuSpot
 import dev.pawfect.addons.mixin.LoadingOverlayAccessor
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.gui.screens.LoadingOverlay
@@ -75,6 +76,7 @@ object HubSceneRenderer {
     private var origin = Vector3f()
     private var atlas: AbstractTexture? = null
 
+    private var scene: MenuSpot? = null
     private var introStart = -1L
     private var readyAt = 0L
     private var introPlayed = false
@@ -89,19 +91,25 @@ object HubSceneRenderer {
     private var uniforms: GpuBuffer? = null
     private val scratch: ByteBuffer = ByteBuffer.allocateDirect(UNIFORM_SIZE).order(ByteOrder.nativeOrder())
 
-    private fun enabled(): Boolean = config.hubScene && config.anchorSet && state != State.FAILED
+    private fun enabled(): Boolean = config.hubScene && state != State.FAILED
 
-    /** True when the menu should show the hub instead of its usual background. */
+    // Each launch shows one captured area, picked at random and kept for the session.
+    private fun scene(): MenuSpot? {
+        scene?.let { return it }
+        return HubScene.spots().filter { HubScene.file(it.area).exists() }.randomOrNull()?.also { scene = it }
+    }
+
+    /** True when the menu should show a captured area instead of its usual background. */
     @JvmStatic
     fun active(): Boolean {
         if (McCompat.mc.level != null || !enabled()) return false
-        return state != State.IDLE || HubScene.file.exists()
+        return scene() != null
     }
 
     /** Starts building as soon as resources finish loading, so the scene is ready before the menu shows. */
     fun preload() {
         if (state != State.IDLE || McCompat.mc.level != null || !enabled() || !resourcesReady()) return
-        if (!HubScene.file.exists()) return
+        if (scene() == null) return
         startBuild()
     }
 
@@ -217,11 +225,12 @@ object HubSceneRenderer {
     // slows as it lands. Once there it drifts gently and leans a few degrees toward the mouse.
     // The fly-in plays once per launch; later visits to the menu open on the settled view.
     private fun camera(sinceStart: Double, delta: Double): Pose {
-        val endX = config.anchorX
-        val endY = config.anchorY + EYE_HEIGHT
-        val endZ = config.anchorZ
-        val yaw = config.anchorYaw.toDouble()
-        val pitch = config.anchorPitch.toDouble()
+        val spot = scene ?: MenuSpot()
+        val endX = spot.x
+        val endY = spot.y + EYE_HEIGHT
+        val endZ = spot.z
+        val yaw = spot.yaw.toDouble()
+        val pitch = spot.pitch.toDouble()
 
         if (!introPlayed && sinceStart >= INTRO_SECONDS) introPlayed = true
         val settled = if (introPlayed) sinceStart - INTRO_SECONDS else -1.0
@@ -283,7 +292,7 @@ object HubSceneRenderer {
     // The moon sits a little to the side of where the settled camera looks, high enough to
     // clear the buildings but low enough to stay in frame.
     private fun moonDirection(): Vector3f {
-        val yaw = Math.toRadians(config.anchorYaw.toDouble() + 24.0)
+        val yaw = Math.toRadians((scene?.yaw ?: 0f).toDouble() + 24.0)
         val elevation = Math.toRadians(27.0)
         return Vector3f(
             (-sin(yaw) * cos(elevation)).toFloat(),
@@ -315,17 +324,18 @@ object HubSceneRenderer {
     }
 
     private fun startBuild() {
+        val spot = scene() ?: return
         state = State.BUILDING
-        val ox = floor(config.anchorX).toInt()
-        val oy = floor(config.anchorY).toInt()
-        val oz = floor(config.anchorZ).toInt()
-        val eyeX = (config.anchorX - ox).toFloat()
-        val eyeY = (config.anchorY + EYE_HEIGHT - oy).toFloat()
-        val eyeZ = (config.anchorZ - oz).toFloat()
+        val ox = floor(spot.x).toInt()
+        val oy = floor(spot.y).toInt()
+        val oz = floor(spot.z).toInt()
+        val eyeX = (spot.x - ox).toFloat()
+        val eyeY = (spot.y + EYE_HEIGHT - oy).toFloat()
+        val eyeZ = (spot.z - oz).toFloat()
         Thread({
             try {
                 val started = System.nanoTime()
-                val world = HubWorld.load(HubScene.file)
+                val world = HubWorld.load(HubScene.file(spot.area))
                 if (world == null) {
                     logger.info("The saved hub scene is from an older version; it will be recaptured in the hub.")
                     state = State.FAILED
@@ -343,7 +353,8 @@ object HubSceneRenderer {
                 )
                 built = mesh
                 state = State.BUILT
-                HubWalker.prepare(world)
+                // The walk is laid out in hub coordinates, so other areas go without it.
+                if (spot.area == HubScene.HUB) HubWalker.prepare(world) else HubWalker.forget()
             } catch (error: Throwable) {
                 logger.error("Could not build the hub scene.", error)
                 state = State.FAILED
