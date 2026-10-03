@@ -444,6 +444,7 @@ internal object HubWalker {
 
         val features = mc.gameRenderer.featureRenderDispatcher
         val storage = features.submitNodeStorage
+        val buffers = mc.renderBuffers().bufferSource()
         val lighting = mc.gameRenderer.lighting
         val modelView = RenderSystem.getModelViewStack()
         val sceneFog = RenderSystem.getShaderFog()
@@ -460,13 +461,17 @@ internal object HubWalker {
             mc.entityRenderDispatcher.submit(state, camera, x - cameraX, y - cameraY, z - cameraZ, PoseStack(), storage)
             Trails.submitShowcase(PoseStack(), storage, ID, feet, height, eye)
             Motes.submitShowcase(PoseStack(), storage, ID, feet, height, eye)
+            // Features only fill the shared buffers; flushing here draws them with this camera
+            // instead of leaving the last batch for the menu to draw with its flat projection.
             features.renderAllFeatures()
+            buffers.endBatch()
 
             // The name tag stays clear of both, so it reads against the night.
             lightmap = null
             sceneFog?.let(RenderSystem::setShaderFog)
             nameTag(storage, x - cameraX, y + height + 0.5 - cameraY, z - cameraZ, crouching, distance, pixelAngle)
             features.renderAllFeatures()
+            buffers.endBatch()
         } finally {
             lightmap = null
             sceneFog?.let(RenderSystem::setShaderFog)
