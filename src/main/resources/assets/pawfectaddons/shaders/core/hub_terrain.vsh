@@ -19,7 +19,6 @@ in ivec2 UV2;
 
 out vec4 vertexColor;
 out vec2 texCoord0;
-out float fogDistance;
 
 float lightCurve(float level) {
     float l = clamp(level, 0.0, 15.0) / 15.0;
@@ -29,7 +28,6 @@ float lightCurve(float level) {
 void main() {
     vec4 view = ModelViewMat * vec4(Position + ModelOffset, 1.0);
     gl_Position = ProjMat * view;
-    fogDistance = length(view.xyz);
 
     float sky = lightCurve(float(UV2.y) / 16.0);
     float block = lightCurve(float(UV2.x) / 16.0);

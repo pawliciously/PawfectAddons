@@ -1,9 +1,7 @@
 package dev.pawfect.addons.features.visual.menu.hub
 
 import com.mojang.blaze3d.ProjectionType
-import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.buffers.GpuBufferSlice
-import com.mojang.blaze3d.buffers.Std140Builder
 import com.mojang.blaze3d.platform.Lighting
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTextureView
@@ -17,7 +15,6 @@ import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.renderer.PlayerSkinRenderCache
 import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.client.renderer.entity.state.AvatarRenderState
-import net.minecraft.client.renderer.fog.FogRenderer
 import net.minecraft.client.renderer.state.level.CameraRenderState
 import net.minecraft.client.renderer.texture.DynamicTexture
 import net.minecraft.network.chat.Component
@@ -30,7 +27,6 @@ import net.minecraft.world.item.component.ResolvableProfile
 import net.minecraft.world.phys.Vec3
 import org.joml.Matrix4f
 import org.joml.Quaternionf
-import org.lwjgl.system.MemoryStack
 import org.slf4j.LoggerFactory
 import java.util.Optional
 import java.util.UUID
@@ -94,7 +90,6 @@ internal object HubWalker {
     private const val MAX_TAG_SCALE = 3.0
     private val TAG_ORIGIN = Vec3(0.0, -0.5, 0.0)
 
-    private const val FOG_SPAN = 1000f
 
     private enum class Phase { WAITING, WALKING, GREETING, RESTING }
 
@@ -165,7 +160,6 @@ internal object HubWalker {
 
     private var lightTexture: DynamicTexture? = null
     private var lightColour = 0
-    private var fogBuffer: GpuBuffer? = null
     private var lightmap: GpuTextureView? = null
 
     /** The lightmap the game should hand out while the walker draws, or null for its own. */
@@ -442,14 +436,12 @@ internal object HubWalker {
         val buffers = mc.renderBuffers().bufferSource()
         val lighting = mc.gameRenderer.lighting
         val modelView = RenderSystem.getModelViewStack()
-        val sceneFog = RenderSystem.getShaderFog()
         RenderSystem.backupProjectionMatrix()
         RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE)
         modelView.pushMatrix().set(view)
         lighting.setupFor(Lighting.Entry.LEVEL)
         try {
-            // The body, cape and effects take the scene's light and fog at the walker's spot.
-            RenderSystem.setShaderFog(fog(distance))
+            // The body, cape and effects take the scene's light at the walker's spot.
             lightmap = light(walk, current.distance)
             val feet = Vec3(x, y, z)
             val eye = Vec3(cameraX, cameraY, cameraZ)
@@ -461,15 +453,13 @@ internal object HubWalker {
             features.renderAllFeatures()
             buffers.endBatch()
 
-            // The name tag stays clear of both, so it reads against the night.
+            // The name tag stays clear of the scene's light, so it reads against the night.
             lightmap = null
-            sceneFog?.let(RenderSystem::setShaderFog)
             nameTag(storage, x - cameraX, y + height + 0.5 - cameraY, z - cameraZ, distance, pixelAngle)
             features.renderAllFeatures()
             buffers.endBatch()
         } finally {
             lightmap = null
-            sceneFog?.let(RenderSystem::setShaderFog)
             modelView.popMatrix()
             RenderSystem.restoreProjectionMatrix()
             lighting.setupFor(Lighting.Entry.ITEMS_3D)
@@ -526,30 +516,6 @@ internal object HubWalker {
         pose.scale(scale, scale, scale)
         // Not see-through: the tag hides behind blocks like the walker does.
         storage.submitNameTag(pose, TAG_ORIGIN, 0, name, false, FULL_BRIGHT, distance * distance, camera)
-    }
-
-    // The game's fog is linear in distance and the scene's is not, so the fog starts just short
-    // of the walker by the amount that gives the scene's fog at their distance. Across a body
-    // that is a couple of blocks deep, it barely varies.
-    private fun fog(distance: Double): GpuBufferSlice {
-        val buffer = fogBuffer ?: RenderSystem.getDevice()
-            .createBuffer({ "pawfect walker fog" }, GpuBuffer.USAGE_UNIFORM or GpuBuffer.USAGE_COPY_DST, FogRenderer.FOG_UBO_SIZE.toLong())
-            .also { fogBuffer = it }
-        val start = distance.toFloat() - HubAtmosphere.fog(distance.toFloat()) * FOG_SPAN
-        val slice = buffer.slice(0L, FogRenderer.FOG_UBO_SIZE.toLong())
-        MemoryStack.stackPush().use { stack ->
-            val data = Std140Builder.onStack(stack, FogRenderer.FOG_UBO_SIZE)
-                .putVec4(HubAtmosphere.FOG.x, HubAtmosphere.FOG.y, HubAtmosphere.FOG.z, 1f)
-                .putFloat(start)
-                .putFloat(start + FOG_SPAN)
-                .putFloat(Float.MAX_VALUE)
-                .putFloat(Float.MAX_VALUE)
-                .putFloat(Float.MAX_VALUE)
-                .putFloat(Float.MAX_VALUE)
-                .get()
-            RenderSystem.getDevice().createCommandEncoder().writeToBuffer(slice, data)
-        }
-        return slice
     }
 
     // A one pixel lightmap in the scene's colour at the walker's spot: every light level reads

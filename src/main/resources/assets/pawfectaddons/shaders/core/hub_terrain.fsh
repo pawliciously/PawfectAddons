@@ -14,7 +14,6 @@ uniform sampler2D Sampler0;
 
 in vec4 vertexColor;
 in vec2 texCoord0;
-in float fogDistance;
 
 out vec4 fragColor;
 
@@ -25,7 +24,7 @@ void main() {
         discard;
     }
 #endif
-    float fog = smoothstep(FogColor.a, SkyColor.a, fogDistance);
-    float shown = fog + (1.0 - fog) * (1.0 - CameraForward.w);
-    fragColor = vec4(mix(color.rgb, FogColor.rgb, shown), color.a);
+    // No fog: every block stays in view however far off it is. The scene only fades in from
+    // the horizon colour as it first appears.
+    fragColor = vec4(mix(color.rgb, FogColor.rgb, 1.0 - CameraForward.w), color.a);
 }
