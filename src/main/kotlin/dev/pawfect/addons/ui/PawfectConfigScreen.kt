@@ -737,6 +737,14 @@ class PawfectConfigScreen(
     }
 
     override fun keyPressed(event: KeyEvent): Boolean {
+        if (event.isPaste) {
+            val clipboard = runCatching { McCompat.mc.keyboardHandler.clipboard }.getOrNull().orEmpty()
+            if (searchFocused) {
+                searchQuery += clipboard.lineSequence().firstOrNull().orEmpty()
+                return true
+            }
+            focused?.let { if (it.paste(clipboard)) return true }
+        }
         if (searchFocused) {
             when (event.key()) {
                 KEY_ESCAPE -> searchFocused = false

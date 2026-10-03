@@ -29,6 +29,7 @@ import dev.pawfect.addons.features.stats.ActionBarStats
 import dev.pawfect.addons.features.stats.LowHealthAlert
 import dev.pawfect.addons.features.stats.StatsOverlay
 import dev.pawfect.addons.features.recipetracker.RecipeTrackerOverlay
+import dev.pawfect.addons.features.slayer.NukekubiGlow
 import dev.pawfect.addons.features.slayer.NukekubiTracer
 import dev.pawfect.addons.features.slayer.SlayerManager
 import dev.pawfect.addons.features.slayer.SlayerOverlay
@@ -285,6 +286,7 @@ object PawfectAddons : ClientModInitializer {
             ItemSources.onTick()
             RecipeTrackerOverlay.onTick()
             SlayerManager.onTick()
+            NukekubiGlow.onTick()
             ExperimentManager.onTick()
 
             val needsRooms = ConfigManager.features.secretWaypoints.enabled ||

@@ -47,6 +47,9 @@ abstract class Widget(val setting: Setting<*>) {
 
     open fun charTyped(character: Char): Boolean = false
 
+    /** Ctrl+V while this widget has focus; returns true when it took the text. */
+    open fun paste(text: String): Boolean = false
+
     open fun loseFocus() {}
 
     protected fun hovered(mouseX: Float, mouseY: Float): Boolean =
@@ -438,6 +441,12 @@ class TextWidget(private val text: TextSetting) : Widget(text) {
         return true
     }
 
+    override fun paste(text: String): Boolean {
+        if (!editing) return false
+        buffer += text.replace(Regex("[\\r\\n]+"), " ")
+        return true
+    }
+
     override fun loseFocus() = commit()
 
     private fun commit() {
@@ -709,6 +718,18 @@ class ColorWidget(private val color: ColorSetting) : Widget(color) {
         if (hexBuffer.length < limit && (character.isDigit() || character.lowercaseChar() in 'a'..'f')) {
             hexBuffer += character.uppercaseChar()
         }
+        return true
+    }
+
+    // Takes "#FF00AA", "0xff00aa" or "ff00aa"; a complete code applies straight away.
+    override fun paste(text: String): Boolean {
+        if (!editingHex) return false
+        val limit = if (color.supportsAlpha) 8 else 6
+        val digits = text.trim().removePrefix("#").removePrefix("0x").removePrefix("0X")
+            .filter { it.isDigit() || it.lowercaseChar() in 'a'..'f' }
+            .uppercase()
+        hexBuffer = (hexBuffer + digits).take(limit)
+        if (hexBuffer.length == 6 || hexBuffer.length == 8) commitHex()
         return true
     }
 
