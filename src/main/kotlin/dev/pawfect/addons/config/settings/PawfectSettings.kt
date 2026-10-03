@@ -123,6 +123,11 @@ object PawfectSettings {
                         .showIf { slayers.nukekubiGlow },
                     FloatSliderSetting("Glow Opacity", "How solid the glow looks. Its size is the Glow Radius slider in the Dungeon tab.", slayers::nukekubiOpacity, 0.15f, 0.9f, 0.05f)
                         .showIf { slayers.nukekubiGlow },
+                    ToggleSetting("Nukekubi Tracer", "Draw a line from your crosshair to each head, through walls, so you know which way to look.", slayers::nukekubiTracer),
+                    ColorSetting("Tracer Colour", "Colour of the tracer line.", slayers::nukekubiTracerColor, false)
+                        .showIf { slayers.nukekubiTracer },
+                    FloatSliderSetting("Tracer Width", "Thickness of the tracer line.", slayers::nukekubiTracerWidth, 0.5f, 6f, 0.5f)
+                        .showIf { slayers.nukekubiTracer },
                     ToggleSetting("Hits Phase Title", "Flash a title on screen for a moment when your Voidgloom's shield goes up.", slayers::hitPhaseNotify),
                     ToggleSetting("Hits Phase Sound", "Play a sound when your Voidgloom's shield goes up.", slayers::hitPhaseSound),
                     SoundListSetting(

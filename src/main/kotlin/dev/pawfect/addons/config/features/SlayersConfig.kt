@@ -34,6 +34,15 @@ class SlayersConfig {
     var nukekubiOpacity: Float = 0.75f
 
     @Expose
+    var nukekubiTracer: Boolean = true
+
+    @Expose
+    var nukekubiTracerColor: Int = 0x55FF55
+
+    @Expose
+    var nukekubiTracerWidth: Float = 2f
+
+    @Expose
     var hitPhaseNotify: Boolean = true
 
     @Expose

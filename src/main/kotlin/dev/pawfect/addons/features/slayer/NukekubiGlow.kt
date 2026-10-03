@@ -28,8 +28,11 @@ object NukekubiGlow {
     private val checked = WeakHashMap<ItemStack, Boolean>()
 
     @JvmStatic
-    fun shouldGlow(entity: Entity): Boolean {
-        if (!config.nukekubiGlow || entity !is ArmorStand) return false
+    fun shouldGlow(entity: Entity): Boolean = config.nukekubiGlow && isNearbyHead(entity)
+
+    /** A live Nukekubi close enough to matter. */
+    fun isNearbyHead(entity: Entity): Boolean {
+        if (entity !is ArmorStand) return false
         if (!entity.level().isClientSide || !entity.isAlive) return false
         val player = McCompat.player ?: return false
         if (player.distanceToSqr(entity) > MAX_RANGE_SQ) return false
