@@ -24,6 +24,34 @@ class HubWorld private constructor(
     private val columns: HashMap<Long, Column>,
 ) : BlockAndTintGetter {
 
+    // The highest block in each column that stops sky light, by chunk. Anything above it sees
+    // the open sky, which the saved light can miss: chunks captured before their light arrived
+    // were saved pitch dark.
+    private val skyline = HashMap<Long, IntArray>()
+
+    init {
+        val tops = HashMap<Long, MutableList<Section>>()
+        for (section in sections.values) tops.getOrPut(SectionPos.asLong(section.x, 0, section.z)) { ArrayList() } += section
+        for ((key, stack) in tops) {
+            stack.sortByDescending { it.y }
+            skyline[key] = IntArray(256) { column ->
+                val x = column and 15
+                val z = column shr 4
+                for (section in stack) {
+                    for (y in 15 downTo 0) {
+                        if (section.state((y shl 8) or (z shl 4) or x).lightDampening > 0) return@IntArray (section.y shl 4) + y
+                    }
+                }
+                Int.MIN_VALUE
+            }
+        }
+    }
+
+    private fun openToSky(pos: BlockPos): Boolean {
+        val tops = skyline[SectionPos.asLong(pos.x shr 4, 0, pos.z shr 4)] ?: return true
+        return pos.y > tops[((pos.z and 15) shl 4) or (pos.x and 15)]
+    }
+
     class Section(
         val x: Int,
         val y: Int,
@@ -70,7 +98,8 @@ class HubWorld private constructor(
     override fun getBrightness(layer: LightLayer, pos: BlockPos): Int {
         val section = section(pos.x, pos.y, pos.z) ?: return if (layer == LightLayer.SKY) 15 else 0
         val at = index(pos.x, pos.y, pos.z)
-        return if (layer == LightLayer.SKY) section.sky(at) else section.block(at)
+        if (layer != LightLayer.SKY) return section.block(at)
+        return if (openToSky(pos)) 15 else section.sky(at)
     }
 
     override fun getRawBrightness(pos: BlockPos, darkening: Int): Int =

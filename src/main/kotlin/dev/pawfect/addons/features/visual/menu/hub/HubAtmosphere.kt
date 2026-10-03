@@ -11,7 +11,7 @@ import kotlin.math.max
 internal object HubAtmosphere {
 
     const val MOONLIGHT = 0.3f
-    const val FOG_START = 60f
+    const val FOG_START = 90f
     const val FOG_END = 165f
     val FOG = Vector3f(0.05f, 0.07f, 0.13f)
 

@@ -24,7 +24,7 @@ public abstract class TitleScreenMixin extends Screen {
     private void pawfectaddons$addConfigButton(CallbackInfo callback) {
         addRenderableWidget(
             Button.builder(Component.literal("PawfectAddons"), button -> ConfigGuiManager.INSTANCE.open("theme"))
-                .bounds(4, this.height - 30, 98, 20)
+                .bounds(4, this.height - 44, 98, 20)
                 .build()
         );
         if (HubSceneRenderer.canSwitch()) {
@@ -33,7 +33,7 @@ public abstract class TitleScreenMixin extends Screen {
                     HubSceneRenderer.next();
                     button.setMessage(backgroundLabel());
                 })
-                    .bounds(106, this.height - 30, 140, 20)
+                    .bounds(106, this.height - 44, 140, 20)
                     .build()
             );
         }
@@ -47,6 +47,6 @@ public abstract class TitleScreenMixin extends Screen {
     private void pawfectaddons$hubCredit(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo callback) {
         if (!HubSceneRenderer.active()) return;
         String credit = HubSceneRenderer.sceneTitle() + " by Hypixel";
-        graphics.text(this.font, credit, this.width - this.font.width(credit) - 2, this.height - 20, 0xB3FFFFFF, true);
+        graphics.text(this.font, credit, 4, this.height - 56, 0xB3FFFFFF, true);
     }
 }
