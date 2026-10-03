@@ -28,6 +28,7 @@ object Trails {
     private const val VIEW_LIMIT = 96.0
 
     private val tracks = HashMap<UUID, Track>()
+    private val showcase = HashMap<UUID, Track>()
 
     private val config get() = ConfigManager.features.cosmetics
 
@@ -51,7 +52,10 @@ object Trails {
         tracks.entries.removeIf { now - it.value.lastSeen > IDLE_MS }
     }
 
-    fun clear() = tracks.clear()
+    fun clear() {
+        tracks.clear()
+        showcase.clear()
+    }
 
     private fun draw(poseStack: PoseStack, collector: SubmitNodeCollector) {
         val mode = config.trails
@@ -92,7 +96,23 @@ object Trails {
         }
 
         if (jobs.isEmpty()) return
+        submit(poseStack, collector, jobs, camera, time)
+    }
 
+    /** Draws the trail of someone walking the menu scene, who has no entity in any world. */
+    fun submitShowcase(poseStack: PoseStack, collector: SubmitNodeCollector, uuid: UUID, feet: Vec3, height: Double, camera: Vec3) {
+        if (!Cosmetics.showsOffWorld(config.trails, uuid)) return
+        val trail = Cosmetics.trailFor(uuid) ?: return
+        val now = System.currentTimeMillis()
+        val track = showcase.getOrPut(uuid) { Track() }
+        sample(track, Vec3(feet.x, feet.y + height * 0.45, feet.z), now)
+        trim(track, now, trail.length)
+        if (track.points.size >= 2) {
+            submit(poseStack, collector, listOf(trail to track), camera, if (config.animate) (now % 600_000L) / 1000f else 0f)
+        }
+    }
+
+    private fun submit(poseStack: PoseStack, collector: SubmitNodeCollector, jobs: List<Pair<ResolvedTrail, Track>>, camera: Vec3, time: Float) {
         poseStack.pushPose()
         poseStack.translate(-camera.x, -camera.y, -camera.z)
 

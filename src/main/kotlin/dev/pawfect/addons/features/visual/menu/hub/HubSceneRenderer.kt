@@ -39,20 +39,19 @@ object HubSceneRenderer {
     private const val FOV = 70f
     private const val NEAR = 0.05f
     private const val FAR = 700f
-    private const val FOG_START = 60f
-    private const val FOG_END = 165f
     private const val INTRO_SECONDS = 8.0
     private const val FADE_SECONDS = 1.6
     private const val SETTLE_SECONDS = 2.5
     private const val EYE_HEIGHT = 1.62
     private const val UNIFORM_SIZE = 256
-    private const val MOONLIGHT = 0.3f
     private const val MOON_RADIUS = 0.05f
     private const val LOOK_YAW = 3.0
     private const val LOOK_PITCH = 1.5
     private const val LOOK_RATE = 1.1
 
-    private val FOG = Vector3f(0.05f, 0.07f, 0.13f)
+    // A gap this long between frames means the menu was left, so the next frame starts a new visit.
+    private const val VISIT_GAP_NANOS = 1_000_000_000L
+
     private val SKY = Vector3f(0.008f, 0.014f, 0.045f)
 
     private enum class State { IDLE, BUILDING, BUILT, READY, FAILED }
@@ -74,6 +73,7 @@ object HubSceneRenderer {
     private var introStart = -1L
     private var introPlayed = false
     private var lastFrame = 0L
+    private var settledAt = 0L
     private var lookYaw = 0.0
     private var lookPitch = 0.0
     private val clockStart = System.nanoTime()
@@ -133,13 +133,25 @@ object HubSceneRenderer {
         if (width <= 0f || height <= 0f) return true
 
         val now = System.nanoTime()
+        val newVisit = lastFrame == 0L || now - lastFrame > VISIT_GAP_NANOS
         val delta = if (lastFrame == 0L) 0.0 else ((now - lastFrame) / 1e9).coerceIn(0.0, 0.25)
         lastFrame = now
         val ready = state == State.READY && layers.isNotEmpty()
         if (ready && introStart < 0L && mc.overlay == null) introStart = now
         val sinceStart = if (introStart < 0L) 0.0 else (now - introStart) / 1e9
 
+        if (newVisit) {
+            settledAt = if (introPlayed) now else 0L
+            HubWalker.restart()
+        }
         val camera = camera(sinceStart, delta)
+        if (settledAt == 0L && introPlayed) settledAt = introStart + (INTRO_SECONDS * 1e9).toLong()
+        // Seconds since the camera settled for this visit, counting up through the fly-in.
+        val showtime = when {
+            settledAt != 0L -> (now - settledAt) / 1e9
+            introStart >= 0L -> sinceStart - INTRO_SECONDS
+            else -> -INTRO_SECONDS
+        }
         val rotation = Quaternionf().rotationYXZ((PI - Math.toRadians(camera.yaw)).toFloat(), (-Math.toRadians(camera.pitch)).toFloat(), 0f)
         val tanHalf = tan(Math.toRadians(FOV / 2.0)).toFloat()
         val fade = when {
@@ -188,6 +200,9 @@ object HubSceneRenderer {
                 pass.drawIndexed(0, 0, layer.count, 1)
             }
         }
+
+        runCatching { HubWalker.draw(camera.x, camera.y, camera.z, rotation, view, projectionSlice, 2.0 * tanHalf / height, showtime) }
+            .onFailure { HubWalker.fail(it) }
         return true
     }
 
@@ -280,10 +295,10 @@ object HubSceneRenderer {
         scratch.putFloat(right.x).putFloat(right.y).putFloat(right.z).putFloat(tanHalf * aspect)
         scratch.putFloat(up.x).putFloat(up.y).putFloat(up.z).putFloat(tanHalf)
         scratch.putFloat(forward.x).putFloat(forward.y).putFloat(forward.z).putFloat(fade)
-        scratch.putFloat(FOG.x).putFloat(FOG.y).putFloat(FOG.z).putFloat(FOG_START)
-        scratch.putFloat(SKY.x).putFloat(SKY.y).putFloat(SKY.z).putFloat(FOG_END)
+        scratch.putFloat(HubAtmosphere.FOG.x).putFloat(HubAtmosphere.FOG.y).putFloat(HubAtmosphere.FOG.z).putFloat(HubAtmosphere.FOG_START)
+        scratch.putFloat(SKY.x).putFloat(SKY.y).putFloat(SKY.z).putFloat(HubAtmosphere.FOG_END)
         scratch.putFloat(moon.x).putFloat(moon.y).putFloat(moon.z).putFloat(MOON_RADIUS)
-        scratch.putFloat(time).putFloat(MOONLIGHT).putFloat(1f).putFloat(0f)
+        scratch.putFloat(time).putFloat(HubAtmosphere.MOONLIGHT).putFloat(1f).putFloat(0f)
         while (scratch.position() < UNIFORM_SIZE) scratch.put(0)
         scratch.flip()
         RenderSystem.getDevice().createCommandEncoder().writeToBuffer(buffer.slice(0L, UNIFORM_SIZE.toLong()), scratch)
@@ -319,6 +334,7 @@ object HubSceneRenderer {
                 )
                 built = mesh
                 state = State.BUILT
+                HubWalker.prepare(world)
             } catch (error: Throwable) {
                 logger.error("Could not build the hub scene.", error)
                 state = State.FAILED

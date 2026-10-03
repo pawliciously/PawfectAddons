@@ -176,6 +176,16 @@ object Cosmetics {
         Visibility.NONE -> false
     }
 
+    /**
+     * Whether a cosmetic shown to [mode] appears on someone drawn outside any world, like the
+     * menu's walker. With no player in a world, "only me" means the signed-in account.
+     */
+    fun showsOffWorld(mode: Visibility, uuid: UUID): Boolean = config.enabled && when (mode) {
+        Visibility.ALL -> true
+        Visibility.SELF -> uuid == McCompat.mc.user?.profileId
+        Visibility.NONE -> false
+    }
+
     @JvmStatic
     fun capeFor(uuid: UUID): String? {
         if (!config.enabled) return null

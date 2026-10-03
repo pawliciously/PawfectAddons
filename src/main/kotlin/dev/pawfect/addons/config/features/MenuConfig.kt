@@ -44,6 +44,9 @@ class MenuConfig {
     var hubCapture: Boolean = true
 
     @Expose
+    var showcase: Boolean = true
+
+    @Expose
     var anchorSet: Boolean = false
 
     @Expose

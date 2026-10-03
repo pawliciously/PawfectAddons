@@ -261,6 +261,7 @@ object PawfectAddons : ClientModInitializer {
         SessionTracker.tick()
         runCatching { Hitsound.onTick() }
         runCatching { PacketLog.tick() }
+        runCatching { Cosmetics.onTick() }
         runCatching { Capes.onTick() }
         runCatching { Trails.onTick() }
         runCatching { Ripples.onTick() }
@@ -299,7 +300,6 @@ object PawfectAddons : ClientModInitializer {
                 SkyBlockData.refreshProfile()
                 BazaarApi.onTick()
                 UpdateCheck.onTick()
-                Cosmetics.onTick()
                 checkVisualSettings()
             }.onFailure { logger.error("Error during the one-second tick", it) }
         }

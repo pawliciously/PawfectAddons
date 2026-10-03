@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents
 import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.world.phys.Vec3
 import org.joml.Vector3f
+import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -71,7 +72,23 @@ object Motes {
         }
 
         if (jobs.isEmpty()) return
+        submit(poseStack, collector, jobs, camera, time)
+    }
 
+    /** Draws the motes of someone walking the menu scene, who has no entity in any world. */
+    fun submitShowcase(poseStack: PoseStack, collector: SubmitNodeCollector, uuid: UUID, feet: Vec3, height: Double, camera: Vec3) {
+        if (!Cosmetics.showsOffWorld(config.motes, uuid)) return
+        val motes = Cosmetics.motesFor(uuid) ?: return
+        val anchor = Vec3(feet.x, feet.y + height * 0.4, feet.z)
+        val distanceSqr = anchor.distanceToSqr(camera)
+        if (distanceSqr > VIEW_LIMIT * VIEW_LIMIT) return
+        val count = density(motes.density, distanceSqr)
+        if (count <= 0) return
+        val time = if (config.animate) (System.currentTimeMillis() % 3_600_000L) / 1000f else 0f
+        submit(poseStack, collector, listOf(Job(motes, anchor, uuid.hashCode(), count)), camera, time)
+    }
+
+    private fun submit(poseStack: PoseStack, collector: SubmitNodeCollector, jobs: List<Job>, camera: Vec3, time: Float) {
         poseStack.pushPose()
         poseStack.translate(-camera.x, -camera.y, -camera.z)
 
