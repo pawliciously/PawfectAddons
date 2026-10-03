@@ -14,6 +14,8 @@ import dev.pawfect.addons.features.dungeon.DungeonRooms
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
 import dev.pawfect.addons.features.visual.menu.hub.HubCapture
 import dev.pawfect.addons.features.visual.menu.hub.HubScene
+import dev.pawfect.addons.features.visual.menu.hub.WalkerPoints
+import dev.pawfect.addons.features.discord.HypixelLocation
 import dev.pawfect.addons.features.dungeon.DungeonWaypoints
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.features.FeatureRegistry
@@ -109,6 +111,34 @@ object PawfectCommands {
                                 else ChatUtils.chat("§7Capturing the area around it now. Walk around a bit if you like.")
                                 SUCCESS
                             },
+                        )
+                        .then(
+                            ClientCommands.literal("point")
+                                .executes {
+                                    val count = WalkerPoints.add() ?: return@executes SUCCESS
+                                    ChatUtils.chat("§aWalker point §f#$count §asaved in §f${HypixelLocation.mode ?: "unknown"}§a.")
+                                    SUCCESS
+                                }
+                                .then(
+                                    ClientCommands.literal("undo").executes {
+                                        val left = WalkerPoints.undo()
+                                        ChatUtils.chat(if (left == null) "§7No walker points to remove." else "§7Removed the last walker point, §f$left §7left.")
+                                        SUCCESS
+                                    },
+                                )
+                                .then(
+                                    ClientCommands.literal("clear").executes {
+                                        WalkerPoints.clear()
+                                        ChatUtils.chat("§7Cleared all walker points.")
+                                        SUCCESS
+                                    },
+                                )
+                                .then(
+                                    ClientCommands.literal("list").executes {
+                                        ChatUtils.chat("§7${WalkerPoints.count()} walker points in §f${WalkerPoints.file}")
+                                        SUCCESS
+                                    },
+                                ),
                         )
                         .then(
                             ClientCommands.literal("status").executes {

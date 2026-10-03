@@ -44,6 +44,9 @@ object HubSceneRenderer {
     private const val SETTLE_BEFORE_FADE_NANOS = 1_000_000_000L
     private const val FADE_SECONDS = 1.6
     private const val SETTLE_SECONDS = 2.5
+    // Until the scene is ready the camera gazes up at the sky, then tips down into the descent.
+    private const val GAZE_PITCH = -50.0
+    private const val TIP_SECONDS = 2.5
     private const val EYE_HEIGHT = 1.62
     private const val UNIFORM_SIZE = 256
     private const val MOON_RADIUS = 0.05f
@@ -264,12 +267,14 @@ object HubSceneRenderer {
         val u = 1.0 - t
         fun bezier(a: Double, b: Double, c: Double, d: Double) = u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d
 
+        val descent = pitch + (52.0 - pitch) * u * u
+        val gaze = if (introStart < 0L) 1.0 else 1.0 - smooth((sinceStart / TIP_SECONDS).coerceIn(0.0, 1.0))
         return Pose(
             bezier(p0x, p1x, p2x, endX),
             bezier(p0y, p1y, p2y, endY),
             bezier(p0z, p1z, p2z, endZ),
             yaw - 28.0 * u,
-            pitch + (52.0 - pitch) * u * u,
+            descent + (GAZE_PITCH - descent) * gaze,
         )
     }
 
