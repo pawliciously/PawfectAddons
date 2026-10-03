@@ -182,6 +182,12 @@ object PawfectCommands {
                     },
                 )
                 .then(
+                    ClientCommands.literal("heads").executes {
+                        StandDebug.heads().forEach { ChatUtils.chat(it) }
+                        SUCCESS
+                    },
+                )
+                .then(
                     ClientCommands.literal("chams").executes {
                         ChatUtils.chat("Hand chams status:")
                         HandChams.status().forEach { ChatUtils.chat("  §7$it") }

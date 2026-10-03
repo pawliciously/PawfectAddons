@@ -121,8 +121,17 @@ object PawfectSettings {
                     ToggleSetting("Nukekubi Head Glow", "Glow the floating heads that keep damaging you during a Voidgloom Seraph fight.", slayers::nukekubiGlow),
                     ColorSetting("Glow Colour", "Colour of the head glow.", slayers::nukekubiColor, false)
                         .showIf { slayers.nukekubiGlow },
-                    FloatSliderSetting("Glow Opacity", "Strength of the glow.", slayers::nukekubiOpacity, 0.15f, 0.9f, 0.05f)
+                    FloatSliderSetting("Glow Opacity", "How solid the glow looks. Its size is the Glow Radius slider in the Dungeon tab.", slayers::nukekubiOpacity, 0.15f, 0.9f, 0.05f)
                         .showIf { slayers.nukekubiGlow },
+                    ToggleSetting("Hits Phase Notification", "Pop up a notification when your Voidgloom's shield goes up.", slayers::hitPhaseNotify),
+                    ToggleSetting("Hits Phase Sound", "Play a sound when your Voidgloom's shield goes up.", slayers::hitPhaseSound),
+                    SoundListSetting(
+                        "Hits Phase Sound Choice",
+                        "Sound played when the shield goes up. Your own files from the hitsounds folder are listed too.",
+                        slayers::hitPhaseSoundId,
+                        { HitsoundLibrary.ids() },
+                    ) { SoundCue.play(slayers.hitPhaseSoundId, slayers.alertVolume, slayers.alertPitch) }
+                        .showIf { slayers.hitPhaseSound },
                 ),
                 group(
                     "World Text",

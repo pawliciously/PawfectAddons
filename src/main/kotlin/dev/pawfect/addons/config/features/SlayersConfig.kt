@@ -34,6 +34,15 @@ class SlayersConfig {
     var nukekubiOpacity: Float = 0.75f
 
     @Expose
+    var hitPhaseNotify: Boolean = true
+
+    @Expose
+    var hitPhaseSound: Boolean = false
+
+    @Expose
+    var hitPhaseSoundId: String = "minecraft:block.note_block.bell"
+
+    @Expose
     var worldScale: Float = 1f
 
     @Expose

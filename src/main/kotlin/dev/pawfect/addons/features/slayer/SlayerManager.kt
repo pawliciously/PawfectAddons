@@ -3,6 +3,8 @@ package dev.pawfect.addons.features.slayer
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.SlayersConfig.SlayerTarget
 import dev.pawfect.addons.data.SkyBlockData
+import dev.pawfect.addons.ui.Icons
+import dev.pawfect.addons.ui.Notifications
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.SoundCue
 import dev.pawfect.addons.utils.NumberUtil.parseHypixelInt
@@ -117,6 +119,7 @@ object SlayerManager {
 
     private var alertedStand = -1
     private var lowAlerted = false
+    private var inHitPhase = false
 
     fun onTick() {
         if (!config.enabled || !SkyBlockData.onSkyBlock) {
@@ -129,6 +132,7 @@ object SlayerManager {
         if (current != null) current.hits = findHits(current)
         if (current != null && current.alive && matchesTarget(current)) {
             checkLowHealth(current)
+            checkHitPhase(current)
             return
         }
 
@@ -140,7 +144,25 @@ object SlayerManager {
         if (found.stand.id == alertedStand) return
         alertedStand = found.stand.id
         lowAlerted = false
+        inHitPhase = false
         if (config.alertSpawn) SoundCue.play(config.spawnSoundId, config.alertVolume, config.alertPitch)
+        checkHitPhase(found)
+    }
+
+    // The Voidgloom's shield is up whenever its plate counts hits instead of health.
+    private fun checkHitPhase(current: Boss) {
+        val hits = current.hits
+        if (hits == null) {
+            inHitPhase = false
+            return
+        }
+        if (inHitPhase) return
+        inHitPhase = true
+        if (!current.owned) return
+        if (config.hitPhaseNotify) {
+            Notifications.push("Voidgloom", "Hits phase: $hits hits to break the shield", Icons.SHIELD, lifetime = HIT_PHASE_TOAST_MS)
+        }
+        if (config.hitPhaseSound) SoundCue.play(config.hitPhaseSoundId, config.alertVolume, config.alertPitch)
     }
 
     private fun onBossGone() {
@@ -250,4 +272,6 @@ object SlayerManager {
     private const val OWNED_PREFERENCE = 100_000.0
 
     private const val SLAIN_RANGE_SQ = 900.0
+
+    private const val HIT_PHASE_TOAST_MS = 3_000L
 }
