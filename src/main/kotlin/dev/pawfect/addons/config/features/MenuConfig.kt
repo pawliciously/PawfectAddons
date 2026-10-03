@@ -36,4 +36,28 @@ class MenuConfig {
 
     @Expose
     var colorAccent: Int = 0x6C5CE7
+
+    @Expose
+    var hubScene: Boolean = true
+
+    @Expose
+    var hubCapture: Boolean = true
+
+    @Expose
+    var anchorSet: Boolean = false
+
+    @Expose
+    var anchorX: Double = 0.0
+
+    @Expose
+    var anchorY: Double = 0.0
+
+    @Expose
+    var anchorZ: Double = 0.0
+
+    @Expose
+    var anchorYaw: Float = 0f
+
+    @Expose
+    var anchorPitch: Float = 0f
 }

@@ -12,6 +12,8 @@ import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.data.NeuRepo
 import dev.pawfect.addons.features.dungeon.DungeonRooms
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
+import dev.pawfect.addons.features.visual.menu.hub.HubCapture
+import dev.pawfect.addons.features.visual.menu.hub.HubScene
 import dev.pawfect.addons.features.dungeon.DungeonWaypoints
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.features.FeatureRegistry
@@ -93,6 +95,42 @@ object PawfectCommands {
                                     openProfile(StringArgumentType.getString(context, "player"))
                                     SUCCESS
                                 },
+                        ),
+                )
+                .then(
+                    ClientCommands.literal("menu")
+                        .then(
+                            ClientCommands.literal("here").executes {
+                                val player = McCompat.player ?: return@executes SUCCESS
+                                val moved = HubCapture.setAnchor(player.x, player.y, player.z, player.yRot, player.xRot)
+                                ChatUtils.chat("§aMenu camera spot saved at §f%.1f %.1f %.1f§a.".format(player.x, player.y, player.z))
+                                if (moved) ChatUtils.chat("§7That's a new area, so the old capture was cleared.")
+                                if (!HubCapture.inHub) ChatUtils.chat("§7Capture starts the next time you're in the SkyBlock hub.")
+                                else ChatUtils.chat("§7Capturing the area around it now. Walk around a bit if you like.")
+                                SUCCESS
+                            },
+                        )
+                        .then(
+                            ClientCommands.literal("status").executes {
+                                val menu = ConfigManager.features.menu
+                                if (!menu.anchorSet) {
+                                    ChatUtils.chat("§7No camera spot yet. Stand in the hub and run §f/pa menu here§7.")
+                                } else {
+                                    ChatUtils.chat("§7Camera spot: §f%.1f %.1f %.1f".format(menu.anchorX, menu.anchorY, menu.anchorZ))
+                                }
+                                val file = HubScene.file
+                                val size = if (java.nio.file.Files.exists(file)) java.nio.file.Files.size(file) / 1024 else 0
+                                ChatUtils.chat("§7Captured: §f${HubCapture.columnCount} chunks, ${HubCapture.sectionCount} sections §7(${size} KB on disk)")
+                                ChatUtils.chat("§7In the hub right now: §f${if (HubCapture.inHub) "yes" else "no"}")
+                                SUCCESS
+                            },
+                        )
+                        .then(
+                            ClientCommands.literal("clear").executes {
+                                HubCapture.clear()
+                                ChatUtils.chat("§7Hub capture cleared. It rebuilds the next time you're in the hub.")
+                                SUCCESS
+                            },
                         ),
                 )
                 .then(

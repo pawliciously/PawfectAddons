@@ -38,6 +38,7 @@ import dev.pawfect.addons.features.discord.DiscordPresence
 import dev.pawfect.addons.features.media.MediaBridge
 import dev.pawfect.addons.utils.SessionTracker
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
+import dev.pawfect.addons.features.visual.menu.hub.HubCapture
 import dev.pawfect.addons.features.dungeon.HealerBox
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker
@@ -122,6 +123,7 @@ object PawfectAddons : ClientModInitializer {
             MotionBlur.shutdown()
             MediaBridge.stop()
             DiscordPresence.stop()
+            runCatching { HubCapture.shutdown() }
             ConfigManager.saveAll("client stopping")
         }
     }
@@ -260,6 +262,7 @@ object PawfectAddons : ClientModInitializer {
         runCatching { Trails.onTick() }
         runCatching { Ripples.onTick() }
         runCatching { CosmeticEnroll.onTick() }
+        runCatching { HubCapture.onTick() }
 
         if (McCompat.player == null) return
 
