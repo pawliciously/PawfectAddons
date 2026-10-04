@@ -6,7 +6,7 @@ import dev.pawfect.addons.features.visual.menu.hub.WalkPlanner.Waypoint
 /**
  * What happens in each area's menu scene: an optional camera path that replaces the default
  * fly-in, and the walk pawliciously takes through it. Positions are feet positions recorded in
- * game with /pa menu point.
+ * game with /pa dev point.
  */
 internal object MenuScenes {
 

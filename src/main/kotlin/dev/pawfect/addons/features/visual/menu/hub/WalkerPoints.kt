@@ -12,7 +12,7 @@ import java.nio.file.Path
 import java.time.Instant
 
 /**
- * Spots recorded in game with /pa menu point, kept in a plain JSON file so they can be turned
+ * Spots recorded in game with /pa dev point, kept in a plain JSON file so they can be turned
  * into new walks for the menu scene. Each one notes where it was taken, since a hub spot only
  * makes sense in the hub.
  */

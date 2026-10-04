@@ -24,6 +24,7 @@ import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.chat.LevelPrestige
 import dev.pawfect.addons.features.profile.ProfileViewerScreen
+import dev.pawfect.addons.features.debug.IslandBlocks
 import dev.pawfect.addons.features.debug.StandDebug
 import dev.pawfect.addons.features.visual.handchams.HandChams
 import dev.pawfect.addons.features.recipetracker.RecipeTrackerOverlay
@@ -40,6 +41,7 @@ object PawfectCommands {
     private const val SUCCESS = 1
     private const val CLEAR_CONFIRM_WINDOW_MS = 15_000L
     private const val EMOJI_LIST_LIMIT = 60
+    private const val BLOCK_PREVIEW = 15
 
     private var craftableNamesCache: List<String> = emptyList()
     private var clearRequestedAt = 0L
@@ -57,13 +59,7 @@ object PawfectCommands {
                     PawfectAddons.queueScreen { ConfigGuiManager.open() }
                     SUCCESS
                 }
-                .then(
-                    ClientCommands.literal("actionbar").executes {
-                        if (ActionBarDebug.toggle()) ChatUtils.success("Action bar logging on. Check the game log.")
-                        else ChatUtils.chat("Action bar logging off.")
-                        SUCCESS
-                    },
-                )
+                .then(devNode())
                 .then(
                     ClientCommands.literal("emoji")
                         .executes {
@@ -117,34 +113,6 @@ object PawfectCommands {
                             },
                         )
                         .then(
-                            ClientCommands.literal("point")
-                                .executes {
-                                    val count = WalkerPoints.add() ?: return@executes SUCCESS
-                                    ChatUtils.chat("§aWalker point §f#$count §asaved in §f${HypixelLocation.mode ?: "unknown"}§a.")
-                                    SUCCESS
-                                }
-                                .then(
-                                    ClientCommands.literal("undo").executes {
-                                        val left = WalkerPoints.undo()
-                                        ChatUtils.chat(if (left == null) "§7No walker points to remove." else "§7Removed the last walker point, §f$left §7left.")
-                                        SUCCESS
-                                    },
-                                )
-                                .then(
-                                    ClientCommands.literal("clear").executes {
-                                        WalkerPoints.clear()
-                                        ChatUtils.chat("§7Cleared all walker points.")
-                                        SUCCESS
-                                    },
-                                )
-                                .then(
-                                    ClientCommands.literal("list").executes {
-                                        ChatUtils.chat("§7${WalkerPoints.count()} walker points in §f${WalkerPoints.file}")
-                                        SUCCESS
-                                    },
-                                ),
-                        )
-                        .then(
                             ClientCommands.literal("status").executes {
                                 val spots = HubScene.spots()
                                 if (spots.isEmpty()) ChatUtils.chat("§7No camera spots yet. Stand somewhere in SkyBlock and run §f/pa menu here§7.")
@@ -175,26 +143,6 @@ object PawfectCommands {
                         ),
                 )
                 .then(
-                    ClientCommands.literal("stands").executes {
-                        ChatUtils.chat("Named armour stands nearby:")
-                        StandDebug.dump().forEach { ChatUtils.chat("  $it") }
-                        SUCCESS
-                    },
-                )
-                .then(
-                    ClientCommands.literal("heads").executes {
-                        StandDebug.heads().forEach { ChatUtils.chat(it) }
-                        SUCCESS
-                    },
-                )
-                .then(
-                    ClientCommands.literal("chams").executes {
-                        ChatUtils.chat("Hand chams status:")
-                        HandChams.status().forEach { ChatUtils.chat("  §7$it") }
-                        SUCCESS
-                    },
-                )
-                .then(
                     ClientCommands.literal("dw")
                         .then(ClientCommands.literal("add").executes { ChatUtils.chat(DungeonWaypoints.add()); SUCCESS })
                         .then(ClientCommands.literal("clear").executes { ChatUtils.chat(DungeonWaypoints.clearRoom()); SUCCESS })
@@ -211,49 +159,13 @@ object PawfectCommands {
                             },
                         )
                         .then(
-                            ClientCommands.literal("room").executes {
-                                DungeonRooms.describe().forEach { ChatUtils.chat("§7$it") }
-                                ChatUtils.chat("§7Render: ${DungeonWaypointRenderer.lastError}")
-                                ChatUtils.chat("§7Last frame room: ${DungeonWaypointRenderer.lastRoom.take(8)} (${DungeonWaypointRenderer.lastCount} here)")
-                                DungeonScanner.describe().forEach { ChatUtils.chat("§7$it") }
-                                SUCCESS
-                            },
-                        )
-                        .then(
                             ClientCommands.literal("import").executes {
                                 ChatUtils.chat(DungeonWaypoints.importFrom(DungeonWaypoints.path().parent.resolve("pa-dw-import.json")))
                                 SUCCESS
                             },
                         )
                         .executes {
-                            ChatUtils.chat("/pa dw add | list | clear | room | import")
-                            SUCCESS
-                        },
-                )
-                .then(
-                    ClientCommands.literal("exp").executes {
-                        dev.pawfect.addons.features.experiments.ExperimentManager.describe()
-                            .forEach { line -> ChatUtils.chat("§7$line") }
-                        SUCCESS
-                    },
-                )
-                .then(
-                    ClientCommands.literal("media").executes {
-                        val art = dev.pawfect.addons.features.media.MediaArt
-                        val bridge = dev.pawfect.addons.features.media.MediaBridge
-                        ChatUtils.chat("enabled=" + ConfigManager.features.media.enabled + " running=" + (bridge.track != null))
-                        ChatUtils.chat("track=" + (bridge.track?.title ?: "none"))
-                        ChatUtils.chat("helper=" + bridge.thumbReady + " capture=" + bridge.thumbState)
-                        ChatUtils.chat("art=" + art.available + " " + art.width + "x" + art.height + " " + art.lastError)
-                        ChatUtils.chat("path=" + (bridge.artPath ?: "none"))
-                        SUCCESS
-                    },
-                )
-                .then(
-                    ClientCommands.literal("levels")
-                        .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
-                        .executes {
-                            LevelPrestige.previewLines().forEach { McCompat.mc.gui.chat.addClientSystemMessage(it) }
+                            ChatUtils.chat("/pa dw add | list | clear | import")
                             SUCCESS
                         },
                 )
@@ -307,6 +219,116 @@ object PawfectCommands {
                 .redirect(root),
         )
     }
+
+    /** Diagnostics and tools for building PA. Only registered for the pawliciously account. */
+    private fun devNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
+        ClientCommands.literal("dev")
+            .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
+            .executes {
+                ChatUtils.chat("/pa dev blocks | point | heads | stands | room | chams | exp | media | levels | actionbar")
+                SUCCESS
+            }
+            .then(
+                ClientCommands.literal("blocks").executes {
+                    val result = IslandBlocks.scan() ?: return@executes SUCCESS
+                    ChatUtils.chat("§a${result.counts.size} unique blocks §7in §f${result.chunks} §7loaded chunks:")
+                    result.counts.take(BLOCK_PREVIEW).forEach { (block, count) ->
+                        ChatUtils.chat("  §f${block.name.string} §7${count.addSeparators()}")
+                    }
+                    if (result.counts.size > BLOCK_PREVIEW) ChatUtils.chat("  §7and ${result.counts.size - BLOCK_PREVIEW} more")
+                    ChatUtils.chat("§7Full list saved to §f${result.file}")
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("point")
+                    .executes {
+                        val count = WalkerPoints.add() ?: return@executes SUCCESS
+                        ChatUtils.chat("§aWalker point §f#$count §asaved in §f${HypixelLocation.mode ?: "unknown"}§a.")
+                        SUCCESS
+                    }
+                    .then(
+                        ClientCommands.literal("undo").executes {
+                            val left = WalkerPoints.undo()
+                            ChatUtils.chat(if (left == null) "§7No walker points to remove." else "§7Removed the last walker point, §f$left §7left.")
+                            SUCCESS
+                        },
+                    )
+                    .then(
+                        ClientCommands.literal("clear").executes {
+                            WalkerPoints.clear()
+                            ChatUtils.chat("§7Cleared all walker points.")
+                            SUCCESS
+                        },
+                    )
+                    .then(
+                        ClientCommands.literal("list").executes {
+                            ChatUtils.chat("§7${WalkerPoints.count()} walker points in §f${WalkerPoints.file}")
+                            SUCCESS
+                        },
+                    ),
+            )
+            .then(
+                ClientCommands.literal("heads").executes {
+                    StandDebug.heads().forEach { ChatUtils.chat(it) }
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("stands").executes {
+                    ChatUtils.chat("Named armour stands nearby:")
+                    StandDebug.dump().forEach { ChatUtils.chat("  $it") }
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("room").executes {
+                    DungeonRooms.describe().forEach { ChatUtils.chat("§7$it") }
+                    ChatUtils.chat("§7Render: ${DungeonWaypointRenderer.lastError}")
+                    ChatUtils.chat("§7Last frame room: ${DungeonWaypointRenderer.lastRoom.take(8)} (${DungeonWaypointRenderer.lastCount} here)")
+                    DungeonScanner.describe().forEach { ChatUtils.chat("§7$it") }
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("chams").executes {
+                    ChatUtils.chat("Hand chams status:")
+                    HandChams.status().forEach { ChatUtils.chat("  §7$it") }
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("exp").executes {
+                    dev.pawfect.addons.features.experiments.ExperimentManager.describe()
+                        .forEach { line -> ChatUtils.chat("§7$line") }
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("media").executes {
+                    val art = dev.pawfect.addons.features.media.MediaArt
+                    val bridge = dev.pawfect.addons.features.media.MediaBridge
+                    ChatUtils.chat("enabled=" + ConfigManager.features.media.enabled + " running=" + (bridge.track != null))
+                    ChatUtils.chat("track=" + (bridge.track?.title ?: "none"))
+                    ChatUtils.chat("helper=" + bridge.thumbReady + " capture=" + bridge.thumbState)
+                    ChatUtils.chat("art=" + art.available + " " + art.width + "x" + art.height + " " + art.lastError)
+                    ChatUtils.chat("path=" + (bridge.artPath ?: "none"))
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("levels").executes {
+                    LevelPrestige.previewLines().forEach { McCompat.mc.gui.chat.addClientSystemMessage(it) }
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("actionbar").executes {
+                    if (ActionBarDebug.toggle()) ChatUtils.success("Action bar logging on. Check the game log.")
+                    else ChatUtils.chat("Action bar logging off.")
+                    SUCCESS
+                },
+            )
 
     private fun untrackNode(name: String): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal(name)
