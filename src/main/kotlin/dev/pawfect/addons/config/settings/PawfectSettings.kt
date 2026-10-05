@@ -16,6 +16,7 @@ import dev.pawfect.addons.config.features.SkyboxConfig.SkyQuality
 import dev.pawfect.addons.config.features.SlayersConfig.SlayerDisplay
 import dev.pawfect.addons.config.features.SlayersConfig.SlayerTarget
 import dev.pawfect.addons.config.features.ThemeConfig.ThemePreset
+import dev.pawfect.addons.ui.Theme
 import dev.pawfect.addons.config.features.TooltipConfig.BorderSource
 import dev.pawfect.addons.config.features.TooltipConfig.Frame
 import dev.pawfect.addons.config.features.ThemeConfig.UiFontChoice
@@ -48,6 +49,25 @@ object PawfectSettings {
     private val config get() = ConfigManager.features
 
     private val dev get() = config.dev
+
+    /**
+     * A custom theme colour edited while a preset is on starts Custom from that preset's colours, so
+     * the edit shows straight away and nothing else in the menu jumps to other colours.
+     */
+    private fun adoptCustomTheme(apply: () -> Unit) {
+        val theme = config.theme
+        if (theme.preset != ThemePreset.CUSTOM) {
+            val palette = Theme.palette
+            theme.customAccent = palette.accent
+            theme.customBackground = palette.background
+            theme.customPanel = palette.panel
+            theme.customBorder = palette.border
+            theme.customText = palette.text
+            theme.customTextDim = palette.textDim
+            theme.preset = ThemePreset.CUSTOM
+        }
+        apply()
+    }
 
     fun build(): List<SettingCategory> {
         val tracker = config.recipeTracker
@@ -442,11 +462,11 @@ object PawfectSettings {
                     ToggleSetting("Custom Colours", "Recolour the overlay instead of using its built in palette.", chams::overlayCustomColors)
                         .showIf { chams.overlay != OverlayEffect.NONE },
                     ColorSetting("Primary", "Liquid flow, or the portal's deep tone.", chams::overlayColorA)
-                        .showIf { chams.overlay != OverlayEffect.NONE && chams.overlayCustomColors },
+                        .showIf { chams.overlay != OverlayEffect.NONE && chams.overlayCustomColors }.onChange { chams.overlayCustomColors = true },
                     ColorSetting("Secondary", "Liquid depth, or the portal's mid tone.", chams::overlayColorB)
-                        .showIf { chams.overlay != OverlayEffect.NONE && chams.overlayCustomColors },
+                        .showIf { chams.overlay != OverlayEffect.NONE && chams.overlayCustomColors }.onChange { chams.overlayCustomColors = true },
                     ColorSetting("Highlight", "Bright cores, the portal's starfield, or the stars in space.", chams::overlayColorC)
-                        .showIf { chams.overlay != OverlayEffect.NONE && chams.overlayCustomColors },
+                        .showIf { chams.overlay != OverlayEffect.NONE && chams.overlayCustomColors }.onChange { chams.overlayCustomColors = true },
                 ),
                 group(
                     "Performance",
@@ -562,7 +582,7 @@ object PawfectSettings {
                     ToggleSetting("Custom Colour", "Pick the panel colour instead of using your theme's.", chat::customColor)
                         .showIf { chat.styled },
                     ColorSetting("Panel Colour", "Colour behind chat.", chat::color, supportsAlpha = false)
-                        .showIf { chat.styled && chat.customColor },
+                        .showIf { chat.styled && chat.customColor }.onChange { chat.customColor = true },
                 ),
                 group(
                     "Messages",
@@ -718,11 +738,11 @@ object PawfectSettings {
                     ToggleSetting("Custom Colours", "Use your own palette instead of the theme.", inventory::customColors)
                         .showIf { inventory.enabled },
                     ColorSetting("Top", "Colour at the top of the plate.", inventory::colorTop)
-                        .showIf { inventory.enabled && inventory.customColors },
+                        .showIf { inventory.enabled && inventory.customColors }.onChange { inventory.customColors = true },
                     ColorSetting("Bottom", "Colour at the bottom of the plate.", inventory::colorBottom)
-                        .showIf { inventory.enabled && inventory.customColors },
+                        .showIf { inventory.enabled && inventory.customColors }.onChange { inventory.customColors = true },
                     ColorSetting("Accent", "Colour of the pattern and slot edges.", inventory::colorAccent)
-                        .showIf { inventory.enabled && inventory.customColors },
+                        .showIf { inventory.enabled && inventory.customColors }.onChange { inventory.customColors = true },
                 ),
                 sectionGroup(
                     "Tooltips",
@@ -798,11 +818,11 @@ object PawfectSettings {
                     ToggleSetting("Custom Colours", "Use your own palette instead of the one this sky ships with.", skybox::customColors)
                         .showIf { skybox.enabled },
                     ColorSetting("Primary", "Main body of the effect.", skybox::colorPrimary)
-                        .showIf { skybox.enabled && skybox.customColors },
+                        .showIf { skybox.enabled && skybox.customColors }.onChange { skybox.customColors = true },
                     ColorSetting("Secondary", "Deep tone behind it.", skybox::colorSecondary)
-                        .showIf { skybox.enabled && skybox.customColors },
+                        .showIf { skybox.enabled && skybox.customColors }.onChange { skybox.customColors = true },
                     ColorSetting("Accent", "Bright cores, crests and highlights.", skybox::colorAccent)
-                        .showIf { skybox.enabled && skybox.customColors },
+                        .showIf { skybox.enabled && skybox.customColors }.onChange { skybox.customColors = true },
                 ),
             ),
             category(
@@ -929,11 +949,11 @@ object PawfectSettings {
                     ToggleSetting("Custom Colours", "Use your own palette instead of the theme.", menu::customColors)
                         .showIf { menu.enabled },
                     ColorSetting("Top", "Colour at the top of the backdrop.", menu::colorTop)
-                        .showIf { menu.enabled && menu.customColors },
+                        .showIf { menu.enabled && menu.customColors }.onChange { menu.customColors = true },
                     ColorSetting("Bottom", "Colour at the bottom of the backdrop.", menu::colorBottom)
-                        .showIf { menu.enabled && menu.customColors },
+                        .showIf { menu.enabled && menu.customColors }.onChange { menu.customColors = true },
                     ColorSetting("Accent", "Colour of the drifting glow.", menu::colorAccent)
-                        .showIf { menu.enabled && menu.customColors },
+                        .showIf { menu.enabled && menu.customColors }.onChange { menu.customColors = true },
                 ),
             ),
             category(
@@ -960,12 +980,12 @@ object PawfectSettings {
                 ),
                 group(
                     "Custom Colours",
-                    ColorSetting("Accent", "Highlight colour.", theme::customAccent).showIf { theme.preset == ThemePreset.CUSTOM },
-                    ColorSetting("Background", "Window background.", theme::customBackground).showIf { theme.preset == ThemePreset.CUSTOM },
-                    ColorSetting("Panel", "Group box background.", theme::customPanel).showIf { theme.preset == ThemePreset.CUSTOM },
-                    ColorSetting("Border", "Border and divider colour.", theme::customBorder).showIf { theme.preset == ThemePreset.CUSTOM },
-                    ColorSetting("Text", "Primary text colour.", theme::customText).showIf { theme.preset == ThemePreset.CUSTOM },
-                    ColorSetting("Dim Text", "Secondary text colour.", theme::customTextDim).showIf { theme.preset == ThemePreset.CUSTOM },
+                    ColorSetting("Accent", "Highlight colour.", theme::customAccent).showIf { theme.preset == ThemePreset.CUSTOM }.onChange { v -> adoptCustomTheme { theme.customAccent = v } },
+                    ColorSetting("Background", "Window background.", theme::customBackground).showIf { theme.preset == ThemePreset.CUSTOM }.onChange { v -> adoptCustomTheme { theme.customBackground = v } },
+                    ColorSetting("Panel", "Group box background.", theme::customPanel).showIf { theme.preset == ThemePreset.CUSTOM }.onChange { v -> adoptCustomTheme { theme.customPanel = v } },
+                    ColorSetting("Border", "Border and divider colour.", theme::customBorder).showIf { theme.preset == ThemePreset.CUSTOM }.onChange { v -> adoptCustomTheme { theme.customBorder = v } },
+                    ColorSetting("Text", "Primary text colour.", theme::customText).showIf { theme.preset == ThemePreset.CUSTOM }.onChange { v -> adoptCustomTheme { theme.customText = v } },
+                    ColorSetting("Dim Text", "Secondary text colour.", theme::customTextDim).showIf { theme.preset == ThemePreset.CUSTOM }.onChange { v -> adoptCustomTheme { theme.customTextDim = v } },
                 ),
                 group(
                     "Behaviour",

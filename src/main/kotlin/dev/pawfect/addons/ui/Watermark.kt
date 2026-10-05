@@ -17,9 +17,9 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 /**
- * The PawfectAddons watermark: a small panel with Chroma's moving strip along its top, in the
- * colour of the menu tab you last had open. Every reading can be switched off, and it moves
- * with the HUD editor like the other overlays.
+ * The PawfectAddons watermark: a small panel with the menu's flowing gradient along its top
+ * edge and through its name, in the theme's accent. Every reading can be switched off, and it
+ * moves with the HUD editor like the other overlays.
  */
 object Watermark {
 
@@ -34,7 +34,7 @@ object Watermark {
         if (screen != null && screen !is ChatScreen && !GuiEditManager.isEditorOpen()) return
 
         val parts = parts()
-        val width = PAD * 2f + Draw.width(BRAND) + parts.sumOf { (SEPARATOR + Draw.width(it.text)).toDouble() }.toFloat()
+        val width = PAD * 2f + Chroma.width(BRAND, true) + parts.sumOf { (SEPARATOR + Draw.width(it.text)).toDouble() }.toFloat()
         val position = theme.watermarkPosition
         val scale = position.effectiveScale
         val scaledWidth = (width * scale).toInt()
@@ -79,25 +79,25 @@ object Watermark {
     }
 
     private fun draw(graphics: GuiGraphicsExtractor, width: Float, parts: List<Part>) {
-        val accent = (Chroma.TABS.firstOrNull { it.id == ConfigManager.features.theme.chromaTab } ?: Chroma.TABS.first { it.id == "slayers" }).hue
         graphics.dropShadow(0f, 0f, width, HEIGHT, RADIUS, 10f, Theme.withAlpha(0x000000, 140), 2f)
-        graphics.roundPanel(0f, 0f, width, HEIGHT, RADIUS, Theme.surface(Theme.background, 238), Theme.opaque(Theme.border))
-        Chroma.drawStrip(graphics, 1f, 1f, width - 2f, 2f, accent, radius = RADIUS - 1f)
+        // The gradient edge sits behind the panel; the panel covers all but its top band.
+        Chroma.drawEdge(graphics, 0f, 0f, width, HEIGHT, RADIUS)
+        graphics.roundPanel(0f, EDGE, width, HEIGHT - EDGE, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
 
-        val textY = (HEIGHT - Draw.LINE_HEIGHT) / 2f + 1f
+        val textY = EDGE + (HEIGHT - EDGE - Draw.LINE_HEIGHT) / 2f
         var cursor = PAD
-        graphics.string(BRAND, cursor, textY, Theme.opaque(Theme.text), bold = true)
-        cursor += Draw.width(BRAND)
+        cursor += Chroma.drawGradientText(graphics, BRAND, cursor, textY)
         parts.forEach { part ->
-            graphics.circle(cursor + SEPARATOR / 2f, HEIGHT / 2f + 1f, 1.3f, Theme.withAlpha(accent, 200))
+            graphics.circle(cursor + SEPARATOR / 2f, textY + Draw.LINE_HEIGHT / 2f - 0.5f, 1.3f, Theme.withAlpha(Theme.accent, 200))
             cursor += SEPARATOR
             graphics.string(part.text, cursor, textY, part.color)
             cursor += Draw.width(part.text)
         }
     }
 
-    private const val BRAND = "PAWFECT"
-    private const val HEIGHT = 17f
+    private const val BRAND = "PawfectAddons"
+    private const val HEIGHT = 18f
+    private const val EDGE = 2f
     private const val PAD = 7f
     private const val SEPARATOR = 11f
     private const val RADIUS = 5f

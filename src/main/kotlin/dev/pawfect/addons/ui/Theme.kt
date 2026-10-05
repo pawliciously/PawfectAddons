@@ -51,10 +51,7 @@ object Theme {
     val panel: Int get() = palette.panel
     val header: Int get() = palette.header
     val border: Int get() = palette.border
-    /** Set while the Chroma menu draws, so every widget takes the open tab's colour. */
-    var accentOverride: Int? = null
-
-    val accent: Int get() = accentOverride ?: palette.accent
+    val accent: Int get() = palette.accent
     val text: Int get() = palette.text
     val textDim: Int get() = palette.textDim
 

@@ -11,7 +11,6 @@ import dev.pawfect.addons.config.settings.ToggleSetting
 import dev.pawfect.addons.ui.Draw.circle
 import dev.pawfect.addons.ui.Draw.dropShadow
 import dev.pawfect.addons.ui.Draw.gradientHorizontal
-import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Draw.icon
 import dev.pawfect.addons.ui.Draw.pill
 import dev.pawfect.addons.ui.Draw.roundPanel
@@ -27,10 +26,10 @@ import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.network.chat.Component
 
 /**
- * The Chroma settings menu. Every tab has its own colour and the whole window takes it on,
- * easing from one tab's colour to the next. The widgets are the same ones the classic menu
- * uses: while Chroma draws, the theme accent is swapped for the tab colour, so every switch,
- * slider and picker follows it. Any setting can be starred into Favourites.
+ * The Chroma settings menu: an icon column of tabs, a moving gradient along the top edge, and
+ * two columns of group boxes split by labelled dividers that can be folded away. Everything is
+ * drawn in the theme's colours, and the widgets are the same ones the classic menu uses. Any
+ * setting can be starred into Favourites.
  */
 class ChromaConfigScreen(
     sections: List<SettingSection>,
@@ -45,19 +44,13 @@ class ChromaConfigScreen(
         val pinKey = Chroma.pinKey(category, groupTitle, widget.setting)
     }
 
-    /** A labelled divider across both columns: a category inside a merged tab, or a section like Hand Chams. */
-    private class Band(val label: String, val y: Float)
+    /** A labelled divider across both columns. Its boxes hide while it's folded. */
+    private class Band(val key: String, val label: String, val y: Float)
 
-    private class Box(val key: String, val title: String, val owner: String?, val entries: List<Entry>, val band: String? = null) {
+    private class Box(val key: String, val title: String, val entries: List<Entry>, val band: String?) {
         var x = 0f
         var y = 0f
         var width = 0f
-
-        // Every setting in the group, the way the classic menu lays them out: its colour pickers and
-        // sliders stay listed even while the switch they belong to is off.
-        val visible: List<Entry> get() = entries
-
-        val shown: Boolean get() = entries.any { it.widget.setting.visible }
 
         val collapsed: Boolean get() = ConfigManager.features.theme.collapsedGroups.contains(key)
 
@@ -67,7 +60,7 @@ class ChromaConfigScreen(
         }
 
         val height: Float
-            get() = if (collapsed) BOX_HEADER else BOX_HEADER + BOX_PADDING * 2f + visible.sumOf { it.widget.height.toDouble() }.toFloat()
+            get() = if (collapsed) BOX_HEADER else BOX_HEADER + BOX_PADDING * 2f + entries.sumOf { it.widget.height.toDouble() }.toFloat()
     }
 
     private val categories = sections.flatMap { it.categories }
@@ -75,10 +68,7 @@ class ChromaConfigScreen(
     private val tabs: List<Tab> = buildTabs()
 
     private val widgets = HashMap<String, Widget>()
-    private val iconHover = tabs.map { Anim(160L) }
-    private val buttonHover = HashMap<String, Anim>()
-    // Boxes are rebuilt every frame, so their hover state lives here by key.
-    private val boxHover = HashMap<String, Anim>()
+    private val hover = HashMap<String, Anim>()
 
     private var tabId: String = (initialTab?.let { wanted -> tabs.firstOrNull { tab -> tab.categories.any { it.id == wanted } }?.id }
         ?: ConfigManager.features.theme.chromaTab.takeIf { saved -> tabs.any { it.id == saved } }
@@ -86,16 +76,13 @@ class ChromaConfigScreen(
         ?: tabs.first().id)
     private val tab: Tab get() = tabs.first { it.id == tabId }
 
-    // The colour eases from the last tab's to this one's; the strip sweeps once on each change.
-    private var hueFrom = tab.def.hue
-    private var hueTo = tab.def.hue
-    private var hueChangedAt = 0L
     private val openAnim = Anim(240L, 0f)
     private val contentAnim = Anim(220L, 1f)
     private val indicatorAnim = Anim(200L)
     private var indicatorReady = false
     private val tooltipAnim = Anim(140L)
     private var tooltipIndex = -1
+    private var lastTooltip = -1
 
     private var windowX = 0f
     private var windowY = 0f
@@ -125,8 +112,6 @@ class ChromaConfigScreen(
         UiScale.push(graphics)
         val mx = UiScale.mouseX(mouseX.toDouble())
         val my = UiScale.mouseY(mouseY.toDouble())
-        val accent = currentHue()
-        Theme.accentOverride = accent
         try {
             updateWindowPosition(mx, my)
             dragged?.mouseDragged(mx, my)
@@ -141,21 +126,22 @@ class ChromaConfigScreen(
             graphics.pose().scale(0.94f + 0.06f * open, 0.94f + 0.06f * open)
             graphics.pose().translate(-cx, -cy)
 
-            drawWindow(graphics, accent)
+            drawWindow(graphics)
             drawIcons(graphics, mx, my)
-            drawHeader(graphics, mx, my, accent)
+            drawHeader(graphics, mx, my)
             drawContent(graphics, mx, my)
             drawTooltip(graphics)
 
             graphics.pose().popMatrix()
             Notifications.renderScaled(graphics)
         } finally {
-            Theme.accentOverride = null
             UiScale.pop(graphics)
         }
     }
 
-    // ------------------------------------------------------------------ tabs
+    private fun hoverFor(id: String): Anim = hover.getOrPut(id) { Anim(160L) }
+
+    // ------------------------------------------------------------------ tabs and content
 
     private fun buildTabs(): List<Tab> {
         val placed = HashSet<String>()
@@ -168,17 +154,14 @@ class ChromaConfigScreen(
         if (rest.isNotEmpty()) {
             val misc = built.indexOfFirst { it.id == "misc" }
             if (misc >= 0) built[misc] = Tab(built[misc].def, built[misc].categories + rest)
-            else built += Tab(Chroma.TabDef("other", "Other", Icons.GEAR, 0xB9B9C8, rest.map { it.id }), rest)
+            else built += Tab(Chroma.TabDef("other", "Other", Icons.GEAR, rest.map { it.id }), rest)
         }
         return built
     }
 
     private fun selectTab(id: String) {
         if (id == tabId && searchQuery.isEmpty()) return
-        hueFrom = currentHue()
         tabId = id
-        hueTo = tab.def.hue
-        hueChangedAt = System.currentTimeMillis()
         searchQuery = ""
         searchFocused = false
         scroll = 0f
@@ -188,22 +171,15 @@ class ChromaConfigScreen(
         UiSound.click()
     }
 
-    private fun currentHue(): Int {
-        if (!Theme.animationsEnabled || hueChangedAt == 0L) return Theme.opaque(hueTo)
-        val t = ((System.currentTimeMillis() - hueChangedAt) / HUE_MS.toFloat()).coerceIn(0f, 1f)
-        return Theme.lerp(Theme.opaque(hueFrom), Theme.opaque(hueTo), Anim.easeOutCubic(t.toDouble()).toFloat())
-    }
-
-    private fun sweepProgress(): Float {
-        if (hueChangedAt == 0L) return 1f
-        return ((System.currentTimeMillis() - hueChangedAt) / SWEEP_MS.toFloat()).coerceIn(0f, 1f)
-    }
-
     private fun widgetFor(category: SettingCategory, groupTitle: String, setting: Setting<*>): Widget? {
         val key = Chroma.pinKey(category, groupTitle, setting)
         return widgets[key] ?: WidgetFactory.create(setting)?.also { widgets[key] = it }
     }
 
+    /**
+     * Every group and every setting is listed, the colour pickers included: nothing is hidden
+     * because a switch elsewhere is off.
+     */
     private fun buildBoxes(): List<Box> {
         val query = searchQuery.trim().lowercase()
         if (query.isNotEmpty()) {
@@ -211,36 +187,49 @@ class ChromaConfigScreen(
                 category.groups.filter { group ->
                     category.title.lowercase().contains(query) || group.title.lowercase().contains(query) ||
                         group.settings.any { it.name.lowercase().contains(query) }
-                }.map { group -> groupBox(category, group.title, group.settings, group.title, null, category.title) }
-            }.filter { it.shown }
+                }.map { group -> box(category, group.title, group.settings, category.title) }
+            }
         }
-        val current = tab
-        if (current.id == Chroma.FAVOURITES) {
+        if (tab.id == Chroma.FAVOURITES) {
             val wanted = Chroma.pins.toSet()
             return categories.mapNotNull { category ->
                 val entries = category.groups.flatMap { group ->
                     group.settings.filter { Chroma.pinKey(category, group.title, it) in wanted }
                         .mapNotNull { setting -> widgetFor(category, group.title, setting)?.let { Entry(category, group.title, it) } }
                 }
-                if (entries.isEmpty()) null else Box("fav/${category.id}", category.title, null, entries)
+                if (entries.isEmpty()) null else Box("fav/${category.id}", category.title, entries, null)
             }
         }
-        val multi = current.categories.size > 1
-        return current.categories.flatMap { category ->
+        val multi = tab.categories.size > 1
+        return tab.categories.flatMap { category ->
+            // A group without a section stays in the section above it.
+            var section: String? = null
             category.groups.map { group ->
-                val band = if (multi) group.section?.let { "${category.title}  /  $it" } ?: category.title else group.section
-                groupBox(category, group.title, group.settings, group.title, null, band)
+                section = group.section ?: section
+                box(category, group.title, group.settings, bandLabel(category, section, multi))
             }
-        }.filter { it.shown }
+        }
     }
 
-    private fun groupBox(category: SettingCategory, groupTitle: String, settings: List<Setting<*>>, title: String, owner: String?, band: String? = null): Box {
+    /**
+     * A merged tab splits by category, and a category splits by its sections. In a merged tab a
+     * section named after its own category adds nothing, so it isn't repeated.
+     */
+    private fun bandLabel(category: SettingCategory, section: String?, multi: Boolean): String? {
+        val own = section?.takeUnless { it.equals(category.title, ignoreCase = true) }
+        return when {
+            multi && own != null -> "${category.title}  /  $own"
+            multi -> category.title
+            else -> section
+        }
+    }
+
+    private fun box(category: SettingCategory, groupTitle: String, settings: List<Setting<*>>, band: String?): Box {
         val entries = settings.mapNotNull { setting -> widgetFor(category, groupTitle, setting)?.let { Entry(category, groupTitle, it) } }
-        return Box("${category.id}/$groupTitle", title, owner, entries, band)
+        return Box("${category.id}/$groupTitle", groupTitle, entries, band)
     }
 
-    private fun tabCategories(t: Tab): List<SettingCategory> =
-        if (t.id == Chroma.FAVOURITES) categories else t.categories
+    private fun tabCategories(t: Tab): List<SettingCategory> = if (t.id == Chroma.FAVOURITES) categories else t.categories
 
     /** Switches on in a tab, and how many there are. Favourites counts only starred ones. */
     private fun counts(t: Tab): Pair<Int, Int> {
@@ -267,6 +256,10 @@ class ChromaConfigScreen(
         return 0
     }
 
+    private fun bandKey(label: String): String = "chroma/$tabId/$label"
+
+    private fun bandCollapsed(key: String): Boolean = ConfigManager.features.theme.collapsedSections.contains(key)
+
     // ------------------------------------------------------------------ window
 
     private fun updateWindowPosition(mouseX: Float, mouseY: Float) {
@@ -286,17 +279,16 @@ class ChromaConfigScreen(
         windowY = windowY.coerceIn(margin, (UiScale.height - WINDOW_HEIGHT - margin).coerceAtLeast(margin))
     }
 
-    private fun drawWindow(graphics: GuiGraphicsExtractor, accent: Int) {
+    private fun drawWindow(graphics: GuiGraphicsExtractor) {
         graphics.dropShadow(windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, 24f, Theme.withAlpha(0x000000, 160), 6f)
-        // A soft glow in the tab colour, breathing slowly.
-        val breathe = if (Theme.animationsEnabled) 0.5f + 0.5f * kotlin.math.sin(System.currentTimeMillis() / 900.0).toFloat() else 0.5f
-        graphics.dropShadow(windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, 18f + 6f * breathe, Theme.withAlpha(accent, (52 + 26 * breathe).toInt()))
-        graphics.roundPanel(windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, Theme.surface(Theme.background), Theme.opaque(Theme.border))
-        graphics.roundRect(windowX + 1f, windowY + 1f, ICON_COLUMN, WINDOW_HEIGHT - 2f, WINDOW_RADIUS - 1f, Theme.surface(Theme.header, 240))
-        Chroma.drawStrip(graphics, windowX + 1f, windowY + 1f, WINDOW_WIDTH - 2f, STRIP_HEIGHT, accent, sweepProgress(), WINDOW_RADIUS - 1f)
+        // The gradient edge sits behind the window; the window covers all but its top band.
+        Chroma.drawEdge(graphics, windowX, windowY, WINDOW_WIDTH, WINDOW_RADIUS * 2f + EDGE + 1f, WINDOW_RADIUS)
+        graphics.roundPanel(windowX, windowY + EDGE, WINDOW_WIDTH, WINDOW_HEIGHT - EDGE, WINDOW_RADIUS, Theme.surface(Theme.background), Theme.opaque(Theme.border))
+        graphics.roundRect(windowX + 1f, windowY + EDGE + 1f, ICON_COLUMN, WINDOW_HEIGHT - EDGE - 2f, WINDOW_RADIUS - 1f, Theme.surface(Theme.header, 240))
+        graphics.roundRect(windowX + ICON_COLUMN, windowY + EDGE + 6f, 1f, WINDOW_HEIGHT - EDGE - 12f, 0.5f, Theme.withAlpha(Theme.border, 200))
     }
 
-    private fun iconY(index: Int): Float = windowY + STRIP_SPACE + 6f + index * ICON_STEP
+    private fun iconY(index: Int): Float = windowY + EDGE + 8f + index * ICON_STEP
 
     private fun drawIcons(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float) {
         val cellX = windowX + (ICON_COLUMN - ICON_CELL) / 2f
@@ -304,7 +296,10 @@ class ChromaConfigScreen(
         val target = iconY(activeIndex) - windowY
         if (!indicatorReady || draggingWindow) { indicatorAnim.set(target); indicatorReady = true }
         val indicator = windowY + indicatorAnim.update(target)
-        drawSelection(graphics, cellX, indicator)
+        // The selected tab: a small square in the accent around its icon, gliding between tabs.
+        if (searchQuery.isEmpty()) {
+            graphics.roundPanel(cellX, indicator, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(Theme.accent, 38), Theme.withAlpha(Theme.accent, 120))
+        }
 
         tooltipIndex = -1
         tabs.forEachIndexed { i, t ->
@@ -312,12 +307,11 @@ class ChromaConfigScreen(
             val hovered = Draw.inside(mouseX, mouseY, cellX, y, ICON_CELL, ICON_CELL) && !searchFocused
             if (hovered) tooltipIndex = i
             val active = t.id == tabId && searchQuery.isEmpty()
-            val h = iconHover[i].update(if (hovered || active) 1f else 0f)
-            if (h > 0.01f && !active) graphics.roundRect(cellX, y, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(t.def.hue, (22 * h).toInt()))
-            if (active) graphics.dropShadow(cellX + ICON_CELL / 2f - 7f, y + ICON_CELL / 2f - 7f, 14f, 14f, 7f, 9f, Theme.withAlpha(t.def.hue, 120))
-            val dim = Theme.mix(t.def.hue, Theme.textDim, 0.55f)
-            val color = Theme.lerp(Theme.opaque(dim), Theme.opaque(t.def.hue), h)
-            val scale = 1.25f + 0.12f * h
+            val h = hoverFor("icon/${t.id}").update(if (hovered) 1f else 0f)
+            if (h > 0.01f && !active) graphics.roundRect(cellX, y, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(Theme.text, (14 * h).toInt()))
+            val lit = if (active) 1f else h
+            val color = Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(if (active) Theme.accent else Theme.text), lit)
+            val scale = 1.25f + 0.1f * h
             val glyphWidth = UiFont.iconWidth(t.def.icon)
             graphics.pose().pushMatrix()
             graphics.pose().translate(cellX + ICON_CELL / 2f, y + ICON_CELL / 2f)
@@ -325,33 +319,6 @@ class ChromaConfigScreen(
             graphics.icon(t.def.icon, -glyphWidth / 2f, -Draw.LINE_HEIGHT / 2f + 0.5f, color)
             graphics.pose().popMatrix()
         }
-    }
-
-    /**
-     * The selected tab opens into the page: its cell takes the page's colour and runs into it,
-     * with curved corners where it meets the column, like a folder tab. The column's divider
-     * breaks around it, and a strip of the same moving gradient as the top bar runs down its edge.
-     */
-    private fun drawSelection(graphics: GuiGraphicsExtractor, cellX: Float, top: Float) {
-        val divider = windowX + ICON_COLUMN
-        val bottom = top + ICON_CELL
-        val page = Theme.surface(Theme.background)
-        val column = Theme.surface(Theme.header, 240)
-        val r = CORNER
-        graphics.roundRect(cellX - 2f, top, divider - cellX + 12f, ICON_CELL, 8f, page)
-        graphics.rect(divider - r, top - r, r + 1f, r, page)
-        graphics.circle(divider - r, top - r, r, column)
-        graphics.rect(divider - r, bottom, r + 1f, r, page)
-        graphics.circle(divider - r, bottom + r, r, column)
-        graphics.roundRect(cellX - 2f, top, divider - cellX + 4f, ICON_CELL, 8f, Theme.withAlpha(currentHue(), 16))
-
-        val lineTop = windowY + STRIP_SPACE
-        val lineBottom = windowY + WINDOW_HEIGHT - 6f
-        val line = Theme.withAlpha(Theme.border, 200)
-        if (top - r > lineTop) graphics.roundRect(divider, lineTop, 1f, top - r - lineTop, 0.5f, line)
-        if (bottom + r < lineBottom) graphics.roundRect(divider, bottom + r, 1f, lineBottom - bottom - r, 0.5f, line)
-
-        Chroma.drawStripVertical(graphics, cellX, top + 7f, 2f, ICON_CELL - 14f, currentHue())
     }
 
     /** Names the tab under the cursor, with its switch count, beside the icon column. */
@@ -369,44 +336,35 @@ class ChromaConfigScreen(
         val y = iconY(index) + (ICON_CELL - heightBox) / 2f
         val alpha = (255 * shown).toInt()
         graphics.dropShadow(x, y, width, heightBox, 6f, 10f, Theme.withAlpha(0x000000, (150 * shown).toInt()))
-        graphics.roundPanel(x, y, width, heightBox, 6f, Theme.withAlpha(Theme.header, (245 * shown).toInt()), Theme.withAlpha(t.def.hue, (200 * shown).toInt()))
-        graphics.circle(x + 7f, y + 10f, 2f, Theme.withAlpha(t.def.hue, alpha))
+        graphics.roundPanel(x, y, width, heightBox, 6f, Theme.withAlpha(Theme.header, (245 * shown).toInt()), Theme.withAlpha(Theme.accent, (190 * shown).toInt()))
+        graphics.circle(x + 7f, y + 10f, 2f, Theme.withAlpha(Theme.accent, alpha))
         graphics.string(t.def.title, x + 13f, y + 6f, Theme.withAlpha(Theme.text, alpha), bold = true)
         if (detail.isNotEmpty()) graphics.string(detail, x + 13f, y + 17f, Theme.withAlpha(Theme.textDim, alpha))
     }
-
-    private var lastTooltip = -1
 
     // ------------------------------------------------------------------ header
 
     private class Button(val id: String, val label: String, val x: Float, val y: Float, val width: Float)
 
     private fun headerButtons(): List<Button> {
-        val y = windowY + STRIP_SPACE + (HEADER_HEIGHT - BUTTON_HEIGHT) / 2f
-        var right = windowX + WINDOW_WIDTH - 10f
-        val list = ArrayList<Button>()
-        fun add(id: String, label: String) {
-            val w = Draw.width(label) + 16f
-            right -= w
-            list += Button(id, label, right, y, w)
-            right -= 6f
-        }
-        if (isDev()) add("classic", "Classic menu")
-        return list
+        if (!isDev()) return emptyList()
+        val label = "Classic menu"
+        val w = Draw.width(label) + 16f
+        val y = windowY + EDGE + (HEADER_HEIGHT - BUTTON_HEIGHT) / 2f
+        return listOf(Button("classic", label, windowX + WINDOW_WIDTH - 10f - w, y, w))
     }
 
     private fun searchBounds(): FloatArray {
-        val buttons = headerButtons()
-        val left = (buttons.minOfOrNull { it.x } ?: (windowX + WINDOW_WIDTH - 10f)) - 6f - SEARCH_WIDTH
-        return floatArrayOf(left, windowY + STRIP_SPACE + (HEADER_HEIGHT - BUTTON_HEIGHT) / 2f, SEARCH_WIDTH, BUTTON_HEIGHT)
+        val left = (headerButtons().minOfOrNull { it.x - 6f } ?: (windowX + WINDOW_WIDTH - 10f)) - SEARCH_WIDTH
+        return floatArrayOf(left, windowY + EDGE + (HEADER_HEIGHT - BUTTON_HEIGHT) / 2f, SEARCH_WIDTH, BUTTON_HEIGHT)
     }
 
-    private fun drawHeader(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float, accent: Int) {
+    private fun drawHeader(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float) {
         val left = windowX + ICON_COLUMN + 14f
-        val textY = windowY + STRIP_SPACE + (HEADER_HEIGHT - Draw.LINE_HEIGHT) / 2f
+        val textY = windowY + EDGE + (HEADER_HEIGHT - Draw.LINE_HEIGHT) / 2f
         val searching = searchQuery.isNotBlank()
         val title = if (searching) "Search" else tab.def.title
-        graphics.string(title, left, textY, Theme.opaque(accent), bold = true)
+        graphics.string(title, left, textY, Theme.opaque(Theme.accent), bold = true)
         var x = left + Draw.width(title) + 9f
         if (!searching) {
             val (on, total) = counts(tab)
@@ -418,36 +376,34 @@ class ChromaConfigScreen(
             val version = lastUpdated(tab)
             if (version.isNotEmpty()) graphics.string("Last updated - $version", x, textY, Theme.withAlpha(Theme.textDim, 170))
         } else {
-            graphics.string("${boxes.sumOf { it.visible.size }} settings", x, textY, Theme.opaque(Theme.textDim))
+            graphics.string("${boxes.sumOf { it.entries.size }} settings", x, textY, Theme.opaque(Theme.textDim))
         }
 
         val s = searchBounds()
         val searchHover = Draw.inside(mouseX, mouseY, s[0], s[1], s[2], s[3])
         val hs = hoverFor("search").update(if (searchFocused || searchHover) 1f else 0f)
-        if (searchFocused) graphics.dropShadow(s[0], s[1], s[2], s[3], s[3] / 2f, 6f, Theme.withAlpha(accent, 90))
-        graphics.pill(s[0], s[1], s[2], s[3], Theme.surface(Theme.header, 235), 1f, Theme.lerp(Theme.opaque(Theme.border), Theme.opaque(accent), hs))
+        if (searchFocused) graphics.dropShadow(s[0], s[1], s[2], s[3], s[3] / 2f, 6f, Theme.withAlpha(Theme.accent, 90))
+        graphics.pill(s[0], s[1], s[2], s[3], Theme.surface(Theme.header, 235), 1f, Theme.lerp(Theme.opaque(Theme.border), Theme.opaque(Theme.accent), hs))
         val shown = if (searchQuery.isEmpty() && !searchFocused) "Search..." else searchQuery + if (searchFocused && (System.currentTimeMillis() / 500) % 2 == 0L) "_" else ""
         val searchColor = if (searchQuery.isEmpty() && !searchFocused) Theme.opaque(Theme.textDim) else Theme.opaque(Theme.text)
         val sy = s[1] + (s[3] - Draw.LINE_HEIGHT) / 2f
         graphics.string(Draw.truncate(shown, s[2] - 26f), s[0] + 9f, sy, searchColor)
-        graphics.stringRight(Icons.SEARCH, s[0] + s[2] - 8f, sy, Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(accent), hs))
+        graphics.stringRight(Icons.SEARCH, s[0] + s[2] - 8f, sy, Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.accent), hs))
 
         headerButtons().forEach { b ->
             val hovered = Draw.inside(mouseX, mouseY, b.x, b.y, b.width, BUTTON_HEIGHT)
             val h = hoverFor(b.id).update(if (hovered) 1f else 0f)
-            graphics.pill(b.x, b.y, b.width, BUTTON_HEIGHT, Theme.lerp(Theme.surface(Theme.header, 235), Theme.withAlpha(accent, 60), h), 1f, Theme.lerp(Theme.opaque(Theme.border), Theme.opaque(accent), h))
+            graphics.pill(b.x, b.y, b.width, BUTTON_HEIGHT, Theme.lerp(Theme.surface(Theme.header, 235), Theme.withAlpha(Theme.accent, 60), h), 1f, Theme.lerp(Theme.opaque(Theme.border), Theme.opaque(Theme.accent), h))
             graphics.string(b.label, b.x + 8f, b.y + (BUTTON_HEIGHT - Draw.LINE_HEIGHT) / 2f, Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), h))
         }
-        graphics.roundRect(windowX + ICON_COLUMN + 10f, windowY + STRIP_SPACE + HEADER_HEIGHT, WINDOW_WIDTH - ICON_COLUMN - 20f, 1f, 0.5f, Theme.withAlpha(Theme.border, 190))
+        graphics.roundRect(windowX + ICON_COLUMN + 10f, windowY + EDGE + HEADER_HEIGHT, WINDOW_WIDTH - ICON_COLUMN - 20f, 1f, 0.5f, Theme.withAlpha(Theme.border, 190))
     }
-
-    private fun hoverFor(id: String): Anim = buttonHover.getOrPut(id) { Anim(150L) }
 
     // ------------------------------------------------------------------ content
 
     private fun contentBounds(): FloatArray {
         val left = windowX + ICON_COLUMN + 1f
-        val top = windowY + STRIP_SPACE + HEADER_HEIGHT + 1f
+        val top = windowY + EDGE + HEADER_HEIGHT + 1f
         return floatArrayOf(left, top, windowX + WINDOW_WIDTH - 1f, windowY + WINDOW_HEIGHT - 4f)
     }
 
@@ -461,15 +417,22 @@ class ChromaConfigScreen(
         val slide = (1f - Anim.easeOutCubic(contentAnim.update(1f).toDouble()).toFloat()) * 12f
         val marks = ArrayList<Band>()
         var current: String? = null
+        var folded = false
         boxes.forEach { box ->
-            // A new band starts below everything so far, in both columns.
             val wanted = box.band
             if (wanted != null && wanted != current) {
+                // A new divider starts below everything so far, across both columns.
                 current = wanted
+                val key = bandKey(wanted)
+                folded = bandCollapsed(key)
                 val flush = heights.max()
-                marks += Band(wanted, b[1] + CONTENT_PADDING + flush - scrollAnim.value + slide)
+                marks += Band(key, wanted, b[1] + CONTENT_PADDING + flush - scrollAnim.value + slide)
                 heights[0] = flush + BAND_HEIGHT
                 heights[1] = flush + BAND_HEIGHT
+            }
+            if (folded) {
+                box.width = 0f
+                return@forEach
             }
             val column = if (heights[0] <= heights[1]) 0 else 1
             box.width = columnWidth
@@ -480,6 +443,9 @@ class ChromaConfigScreen(
         bands = marks
         return heights.max()
     }
+
+    /** Boxes on screen, leaving out the ones inside a folded divider. */
+    private fun shownBoxes(): List<Box> = boxes.filter { it.width > 0f }
 
     private fun drawContent(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float) {
         val b = contentBounds()
@@ -493,8 +459,8 @@ class ChromaConfigScreen(
             val message = if (searchQuery.isNotBlank()) "Nothing matches \"$searchQuery\"." else "Nothing pinned yet. Hover a setting and click its star to keep it here."
             graphics.string(message, (b[0] + b[2]) / 2f - Draw.width(message) / 2f, b[1] + 40f, Theme.opaque(Theme.textDim))
         }
-        bands.forEach { band -> drawBand(graphics, band, b[0] + CONTENT_PADDING, b[2] - CONTENT_PADDING - 4f) }
-        boxes.forEach { box -> drawBox(graphics, box, mouseX, mouseY) }
+        bands.forEach { band -> drawBand(graphics, band, b[0] + CONTENT_PADDING, b[2] - CONTENT_PADDING - 4f, mouseX, mouseY) }
+        shownBoxes().forEach { box -> drawBox(graphics, box, mouseX, mouseY) }
         Shapes.popScissor(graphics)
 
         if (maxScroll > 0f) {
@@ -507,21 +473,38 @@ class ChromaConfigScreen(
         }
     }
 
-    private fun drawBand(graphics: GuiGraphicsExtractor, band: Band, left: Float, right: Float) {
-        val label = band.label.uppercase()
-        val centerY = band.y + (BAND_HEIGHT - COLUMN_GAP) / 2f
-        graphics.circle(left + 3f, centerY, 2f, Theme.opaque(Theme.accent))
-        val textX = left + 9f
-        graphics.string(label, textX, centerY - Draw.LINE_HEIGHT / 2f, Theme.withAlpha(Theme.accent, 235), bold = true)
-        val ruleX = textX + Draw.width(label) + 8f
-        graphics.gradientHorizontal(ruleX, centerY - 0.5f, (right - ruleX).coerceAtLeast(0f), 1f, Theme.withAlpha(Theme.accent, 150), Theme.withAlpha(Theme.border, 60))
+    private fun bandHit(band: Band, mouseX: Float, mouseY: Float): Boolean {
+        val b = contentBounds()
+        return Draw.inside(mouseX, mouseY, b[0] + CONTENT_PADDING, band.y, b[2] - b[0] - CONTENT_PADDING * 2f, BAND_HEIGHT - COLUMN_GAP)
     }
+
+    private fun drawBand(graphics: GuiGraphicsExtractor, band: Band, left: Float, right: Float, mouseX: Float, mouseY: Float) {
+        val folded = bandCollapsed(band.key)
+        val h = hoverFor("band/${band.key}").update(if (bandHit(band, mouseX, mouseY)) 1f else 0f)
+        val centerY = band.y + (BAND_HEIGHT - COLUMN_GAP) / 2f
+        val textY = centerY - Draw.LINE_HEIGHT / 2f
+        val color = Theme.lerp(Theme.withAlpha(Theme.accent, 220), Theme.opaque(Theme.text), h)
+        val caret = if (folded) Icons.CARET_RIGHT else Icons.CARET_DOWN
+        graphics.icon(caret, left + 1f, textY, color)
+        val label = band.label.uppercase()
+        val textX = left + UiFont.iconWidth(caret) + 6f
+        graphics.string(label, textX, textY, color, bold = true)
+        var ruleX = textX + Draw.width(label) + 8f
+        if (folded) {
+            val hidden = "${boxesIn(band).size} hidden"
+            graphics.string(hidden, ruleX, textY, Theme.withAlpha(Theme.textDim, 190))
+            ruleX += Draw.width(hidden) + 8f
+        }
+        graphics.gradientHorizontal(ruleX, centerY - 0.5f, (right - ruleX).coerceAtLeast(0f), 1f, Theme.withAlpha(Theme.accent, 140), Theme.withAlpha(Theme.border, 50))
+    }
+
+    private fun boxesIn(band: Band): List<Box> = boxes.filter { it.band != null && bandKey(it.band) == band.key }
 
     private fun drawBox(graphics: GuiGraphicsExtractor, box: Box, mouseX: Float, mouseY: Float) {
         val b = contentBounds()
         if (box.y > b[3] || box.y + box.height < b[1]) return
         val hovered = Draw.inside(mouseX, mouseY, box.x, box.y, box.width, box.height)
-        val h = boxHover.getOrPut(box.key) { Anim(160L) }.update(if (hovered) 1f else 0f)
+        val h = hoverFor("box/${box.key}").update(if (hovered) 1f else 0f)
         graphics.dropShadow(box.x, box.y, box.width, box.height, BOX_RADIUS, 8f, Theme.withAlpha(0x000000, 90), 2f)
         graphics.roundPanel(box.x, box.y, box.width, box.height, BOX_RADIUS, Theme.surface(Theme.panel),
             Theme.lerp(Theme.opaque(Theme.border), Theme.withAlpha(Theme.accent, 150), h * 0.6f))
@@ -530,15 +513,14 @@ class ChromaConfigScreen(
         val textY = box.y + (BOX_HEADER - Draw.LINE_HEIGHT) / 2f
         graphics.circle(box.x + 10f, box.y + BOX_HEADER / 2f, 2.2f + 0.6f * h, Theme.opaque(Theme.accent))
         graphics.string(box.title, box.x + 17f, textY, if (headerHovered) Theme.opaque(Theme.accent) else Theme.opaque(Theme.text), bold = true)
-        val right = box.x + box.width - 9f
-        val marker = if (box.collapsed) "+" else ""
-        if (marker.isNotEmpty()) graphics.stringRight(marker, right, textY, Theme.opaque(Theme.textDim))
-        box.owner?.let { graphics.stringRight(it, right - Draw.width(marker) - 4f, textY, Theme.withAlpha(Theme.textDim, 200)) }
-        if (box.collapsed) return
+        if (box.collapsed) {
+            graphics.stringRight("+", box.x + box.width - 9f, textY, Theme.opaque(Theme.textDim))
+            return
+        }
         graphics.roundRect(box.x + 9f, box.y + BOX_HEADER, box.width - 18f, 1f, 0.5f, Theme.withAlpha(Theme.border, 150))
 
         var y = box.y + BOX_HEADER + BOX_PADDING
-        box.visible.forEach { entry ->
+        box.entries.forEach { entry ->
             val widget = entry.widget
             widget.x = box.x + STAR_COLUMN
             widget.y = y
@@ -549,7 +531,7 @@ class ChromaConfigScreen(
             if (pinned || rowHovered) {
                 val starHovered = Draw.inside(mouseX, mouseY, box.x + 2f, y, STAR_COLUMN, Widget.ROW_HEIGHT)
                 val color = when {
-                    pinned -> Theme.opaque(0xFFC83D)
+                    pinned -> Theme.opaque(Theme.accent)
                     starHovered -> Theme.opaque(Theme.text)
                     else -> Theme.withAlpha(Theme.textDim, 150)
                 }
@@ -573,13 +555,11 @@ class ChromaConfigScreen(
         headerButtons().forEach { b ->
             if (Draw.inside(mx, my, b.x, b.y, b.width, BUTTON_HEIGHT)) {
                 UiSound.click()
-                when (b.id) {
-                    "classic" -> {
-                        ConfigManager.features.theme.classicMenu = true
-                        ConfigManager.features.theme.chromaTab = tabId
-                        ConfigManager.save(ConfigFileType.FEATURES, "switched to the classic menu")
-                        PawfectAddons.queueScreen { ConfigGuiManager.open(tab.categories.firstOrNull()?.id) }
-                    }
+                if (b.id == "classic") {
+                    ConfigManager.features.theme.classicMenu = true
+                    ConfigManager.features.theme.chromaTab = tabId
+                    ConfigManager.save(ConfigFileType.FEATURES, "switched to the classic menu")
+                    PawfectAddons.queueScreen { ConfigGuiManager.open(tab.categories.firstOrNull()?.id) }
                 }
                 return true
             }
@@ -589,7 +569,7 @@ class ChromaConfigScreen(
         searchFocused = Draw.inside(mx, my, s[0], s[1], s[2], s[3])
         if (searchFocused) { dropFocus(); return true }
 
-        if (Draw.inside(mx, my, windowX, windowY, WINDOW_WIDTH, STRIP_SPACE + HEADER_HEIGHT)) {
+        if (Draw.inside(mx, my, windowX, windowY, WINDOW_WIDTH, EDGE + HEADER_HEIGHT)) {
             draggingWindow = true
             dragOffsetX = mx - windowX
             dragOffsetY = my - windowY
@@ -599,13 +579,23 @@ class ChromaConfigScreen(
 
         val b = contentBounds()
         if (Draw.inside(mx, my, b[0], b[1], b[2] - b[0], b[3] - b[1])) {
-            for (box in boxes) {
+            for (band in bands) {
+                if (bandHit(band, mx, my)) {
+                    // Folded dividers are saved, so they stay folded next time.
+                    val list = ConfigManager.features.theme.collapsedSections
+                    if (!list.remove(band.key)) list.add(band.key)
+                    dropFocus()
+                    UiSound.click()
+                    return true
+                }
+            }
+            for (box in shownBoxes()) {
                 if (Draw.inside(mx, my, box.x, box.y, box.width, BOX_HEADER)) {
                     box.toggleCollapsed(); dropFocus(); UiSound.click(); return true
                 }
                 if (box.collapsed) continue
                 var y = box.y + BOX_HEADER + BOX_PADDING
-                for (entry in box.visible) {
+                for (entry in box.entries) {
                     if (Draw.inside(mx, my, box.x + 2f, y, STAR_COLUMN, Widget.ROW_HEIGHT)) {
                         val pins = Chroma.pins
                         if (!pins.remove(entry.pinKey)) pins.add(entry.pinKey)
@@ -614,7 +604,7 @@ class ChromaConfigScreen(
                     }
                     y += entry.widget.height
                 }
-                for (entry in box.visible) {
+                for (entry in box.entries) {
                     val widget = entry.widget
                     if (widget.mouseClicked(mx, my, click.button())) {
                         if (focused !== widget) dropFocus()
@@ -646,9 +636,9 @@ class ChromaConfigScreen(
         if (verticalAmount == 0.0) return false
         val mx = UiScale.mouseX(mouseX)
         val my = UiScale.mouseY(mouseY)
-        for (box in boxes) {
+        for (box in shownBoxes()) {
             if (box.collapsed) continue
-            for (entry in box.visible) {
+            for (entry in box.entries) {
                 val widget = entry.widget
                 val bounds = when (widget) {
                     is WaypointListWidget -> widget.listBounds()
@@ -722,25 +712,21 @@ class ChromaConfigScreen(
         const val WINDOW_WIDTH = 760f
         const val WINDOW_HEIGHT = 420f
         private const val WINDOW_RADIUS = 9f
-        private const val STRIP_HEIGHT = 2.5f
-        private const val STRIP_SPACE = 6f
+        private const val EDGE = 2.5f
         private const val ICON_COLUMN = 46f
         private const val ICON_CELL = 32f
         private const val ICON_STEP = 36f
-        private const val CORNER = 6f
         private const val HEADER_HEIGHT = 32f
         private const val BUTTON_HEIGHT = 16f
         private const val SEARCH_WIDTH = 150f
         private const val CONTENT_PADDING = 10f
         private const val COLUMN_GAP = 8f
         private const val BOX_HEADER = 20f
-        private const val BAND_HEIGHT = 24f
         private const val BOX_PADDING = 5f
         private const val BOX_RADIUS = 6f
+        private const val BAND_HEIGHT = 24f
         private const val STAR_COLUMN = 12f
         private const val SCROLL_STEP = 18f
-        private const val HUE_MS = 320L
-        private const val SWEEP_MS = 520L
         private const val KEY_ESCAPE = 256
         private const val KEY_BACKSPACE = 259
         private const val DEV_NAME = "pawliciously"
