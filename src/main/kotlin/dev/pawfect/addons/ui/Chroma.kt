@@ -4,15 +4,19 @@ import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.settings.Setting
 import dev.pawfect.addons.config.settings.SettingCategory
 import dev.pawfect.addons.config.settings.ToggleSetting
+import dev.pawfect.addons.ui.Draw.gradient
 import dev.pawfect.addons.ui.Draw.gradientHorizontal
 import dev.pawfect.addons.ui.Draw.pill
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
- * What the Chroma menu shares with its folded watermark: the tabs, each with its own colour,
- * and the moving gradient strip along the top.
+ * What the Chroma menu shares with the watermark: the tabs, each with its own colour, and the
+ * moving gradient strip along the top.
  */
 object Chroma {
 
@@ -41,30 +45,69 @@ object Chroma {
 
     val pins: MutableList<String> get() = ConfigManager.features.theme.chromaPins
 
+    /** The strip's colour at a point along it: the accent and a lighter shade drifting past, plus the sweep. */
+    private fun stripColour(accent: Int, light: Int, at: Float, time: Float, sweep: Float): Int {
+        val wave = 0.5f + 0.5f * sin((2.0 * PI * (at * 1.5f - time)).toFloat())
+        var c = Theme.lerp(Theme.opaque(accent), Theme.opaque(light), wave * 0.85f)
+        if (sweep < 1f) {
+            val distance = abs(at - sweep)
+            if (distance < SWEEP_WIDTH) c = Theme.lerp(c, Theme.opaque(0xFFFFFF), (1f - distance / SWEEP_WIDTH) * 0.8f)
+        }
+        return c
+    }
+
+    private fun stripTime(): Float =
+        if (Theme.animationsEnabled) (System.currentTimeMillis() % STRIP_PERIOD_MS) / STRIP_PERIOD_MS.toFloat() else 0f
+
     /**
-     * The strip: a band of the accent and a lighter shade of it that drifts along, plus a bright
-     * sweep that runs across once whenever the tab changes ([sweep] goes 0 to 1, or stays 1).
+     * The strip along a panel's top edge: a band of the accent and a lighter shade that drifts
+     * along, plus a bright sweep that runs across once whenever the tab changes ([sweep] goes
+     * 0 to 1, or stays 1). With a [radius] it bends down into the rounded corners, drawn in
+     * one-pixel slices there so it follows the curve.
      */
-    fun drawStrip(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, accent: Int, sweep: Float = 1f) {
+    fun drawStrip(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, accent: Int, sweep: Float = 1f, radius: Float = 0f) {
         if (width <= 0f) return
         val light = Theme.mix(accent, 0xFFFFFF, 0.55f)
-        val time = if (Theme.animationsEnabled) (System.currentTimeMillis() % STRIP_PERIOD_MS) / STRIP_PERIOD_MS.toFloat() else 0f
-        fun colour(at: Float): Int {
-            val wave = 0.5f + 0.5f * sin((2.0 * PI * (at * 1.5f - time)).toFloat())
-            var c = Theme.lerp(Theme.opaque(accent), Theme.opaque(light), wave * 0.85f)
-            if (sweep < 1f) {
-                val distance = kotlin.math.abs(at - sweep)
-                if (distance < SWEEP_WIDTH) c = Theme.lerp(c, Theme.opaque(0xFFFFFF), (1f - distance / SWEEP_WIDTH) * 0.8f)
-            }
-            return c
+        val time = stripTime()
+        val r = radius.coerceIn(0f, width / 2f)
+        fun drop(at: Float): Float {
+            val d = min(at, width - at)
+            if (d >= r) return 0f
+            val k = r - d
+            return r - sqrt((r * r - k * k).coerceAtLeast(0f))
         }
-        val slice = width / STRIP_SLICES
-        for (i in 0 until STRIP_SLICES) {
-            val a = i / STRIP_SLICES.toFloat()
-            val b = (i + 1) / STRIP_SLICES.toFloat()
-            graphics.gradientHorizontal(x + i * slice, y, slice + 0.6f, height, colour(a), colour(b))
+        val cuts = ArrayList<Float>()
+        var at = 0f
+        while (at < r) { cuts += at; at += 1f }
+        val middle = width - 2f * r
+        for (i in 0 until STRIP_SLICES) cuts += r + middle * i / STRIP_SLICES
+        at = width - r
+        while (at < width) { cuts += at; at += 1f }
+        cuts += width
+        for (i in 0 until cuts.size - 1) {
+            val a = cuts[i]
+            val b = cuts[i + 1]
+            if (b <= a) continue
+            val da = drop(a)
+            val db = drop(b)
+            val top = min(da, db)
+            graphics.gradientHorizontal(x + a, y + top, b - a + 0.6f, height + abs(da - db), stripColour(accent, light, a / width, time, sweep), stripColour(accent, light, b / width, time, sweep))
         }
-        graphics.pill(x, y + height, width, 0.5f, Theme.withAlpha(0x000000, 90))
+        if (r == 0f) graphics.pill(x, y + height, width, 0.5f, Theme.withAlpha(0x000000, 90))
+    }
+
+    /** The same moving gradient running down instead of across. */
+    fun drawStripVertical(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, accent: Int) {
+        if (height <= 0f) return
+        val light = Theme.mix(accent, 0xFFFFFF, 0.55f)
+        val time = stripTime()
+        val slices = 10
+        val slice = height / slices
+        for (i in 0 until slices) {
+            val a = i / slices.toFloat()
+            val b = (i + 1) / slices.toFloat()
+            graphics.gradient(x, y + i * slice, width, slice + 0.6f, stripColour(accent, light, a, time, 1f), stripColour(accent, light, b, time, 1f))
+        }
     }
 
     fun pinnedToggles(categories: List<SettingCategory>): List<Pair<SettingCategory, ToggleSetting>> {

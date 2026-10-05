@@ -567,6 +567,9 @@ object PawfectSettings {
                 group(
                     "Messages",
                     ToggleSetting("Right Click to Copy", "Right click a message while chat is open to copy it. Shift + right click still opens other mods' menus.", chat::rightClickCopy),
+                ),
+                group(
+                    "Player Names",
                     ToggleSetting("Level Prestige", "SkyBlock levels past 480 get a prestige symbol, and the highest ones warmer colours, in chat, tab and nametags. Only on your screen; the text other mods read is unchanged.", chat::levelPrestige),
                     ToggleSetting("Name Cosmetics", "Show name colours, badges and emoji on players' names in chat. Drawn on your screen only; the text other mods read is unchanged.", chat::chatCosmetics),
                     ToggleSetting("Tab Cosmetics", "The same in the tab list. Emoji, then badges, are left out when a name would make the list wider.", chat::tabCosmetics),
@@ -941,6 +944,19 @@ object PawfectSettings {
                 group(
                     "Preset",
                     DropdownSetting("Theme", "Colour preset for this menu.", theme::preset, ThemePreset.entries.toList()),
+                ),
+                group(
+                    "Watermark",
+                    ToggleSetting("Watermark", "Show a PawfectAddons watermark on screen with the moving colour strip.", theme::watermark),
+                    ToggleSetting("FPS", "Your frames per second.", theme::watermarkFps).showIf { theme.watermark },
+                    ToggleSetting("TPS", "How fast the server is ticking, out of 20.", theme::watermarkTps).showIf { theme.watermark },
+                    ToggleSetting("Ping", "Your connection delay to the server.", theme::watermarkPing).showIf { theme.watermark },
+                    ToggleSetting("Player Name", "Your Minecraft name.", theme::watermarkName).showIf { theme.watermark },
+                    ToggleSetting("Server ID", "The Hypixel server you're on, like mini42A.", theme::watermarkServer).showIf { theme.watermark },
+                    ToggleSetting("System Time", "The time on your computer.", theme::watermarkTime).showIf { theme.watermark },
+                    PositionSetting("Watermark Position", "Drag the watermark to reposition it.", theme.watermarkPosition) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { theme.watermark },
                 ),
                 group(
                     "Custom Colours",

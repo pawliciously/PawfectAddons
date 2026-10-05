@@ -1,6 +1,8 @@
 package dev.pawfect.addons.config.features
 
 import com.google.gson.annotations.Expose
+import dev.pawfect.addons.config.core.HudDefaults
+import dev.pawfect.addons.config.core.Position
 
 class ThemeConfig {
 
@@ -75,7 +77,28 @@ class ThemeConfig {
     val chromaPins: MutableList<String> = mutableListOf()
 
     @Expose
-    var chromaFolded: Boolean = false
+    var watermark: Boolean = true
+
+    @Expose
+    var watermarkFps: Boolean = true
+
+    @Expose
+    var watermarkTps: Boolean = true
+
+    @Expose
+    var watermarkPing: Boolean = true
+
+    @Expose
+    var watermarkName: Boolean = false
+
+    @Expose
+    var watermarkServer: Boolean = false
+
+    @Expose
+    var watermarkTime: Boolean = true
+
+    @Expose
+    val watermarkPosition: Position = HudDefaults.position(HudDefaults.WATERMARK)
 
     @Expose
     var hudGridEnabled: Boolean = false

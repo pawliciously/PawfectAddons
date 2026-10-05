@@ -12,6 +12,7 @@ object HudDefaults {
     const val MEDIA = "Media"
     const val PACKET_LOG = "Packet Log"
     const val SCOREBOARD = "Scoreboard"
+    const val WATERMARK = "Watermark"
 
     class Default(val x: Int, val y: Int, val scale: Float = Position.DEFAULT_SCALE)
 
@@ -26,6 +27,7 @@ object HudDefaults {
         MEDIA to Default(-10, -40),
         PACKET_LOG to Default(10, 190),
         SCOREBOARD to Default(-4, 80),
+        WATERMARK to Default(6, 6),
     )
 
     fun position(label: String): Position {

@@ -62,7 +62,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents
 import dev.pawfect.addons.features.experiments.ExperimentManager
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents
-import dev.pawfect.addons.ui.ChromaWatermark
+import dev.pawfect.addons.ui.Watermark
 import dev.pawfect.addons.ui.Notifications
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents
@@ -187,7 +187,7 @@ object PawfectAddons : ClientModInitializer {
                     MediaOverlay.render()
                     Hitmarker.render()
                     PacketOverlay.render()
-                    ChromaWatermark.render()
+                    Watermark.render()
                     Notifications.render()
                 }
             } catch (e: Exception) {

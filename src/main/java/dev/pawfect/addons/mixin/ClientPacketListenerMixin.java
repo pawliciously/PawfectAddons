@@ -9,6 +9,7 @@ import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import dev.pawfect.addons.data.ServerTps;
 import dev.pawfect.addons.features.combat.Hitsound;
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker;
 import dev.pawfect.addons.features.experiments.ExperimentManager;
@@ -85,11 +87,20 @@ public abstract class ClientPacketListenerMixin {
     @Inject(method = "handleLogin", at = @At("HEAD"))
     private void pawfectaddons$login(ClientboundLoginPacket packet, CallbackInfo callback) {
         StarMobGlow.reset();
+        ServerTps.reset();
     }
 
     @Inject(method = "handleRespawn", at = @At("HEAD"))
     private void pawfectaddons$respawn(ClientboundRespawnPacket packet, CallbackInfo callback) {
         StarMobGlow.reset();
+        ServerTps.reset();
+    }
+
+    // TAIL, not HEAD: the handler first runs on the network thread only to hand itself to the
+    // main thread, and HEAD would count every packet twice.
+    @Inject(method = "handleSetTime", at = @At("TAIL"))
+    private void pawfectaddons$setTime(ClientboundSetTimePacket packet, CallbackInfo callback) {
+        ServerTps.onTimePacket();
     }
 
     @Inject(method = "handleOpenScreen", at = @At("HEAD"))
