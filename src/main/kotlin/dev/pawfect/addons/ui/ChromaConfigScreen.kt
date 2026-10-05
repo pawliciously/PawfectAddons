@@ -49,7 +49,11 @@ class ChromaConfigScreen(
         var y = 0f
         var width = 0f
 
-        val visible: List<Entry> get() = entries.filter { it.widget.setting.visible }
+        // Every setting in the group, the way the classic menu lays them out: its colour pickers and
+        // sliders stay listed even while the switch they belong to is off.
+        val visible: List<Entry> get() = entries
+
+        val shown: Boolean get() = entries.any { it.widget.setting.visible }
 
         val collapsed: Boolean get() = ConfigManager.features.theme.collapsedGroups.contains(key)
 
@@ -207,7 +211,7 @@ class ChromaConfigScreen(
                     category.title.lowercase().contains(query) || group.title.lowercase().contains(query) ||
                         group.settings.any { it.name.lowercase().contains(query) }
                 }.map { group -> groupBox(category, group.title, group.settings, "${category.title}  /  ${group.title}", null) }
-            }.filter { it.visible.isNotEmpty() }
+            }.filter { it.shown }
         }
         val current = tab
         if (current.id == Chroma.FAVOURITES) {
@@ -218,12 +222,12 @@ class ChromaConfigScreen(
                         .mapNotNull { setting -> widgetFor(category, group.title, setting)?.let { Entry(category, group.title, it) } }
                 }
                 if (entries.isEmpty()) null else Box("fav/${category.id}", category.title, null, entries)
-            }.filter { it.visible.isNotEmpty() }
+            }
         }
         val multi = current.categories.size > 1
         return current.categories.flatMap { category ->
             category.groups.map { group -> groupBox(category, group.title, group.settings, group.title, if (multi) category.title else null) }
-        }.filter { it.visible.isNotEmpty() }
+        }.filter { it.shown }
     }
 
     private fun groupBox(category: SettingCategory, groupTitle: String, settings: List<Setting<*>>, title: String, owner: String?): Box {
@@ -239,7 +243,7 @@ class ChromaConfigScreen(
         val wanted = Chroma.pins.toSet()
         val toggles = tabCategories(t).flatMap { category ->
             category.groups.flatMap { group ->
-                group.settings.filterIsInstance<ToggleSetting>().filter { it.visible }
+                group.settings.filterIsInstance<ToggleSetting>()
                     .filter { t.id != Chroma.FAVOURITES || Chroma.pinKey(category, group.title, it) in wanted }
             }
         }
