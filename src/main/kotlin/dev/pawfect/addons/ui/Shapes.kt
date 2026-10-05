@@ -13,6 +13,7 @@ object Shapes {
     private const val MODE_SOLID = 0f
     private const val MODE_SV_FIELD = 1f
     private const val MODE_HUE_BAR = 2f
+    private const val MODE_RIM = 3f
 
     private var scissor: ScreenRectangle? = null
     private val scissorStack = ArrayDeque<ScreenRectangle?>()
@@ -134,6 +135,24 @@ object Shapes {
         right: Int,
     ) {
         rect(graphics, x, y, width, height, radius, left, right, 0f, 0, 0f, MODE_SOLID, true)
+    }
+
+    /**
+     * The top edge of a rounded shape, [thickness] deep in the middle and thinning down each
+     * rounded corner, coloured from [left] to [right]. Drawn over a panel, it reads as a lit rim.
+     */
+    fun rimTop(
+        graphics: GuiGraphicsExtractor,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        radius: Float,
+        thickness: Float,
+        left: Int,
+        right: Int,
+    ) {
+        rect(graphics, x, y, width, height, radius, left, right, thickness, 0, 0f, MODE_RIM, true)
     }
 
     fun shadow(

@@ -13,6 +13,7 @@ import dev.pawfect.addons.ui.Draw.dropShadow
 import dev.pawfect.addons.ui.Draw.gradientHorizontal
 import dev.pawfect.addons.ui.Draw.icon
 import dev.pawfect.addons.ui.Draw.pill
+import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Draw.roundPanel
 import dev.pawfect.addons.ui.Draw.roundRect
 import dev.pawfect.addons.ui.Draw.string
@@ -277,15 +278,21 @@ class ChromaConfigScreen(
         val margin = 6f
         windowX = windowX.coerceIn(margin, (UiScale.width - WINDOW_WIDTH - margin).coerceAtLeast(margin))
         windowY = windowY.coerceIn(margin, (UiScale.height - WINDOW_HEIGHT - margin).coerceAtLeast(margin))
+        // Whole units keep the column, divider and text on the same pixels.
+        windowX = kotlin.math.floor(windowX)
+        windowY = kotlin.math.floor(windowY)
     }
 
     private fun drawWindow(graphics: GuiGraphicsExtractor) {
         graphics.dropShadow(windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, 24f, Theme.withAlpha(0x000000, 160), 6f)
-        // The gradient edge sits behind the window; the window covers all but its top band.
-        Chroma.drawEdge(graphics, windowX, windowY, WINDOW_WIDTH, WINDOW_RADIUS * 2f + EDGE + 1f, WINDOW_RADIUS)
-        graphics.roundPanel(windowX, windowY + EDGE, WINDOW_WIDTH, WINDOW_HEIGHT - EDGE, WINDOW_RADIUS, Theme.surface(Theme.background), Theme.opaque(Theme.border))
-        graphics.roundRect(windowX + 1f, windowY + EDGE + 1f, ICON_COLUMN, WINDOW_HEIGHT - EDGE - 2f, WINDOW_RADIUS - 1f, Theme.surface(Theme.header, 240))
-        graphics.roundRect(windowX + ICON_COLUMN, windowY + EDGE + 6f, 1f, WINDOW_HEIGHT - EDGE - 12f, 0.5f, Theme.withAlpha(Theme.border, 200))
+        graphics.roundPanel(windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, Theme.surface(Theme.background), Theme.opaque(Theme.border))
+        // The icon column is the window's own left side, so it follows the window's corners and
+        // stops square at the divider.
+        Shapes.pushScissor(graphics, windowX, windowY, ICON_COLUMN, WINDOW_HEIGHT)
+        graphics.roundRect(windowX + 1f, windowY + 1f, WINDOW_WIDTH - 2f, WINDOW_HEIGHT - 2f, WINDOW_RADIUS - 1f, Theme.surface(Theme.header, 240))
+        Shapes.popScissor(graphics)
+        graphics.rect(windowX + ICON_COLUMN, windowY + EDGE + 6f, 1f, WINDOW_HEIGHT - EDGE - 12f, Theme.withAlpha(Theme.border, 200))
+        Chroma.drawEdge(graphics, windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, EDGE)
     }
 
     private fun iconY(index: Int): Float = windowY + EDGE + 8f + index * ICON_STEP

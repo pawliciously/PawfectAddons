@@ -615,6 +615,17 @@ object PawfectSettings {
                         .showIf { scoreboard.enabled },
                 ),
                 group(
+                    "Colours",
+                    ToggleSetting("Custom Colours", "Pick the scoreboard colours instead of using your theme's.", scoreboard::customColors)
+                        .showIf { scoreboard.enabled },
+                    ColorSetting("Panel Colour", "The top of the panel, and the base of the animated styles.", scoreboard::panelColor, supportsAlpha = false)
+                        .showIf { scoreboard.enabled && scoreboard.customColors }.onChange { scoreboard.customColors = true },
+                    ColorSetting("Background Colour", "The bottom of the panel, and the dark tone of the animated styles.", scoreboard::backgroundColor, supportsAlpha = false)
+                        .showIf { scoreboard.enabled && scoreboard.customColors }.onChange { scoreboard.customColors = true },
+                    ColorSetting("Accent Colour", "The outline, the divider under the title, and the highlights in the animated styles.", scoreboard::accentColor, supportsAlpha = false)
+                        .showIf { scoreboard.enabled && scoreboard.customColors }.onChange { scoreboard.customColors = true },
+                ),
+                group(
                     "Lines",
                     ToggleSetting("Hide Date", "Drop the date from the top line. With Hide Server ID too, the line goes entirely.", scoreboard::hideDate)
                         .showIf { scoreboard.enabled },

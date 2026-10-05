@@ -26,6 +26,10 @@ object ScoreboardRenderer {
 
     private val config get() = ConfigManager.features.scoreboard
 
+    private val panelRgb: Int get() = if (config.customColors) config.panelColor else Theme.palette.panel
+    private val backgroundRgb: Int get() = if (config.customColors) config.backgroundColor else Theme.palette.background
+    private val accentRgb: Int get() = if (config.customColors) config.accentColor else Theme.palette.accent
+
     private const val PAD_X = 6
     private const val PAD_TOP = 5
     private const val PAD_BOTTOM = 5
@@ -169,7 +173,7 @@ object ScoreboardRenderer {
             graphics.text(font, title, ((w - font.width(title)) / 2f).toInt(), PAD_TOP, WHITE, shadow)
 
             val ruleY = PAD_TOP + LINE + TITLE_GAP / 2 - 1f
-            Shapes.rect(graphics, PAD_X.toFloat(), ruleY, w - PAD_X * 2, 1f, 0f, argb(Theme.accent, 0.55f), argb(Theme.accent, 0.55f))
+            Shapes.rect(graphics, PAD_X.toFloat(), ruleY, w - PAD_X * 2, 1f, 0f, argb(accentRgb, 0.55f), argb(accentRgb, 0.55f))
 
             var y = PAD_TOP + LINE + TITLE_GAP
             for (line in lines) {
@@ -183,8 +187,8 @@ object ScoreboardRenderer {
             val radius = config.radius.coerceIn(0, 12)
             val style = config.background
             if (style == PanelBackground.GLASS) {
-                val top = Theme.mix(Theme.palette.panel, 0xFFFFFF, 0.04f)
-                val bottom = Theme.palette.background
+                val top = Theme.mix(panelRgb, 0xFFFFFF, 0.04f)
+                val bottom = backgroundRgb
                 Shapes.rect(graphics, 0f, 0f, w, h, radius.toFloat(), argb(top, opacity), argb(bottom, opacity))
             } else {
                 val state = MenuBackgroundRenderState(
@@ -193,9 +197,9 @@ object ScoreboardRenderer {
                     0f,
                     w,
                     h,
-                    argb(Theme.mix(Theme.palette.panel, 0x000000, 0.1f), opacity),
-                    0xFF000000.toInt() or (Theme.palette.background and 0xFFFFFF),
-                    Theme.palette.accent,
+                    argb(Theme.mix(panelRgb, 0x000000, 0.1f), opacity),
+                    0xFF000000.toInt() or (backgroundRgb and 0xFFFFFF),
+                    accentRgb,
                     0.85f,
                     (System.nanoTime() - startedAt) / 1_000_000_000f,
                     style.style.toFloat(),
@@ -204,7 +208,7 @@ object ScoreboardRenderer {
                 )
                 (graphics as GuiGraphicsAccessor).`pawfectaddons$guiRenderState`().addGuiElement(state)
             }
-            if (config.outline) Shapes.outline(graphics, 0f, 0f, w, h, radius.toFloat(), argb(Theme.accent, 0.35f * opacity + 0.1f))
+            if (config.outline) Shapes.outline(graphics, 0f, 0f, w, h, radius.toFloat(), argb(accentRgb, 0.35f * opacity + 0.1f))
         }
     }
 

@@ -17,6 +17,7 @@ out vec4 fragColor;
 const int MODE_SOLID = 0;
 const int MODE_SV_FIELD = 1;
 const int MODE_HUE_BAR = 2;
+const int MODE_RIM = 3;
 
 float roundedBox(vec2 point, vec2 halfSize, float radius) {
     vec2 corner = abs(point) - halfSize + radius;
@@ -50,6 +51,12 @@ void main() {
     } else {
         coverage = clamp(0.5 - distance / edge, 0.0, 1.0);
     }
+    if (mode == MODE_RIM) {
+        // Only the band along the top: the shape, less a copy of itself lowered by the border
+        // width. It is widest in the middle and thins to nothing down each rounded corner.
+        float lowered = roundedBox(local.xy - vec2(0.0, border), halfSize, radius);
+        coverage *= 1.0 - clamp(0.5 - lowered / edge, 0.0, 1.0);
+    }
     if (coverage <= 0.0) discard;
 
     vec4 colour;
@@ -62,7 +69,7 @@ void main() {
         colour = vec4(hueToRgb(unit), vertexColor.a);
     } else {
         colour = vertexColor;
-        if (border > 0.0) {
+        if (border > 0.0 && mode != MODE_RIM) {
             float inner = distance + border;
             float fill = clamp(0.5 - inner / edge, 0.0, 1.0);
             colour = mix(borderColor, vertexColor, fill);

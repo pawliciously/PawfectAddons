@@ -25,6 +25,18 @@ class ScoreboardConfig {
     var textShadow: Boolean = true
 
     @Expose
+    var customColors: Boolean = false
+
+    @Expose
+    var panelColor: Int = 0x14141B
+
+    @Expose
+    var backgroundColor: Int = 0x0D0D12
+
+    @Expose
+    var accentColor: Int = 0x9D4EDD
+
+    @Expose
     var hideDate: Boolean = false
 
     @Expose

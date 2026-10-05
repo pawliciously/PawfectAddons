@@ -50,12 +50,12 @@ object Chroma {
     }
 
     /**
-     * The gradient edge: a smooth rounded shape across the top of a panel, drawn before it. The
-     * caller then draws the panel a little lower, so only a band along the top shows, curving down
-     * through the rounded corners. The two ends trade colours slowly.
+     * The gradient edge: a rim along the top of a panel, drawn over it with the panel's own
+     * bounds. It is [thickness] deep in the middle and follows the rounded corners down to
+     * nothing. The two ends trade colours slowly.
      */
-    fun drawEdge(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, radius: Float) {
-        Shapes.gradientHorizontal(graphics, x, y, width, height, radius, flow(0f), flow(0.5f))
+    fun drawEdge(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, radius: Float, thickness: Float) {
+        Shapes.rimTop(graphics, x, y, width, height, radius, thickness, flow(0f), flow(0.5f))
     }
 
     /** Text with the same flowing gradient running through it, one letter at a time. */

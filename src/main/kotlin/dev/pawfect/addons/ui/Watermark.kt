@@ -80,9 +80,8 @@ object Watermark {
 
     private fun draw(graphics: GuiGraphicsExtractor, width: Float, parts: List<Part>) {
         graphics.dropShadow(0f, 0f, width, HEIGHT, RADIUS, 10f, Theme.withAlpha(0x000000, 140), 2f)
-        // The gradient edge sits behind the panel; the panel covers all but its top band.
-        Chroma.drawEdge(graphics, 0f, 0f, width, HEIGHT, RADIUS)
-        graphics.roundPanel(0f, EDGE, width, HEIGHT - EDGE, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
+        graphics.roundPanel(0f, 0f, width, HEIGHT, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
+        Chroma.drawEdge(graphics, 0f, 0f, width, HEIGHT, RADIUS, EDGE)
 
         val textY = EDGE + (HEIGHT - EDGE - Draw.LINE_HEIGHT) / 2f
         var cursor = PAD
