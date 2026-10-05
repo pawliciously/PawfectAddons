@@ -64,6 +64,19 @@ class ThemeConfig {
     @Expose
     val collapsedGroups: MutableList<String> = mutableListOf()
 
+    /** Dev only: open the original settings menu instead of Chroma. */
+    @Expose
+    var classicMenu: Boolean = false
+
+    @Expose
+    var chromaTab: String = ""
+
+    @Expose
+    val chromaPins: MutableList<String> = mutableListOf()
+
+    @Expose
+    var chromaFolded: Boolean = false
+
     @Expose
     var hudGridEnabled: Boolean = false
 

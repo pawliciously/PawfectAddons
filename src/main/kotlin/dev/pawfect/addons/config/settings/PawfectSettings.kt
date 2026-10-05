@@ -995,6 +995,14 @@ object PawfectSettings {
         Icons.SLIDERS,
         "0.47.0",
         group(
+            "Menu",
+            ToggleSetting(
+                "Classic Menu",
+                "Open the original settings menu instead of Chroma. Turn it off to go back to Chroma.",
+                ConfigManager.features.theme::classicMenu,
+            ).onChange { PawfectAddons.queueScreen { ConfigGuiManager.open("dev") } },
+        ),
+        group(
             "Packets",
             PacketLogSetting(
                 "Packet Log",
