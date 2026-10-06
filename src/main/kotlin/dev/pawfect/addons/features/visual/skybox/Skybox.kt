@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.skybox
 
+import com.mojang.blaze3d.GpuFormat
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.CommandEncoder
 import com.mojang.blaze3d.systems.RenderSystem
@@ -7,16 +8,16 @@ import com.mojang.blaze3d.textures.AddressMode
 import com.mojang.blaze3d.textures.FilterMode
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.GpuTextureView
-import com.mojang.blaze3d.textures.TextureFormat
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.SkyboxConfig.SkyEffect
 import dev.pawfect.addons.utils.ChatUtils
 import dev.pawfect.addons.utils.McCompat
 import org.joml.Vector3f
+import org.joml.Vector4f
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.OptionalInt
+import java.util.Optional
 import net.minecraft.util.ARGB
 import kotlin.math.cos
 import kotlin.math.sin
@@ -126,13 +127,13 @@ object Skybox {
         if (isActive()) {
             runCatching { draw() }.onFailure { fail(it) }
         } else if (solidActive()) {
-            val texture = McCompat.mc.mainRenderTarget.colorTexture ?: return
-            RenderSystem.getDevice().createCommandEncoder().clearColorTexture(texture, ARGB.opaque(config.solidSkyColor))
+            val texture = McCompat.mc.gameRenderer.mainRenderTarget().colorTexture ?: return
+            RenderSystem.getDevice().createCommandEncoder().clearColorTexture(texture, ARGB.vector4fFromARGB32(ARGB.opaque(config.solidSkyColor)))
         }
     }
 
     private fun draw() {
-        val target = McCompat.mc.mainRenderTarget
+        val target = McCompat.mc.gameRenderer.mainRenderTarget()
         val colorView = target.colorTextureView ?: return
 
         val quality = config.quality
@@ -173,7 +174,7 @@ object Skybox {
 
         if (full || (animated && now - lastLut >= interval)) {
             val sliced = !full && slices > 1
-            encoder.createRenderPass({ "pawfect_sky_lut" }, lutView, if (sliced) OptionalInt.empty() else OptionalInt.of(0)).use { pass ->
+            encoder.createRenderPass({ "pawfect_sky_lut" }, lutView, if (sliced) Optional.empty() else Optional.of(Vector4f(0f))).use { pass ->
                 pass.setPipeline(SkyboxPipelines.LUT)
                 pass.setUniform("SkyData", buffer.slice(0L, UNIFORM_STRIDE.toLong()))
                 if (sliced) {
@@ -182,7 +183,7 @@ object Skybox {
                     pass.enableScissor(0, top, width, bottom - top)
                     lutSlice = (lutSlice + 1) % slices
                 }
-                pass.draw(0, 6)
+                pass.draw(6, 1, 0, 0)
             }
             lastLut = now
             lastSignature = signature
@@ -190,26 +191,26 @@ object Skybox {
         }
 
         if (!scaled) {
-            encoder.createRenderPass({ "pawfect_sky_composite" }, colorView, OptionalInt.empty()).use { pass ->
+            encoder.createRenderPass({ "pawfect_sky_composite" }, colorView, Optional.empty()).use { pass ->
                 pass.setPipeline(SkyboxPipelines.COMPOSITE)
                 pass.bindTexture("SkySampler", lutView, wrap)
                 pass.setUniform("SkyData", buffer.slice(0L, UNIFORM_STRIDE.toLong()))
-                pass.draw(0, 6)
+                pass.draw(6, 1, 0, 0)
             }
             return
         }
 
         val lowView = ensureScaled(outputWidth, outputHeight) ?: return
-        encoder.createRenderPass({ "pawfect_sky_composite_scaled" }, lowView, OptionalInt.of(0)).use { pass ->
+        encoder.createRenderPass({ "pawfect_sky_composite_scaled" }, lowView, Optional.of(Vector4f(0f))).use { pass ->
             pass.setPipeline(SkyboxPipelines.COMPOSITE)
             pass.bindTexture("SkySampler", lutView, wrap)
             pass.setUniform("SkyData", buffer.slice(0L, UNIFORM_STRIDE.toLong()))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
-        encoder.createRenderPass({ "pawfect_sky_upscale" }, colorView, OptionalInt.empty()).use { pass ->
+        encoder.createRenderPass({ "pawfect_sky_upscale" }, colorView, Optional.empty()).use { pass ->
             pass.setPipeline(SkyboxPipelines.UPSCALE)
             pass.bindTexture("SkySampler", lowView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
     }
 
@@ -237,7 +238,7 @@ object Skybox {
         val device = RenderSystem.getDevice()
         val usage = GpuTexture.USAGE_COPY_DST or GpuTexture.USAGE_COPY_SRC or
             GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_RENDER_ATTACHMENT
-        val created = device.createTexture("pawfect_sky_lut", usage, TextureFormat.RGBA8, safeWidth, safeHeight, 1, 1)
+        val created = device.createTexture("pawfect_sky_lut", usage, GpuFormat.RGBA8_UNORM, safeWidth, safeHeight, 1, 1)
         texture = created
         view = device.createTextureView(created)
         width = safeWidth
@@ -251,7 +252,7 @@ object Skybox {
         releaseScaled()
         val device = RenderSystem.getDevice()
         val usage = GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_RENDER_ATTACHMENT
-        val created = device.createTexture("pawfect_sky_scaled", usage, TextureFormat.RGBA8, requestedWidth, requestedHeight, 1, 1)
+        val created = device.createTexture("pawfect_sky_scaled", usage, GpuFormat.RGBA8_UNORM, requestedWidth, requestedHeight, 1, 1)
         scaledTexture = created
         scaledView = device.createTextureView(created)
         scaledWidth = requestedWidth
@@ -277,7 +278,7 @@ object Skybox {
     }
 
     private fun writeUniforms(encoder: CommandEncoder, buffer: GpuBuffer, aspect: Float, scaled: Boolean, screenHeight: Int) {
-        val camera = McCompat.mc.gameRenderer.mainCamera
+        val camera = McCompat.mc.gameRenderer.mainCamera()
         val forward = Vector3f(camera.forwardVector())
         val up = Vector3f(camera.upVector())
         val right = Vector3f(forward).cross(up).normalize()

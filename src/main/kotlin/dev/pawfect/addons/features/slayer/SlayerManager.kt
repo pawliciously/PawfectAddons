@@ -159,7 +159,7 @@ object SlayerManager {
         inHitPhase = true
         if (!current.owned) return
         if (config.hitPhaseNotify) {
-            val gui = McCompat.mc.gui
+            val gui = McCompat.mc.gui.hud
             gui.setTimes(HIT_PHASE_FADE_IN, HIT_PHASE_STAY, HIT_PHASE_FADE_OUT)
             gui.setSubtitle(Component.literal("§f$hits hits to break the shield"))
             gui.setTitle(Component.literal("§d§lHITS PHASE"))

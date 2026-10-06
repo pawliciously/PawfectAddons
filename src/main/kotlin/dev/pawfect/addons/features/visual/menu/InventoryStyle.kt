@@ -30,7 +30,7 @@ object InventoryStyle {
     fun draws(screen: Any): Boolean = config.enabled && screen is AbstractContainerScreen<*>
 
     @JvmStatic
-    fun active(): Boolean = draws(McCompat.mc.screen ?: return false)
+    fun active(): Boolean = draws(McCompat.screen ?: return false)
 
     @JvmStatic
     fun endFrame() {
@@ -58,7 +58,7 @@ object InventoryStyle {
         height: Int,
     ): Boolean {
         if (!active() || tooltipDepth > 0) return false
-        val screen = McCompat.mc.screen as? AbstractContainerScreen<*> ?: return false
+        val screen = McCompat.screen as? AbstractContainerScreen<*> ?: return false
         val geometry = screen as ContainerScreenAccessor
         val left = geometry.`pawfectaddons$leftPos`()
         val top = geometry.`pawfectaddons$topPos`()
@@ -158,7 +158,7 @@ object InventoryStyle {
     fun replaceSlotFrame(graphics: GuiGraphicsExtractor, sprite: Identifier, x: Int, y: Int): Boolean {
         if (!active() || tooltipDepth > 0) return false
         if (sprite != SLOT_FRAME) return false
-        val screen = McCompat.mc.screen as? AbstractContainerScreen<*> ?: return false
+        val screen = McCompat.screen as? AbstractContainerScreen<*> ?: return false
         val geometry = screen as ContainerScreenAccessor
         val left = geometry.`pawfectaddons$leftPos`()
         val top = geometry.`pawfectaddons$topPos`()

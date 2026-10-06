@@ -6,8 +6,8 @@ import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.utils.McCompat
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents
 import net.minecraft.client.gui.Font
+import net.minecraft.network.chat.Component
 import net.minecraft.util.LightCoordsUtil
-import org.joml.Matrix4f
 
 object SlayerWorldRender {
 
@@ -18,7 +18,7 @@ object SlayerWorldRender {
     private val config get() = ConfigManager.features.slayers
 
     fun register() {
-        LevelRenderEvents.AFTER_TRANSLUCENT_TERRAIN.register { context ->
+        LevelRenderEvents.COLLECT_SUBMITS.register { context ->
             if (!config.enabled) return@register
             if (config.display == SlayerDisplay.HUD) return@register
             if (!SkyBlockData.onSkyBlock) return@register
@@ -26,7 +26,7 @@ object SlayerWorldRender {
             val boss = SlayerManager.boss ?: return@register
             if (!boss.alive) return@register
 
-            val camera = McCompat.mc.gameRenderer.mainCamera
+            val camera = McCompat.mc.gameRenderer.mainCamera()
             if (!camera.isInitialized) return@register
 
             val cameraPos = camera.position()
@@ -43,29 +43,23 @@ object SlayerWorldRender {
             poseStack.mulPose(camera.rotation())
             poseStack.scale(scale, -scale, scale)
 
-            val matrix = Matrix4f(poseStack.last().pose())
-            poseStack.popPose()
-
             val font = McCompat.font
-            val bufferSource = McCompat.mc.renderBuffers().bufferSource()
-            val lines = SlayerFormat.lines(boss)
-
-            for ((index, line) in lines.withIndex()) {
-                font.drawInBatch(
-                    line,
+            val collector = context.submitNodeCollector()
+            for ((index, line) in SlayerFormat.lines(boss).withIndex()) {
+                collector.submitText(
+                    poseStack,
                     -font.width(line) / 2f,
                     index * LINE_HEIGHT,
-                    WHITE,
+                    Component.literal(line).visualOrderText,
                     false,
-                    matrix,
-                    bufferSource,
                     Font.DisplayMode.SEE_THROUGH,
-                    0,
                     LightCoordsUtil.FULL_BRIGHT,
+                    WHITE,
+                    0,
+                    0,
                 )
             }
-
-            bufferSource.endBatch()
+            poseStack.popPose()
         }
     }
 }

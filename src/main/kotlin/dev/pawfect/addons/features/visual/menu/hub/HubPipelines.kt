@@ -1,13 +1,13 @@
 package dev.pawfect.addons.features.visual.menu.hub
 
+import com.mojang.blaze3d.PrimitiveTopology
 import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.ColorTargetState
 import com.mojang.blaze3d.pipeline.DepthStencilState
 import com.mojang.blaze3d.pipeline.RenderPipeline
-import com.mojang.blaze3d.shaders.UniformType
 import com.mojang.blaze3d.vertex.DefaultVertexFormat
-import com.mojang.blaze3d.vertex.VertexFormat
 import dev.pawfect.addons.PawfectAddons
+import dev.pawfect.addons.utils.withBindings
 import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.resources.Identifier
 
@@ -21,11 +21,9 @@ object HubPipelines {
                 .withLocation(id("pipeline/hub_$name"))
                 .withVertexShader(id("core/hub_terrain"))
                 .withFragmentShader(id("core/hub_terrain"))
-                .withSampler("Sampler0")
-                .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-                .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-                .withUniform("HubScene", UniformType.UNIFORM_BUFFER)
-                .withVertexFormat(DefaultVertexFormat.BLOCK, VertexFormat.Mode.QUADS)
+                .withBindings(samplers = listOf("Sampler0"), uniforms = listOf("DynamicTransforms", "Projection", "HubScene"))
+                .withVertexBinding(0, DefaultVertexFormat.BLOCK)
+                .withPrimitiveTopology(PrimitiveTopology.QUADS)
                 .withDepthStencilState(DepthStencilState.DEFAULT)
                 .apply(configure)
                 .build(),
@@ -47,8 +45,8 @@ object HubPipelines {
             .withLocation(id("pipeline/hub_sky"))
             .withVertexShader(id("core/screenquad"))
             .withFragmentShader(id("core/hub_sky"))
-            .withUniform("HubScene", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .withBindings(uniforms = listOf("HubScene"))
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withColorTargetState(ColorTargetState.DEFAULT)
             .build(),
     )

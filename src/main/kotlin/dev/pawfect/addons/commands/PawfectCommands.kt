@@ -318,7 +318,7 @@ object PawfectCommands {
             )
             .then(
                 ClientCommands.literal("levels").executes {
-                    LevelPrestige.previewLines().forEach { McCompat.mc.gui.chat.addClientSystemMessage(it) }
+                    LevelPrestige.previewLines().forEach { McCompat.mc.gui.hud.chat.addClientSystemMessage(it) }
                     SUCCESS
                 },
             )
@@ -471,7 +471,7 @@ object PawfectCommands {
     }
 
     private fun openProfile(name: String) {
-        PawfectAddons.queueScreen { McCompat.mc.setScreen(ProfileViewerScreen(name)) }
+        PawfectAddons.queueScreen { McCompat.mc.gui.setScreen(ProfileViewerScreen(name)) }
     }
 
     private fun showEmojis(query: String) {

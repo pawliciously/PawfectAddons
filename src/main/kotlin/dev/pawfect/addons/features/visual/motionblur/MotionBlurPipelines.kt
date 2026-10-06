@@ -1,10 +1,9 @@
 package dev.pawfect.addons.features.visual.motionblur
 
+import com.mojang.blaze3d.PrimitiveTopology
 import com.mojang.blaze3d.pipeline.RenderPipeline
-import com.mojang.blaze3d.shaders.UniformType
-import com.mojang.blaze3d.vertex.DefaultVertexFormat
-import com.mojang.blaze3d.vertex.VertexFormat
 import dev.pawfect.addons.PawfectAddons
+import dev.pawfect.addons.utils.withBindings
 import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.resources.Identifier
 
@@ -18,10 +17,8 @@ object MotionBlurPipelines {
             .withLocation(id("pipeline/motion_blur"))
             .withVertexShader(id("core/screenquad"))
             .withFragmentShader(id("core/motion_blur"))
-            .withSampler("ColorSampler")
-            .withSampler("DepthSampler")
-            .withUniform("MotionData", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .withBindings(samplers = listOf("ColorSampler", "DepthSampler"), uniforms = listOf("MotionData"))
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build(),
     )
 
@@ -30,8 +27,8 @@ object MotionBlurPipelines {
             .withLocation(id("pipeline/motion_blit"))
             .withVertexShader(id("core/screenquad"))
             .withFragmentShader(id("core/blit"))
-            .withSampler("ColorSampler")
-            .withVertexFormat(DefaultVertexFormat.EMPTY, VertexFormat.Mode.TRIANGLES)
+            .withBindings(samplers = listOf("ColorSampler"))
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build(),
     )
 

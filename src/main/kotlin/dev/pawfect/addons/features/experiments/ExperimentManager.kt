@@ -26,9 +26,9 @@ object ExperimentManager {
 
     fun active(): Boolean = config.enabled && current != null
 
-    fun container(): Container? = (McCompat.mc.screen as? ContainerScreen)?.menu?.container
+    fun container(): Container? = (McCompat.screen as? ContainerScreen)?.menu?.container
 
-    private fun screenTitle(): String = (McCompat.mc.screen as? ContainerScreen)?.title?.string ?: ""
+    private fun screenTitle(): String = (McCompat.screen as? ContainerScreen)?.title?.string ?: ""
 
     fun onTick() {
         if (!config.enabled || !SkyBlockData.onSkyBlock) {
@@ -69,7 +69,7 @@ object ExperimentManager {
     @JvmStatic
     fun onSlotChanged(containerId: Int, slotId: Int, stack: ItemStack) {
         if (!config.enabled) return
-        val menu = (McCompat.mc.screen as? ContainerScreen)?.menu ?: return
+        val menu = (McCompat.screen as? ContainerScreen)?.menu ?: return
         if (menu.containerId != containerId) return
         packetCount++
         val solver = current ?: return

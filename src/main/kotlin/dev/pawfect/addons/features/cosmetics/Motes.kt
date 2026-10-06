@@ -37,7 +37,7 @@ object Motes {
 
         val client = McCompat.mc
         val level = client.level ?: return
-        val camera = client.gameRenderer.mainCamera.position()
+        val camera = client.gameRenderer.mainCamera().position()
         val self = client.player?.uuid
         val partial = client.deltaTracker.getGameTimeDeltaPartialTick(true)
         val now = System.currentTimeMillis()

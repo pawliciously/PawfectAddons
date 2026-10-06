@@ -78,7 +78,7 @@ object LevelPrestige {
                 val c = run.text[i]
                 if (c == '§' && i + 1 < run.text.length) {
                     val format = ChatFormatting.getByCode(run.text[i + 1])
-                    if (format == ChatFormatting.RESET) legacy = null else format?.color?.let { legacy = it }
+                    if (format == ChatFormatting.RESET) legacy = null else format?.let { TextColor.fromLegacyFormat(it) }?.let { legacy = it.value }
                     i += 2
                     continue
                 }

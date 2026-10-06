@@ -36,13 +36,13 @@ object PacketOverlay {
     private var rows: List<PacketEntry> = emptyList()
 
     fun render() {
-        if (McCompat.mc.screen != null && !GuiEditManager.isEditorOpen()) return
+        if (McCompat.screen != null && !GuiEditManager.isEditorOpen()) return
         draw()
     }
 
     @JvmStatic
     fun renderOverScreen(graphics: GuiGraphicsExtractor) {
-        if (McCompat.mc.screen == null || GuiEditManager.isEditorOpen()) return
+        if (McCompat.screen == null || GuiEditManager.isEditorOpen()) return
         RenderContext.withContext(graphics) { draw() }
     }
 

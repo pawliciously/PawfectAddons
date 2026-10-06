@@ -49,7 +49,7 @@ object SecretWaypointRenderer {
         val entries = active()
         if (entries.isEmpty()) return
 
-        val camera = McCompat.mc.gameRenderer.mainCamera.position()
+        val camera = McCompat.mc.gameRenderer.mainCamera().position()
         val alpha = (config.opacity.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
 
         poseStack.pushPose()
@@ -73,7 +73,7 @@ object SecretWaypointRenderer {
         val entries = active()
         if (entries.isEmpty()) return
 
-        val eye = McCompat.mc.gameRenderer.mainCamera.position()
+        val eye = McCompat.mc.gameRenderer.mainCamera().position()
         poseStack.pushPose()
         poseStack.translate(-eye.x, -eye.y, -eye.z)
         entries.forEach { (secret, pos) ->
@@ -85,7 +85,6 @@ object SecretWaypointRenderer {
                 Component.literal(secret.secretName),
                 config.throughWalls,
                 0xF000F0,
-                centre.distanceToSqr(eye),
                 camera,
             )
         }

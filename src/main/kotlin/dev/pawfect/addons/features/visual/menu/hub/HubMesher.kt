@@ -1,11 +1,11 @@
 package dev.pawfect.addons.features.visual.menu.hub
 
+import com.mojang.blaze3d.PrimitiveTopology
 import com.mojang.blaze3d.vertex.BufferBuilder
 import com.mojang.blaze3d.vertex.ByteBufferBuilder
 import com.mojang.blaze3d.vertex.DefaultVertexFormat
 import com.mojang.blaze3d.vertex.MeshData
 import com.mojang.blaze3d.vertex.VertexConsumer
-import com.mojang.blaze3d.vertex.VertexFormat
 import com.mojang.blaze3d.vertex.VertexSorting
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.renderer.block.BlockModelLighter
@@ -108,7 +108,7 @@ object HubMesher {
         fun layer(which: ChunkSectionLayer): BufferBuilder = builders.getOrPut(which) {
             val memory = ByteBufferBuilder(INITIAL_BYTES)
             buffers[which] = memory
-            BufferBuilder(memory, VertexFormat.Mode.QUADS, DefaultVertexFormat.BLOCK)
+            BufferBuilder(memory, PrimitiveTopology.QUADS, DefaultVertexFormat.BLOCK)
         }
 
         val pos = BlockPos.MutableBlockPos()

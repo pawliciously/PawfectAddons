@@ -1,9 +1,9 @@
 package dev.pawfect.addons.features.visual.handchams
 
+import com.mojang.blaze3d.GpuFormat
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.GpuTextureView
-import com.mojang.blaze3d.textures.TextureFormat
 
 class Surface(val texture: GpuTexture, val view: GpuTextureView, val width: Int, val height: Int) {
     fun close() {
@@ -70,7 +70,7 @@ object ChamsTargets {
         fun color(name: String, w: Int, h: Int): Surface {
             val safeW = w.coerceAtLeast(1)
             val safeH = h.coerceAtLeast(1)
-            val texture = device.createTexture(name, COLOR_USAGE, TextureFormat.RGBA8, safeW, safeH, 1, 1)
+            val texture = device.createTexture(name, COLOR_USAGE, GpuFormat.RGBA8_UNORM, safeW, safeH, 1, 1)
             return Surface(texture, device.createTextureView(texture), safeW, safeH)
         }
 

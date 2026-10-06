@@ -1,32 +1,44 @@
 package dev.pawfect.addons.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import net.minecraft.client.renderer.DynamicUniforms;
 import net.minecraft.client.renderer.rendertype.RenderType;
-import org.joml.Matrix4fc;
-import org.joml.Vector3fc;
-import org.joml.Vector4fc;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 import dev.pawfect.addons.features.visual.playerchams.PlayerChams;
 
 @Mixin(RenderType.class)
 public abstract class RenderTypeMixin {
 
-    private static final String WRITE_TRANSFORM = "Lnet/minecraft/client/renderer/DynamicUniforms;writeTransform(Lorg/joml/Matrix4fc;Lorg/joml/Vector4fc;Lorg/joml/Vector3fc;Lorg/joml/Matrix4fc;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;";
+    @Unique
+    private static final Vector4f pawfectaddons$WHITE = new Vector4f(1.0F, 1.0F, 1.0F, 1.0F);
 
-    @ModifyArg(method = "draw", at = @At(value = "INVOKE", target = WRITE_TRANSFORM), index = 1)
-    private Vector4fc pawfectaddons$chamsColor(Vector4fc original) {
-        return PlayerChams.isChams((RenderType) (Object) this) ? PlayerChams.color(original) : original;
-    }
+    @Unique
+    private static final Vector3f pawfectaddons$NO_OFFSET = new Vector3f();
 
-    @ModifyArg(method = "draw", at = @At(value = "INVOKE", target = WRITE_TRANSFORM), index = 2)
-    private Vector3fc pawfectaddons$chamsOffset(Vector3fc original) {
-        return PlayerChams.isChams((RenderType) (Object) this) ? PlayerChams.offset(original) : original;
-    }
-
-    @ModifyArg(method = "draw", at = @At(value = "INVOKE", target = WRITE_TRANSFORM), index = 3)
-    private Matrix4fc pawfectaddons$chamsParams(Matrix4fc original) {
-        return PlayerChams.isChams((RenderType) (Object) this) ? PlayerChams.params(original) : original;
+    // A render type only writes its model view and texture matrix; chams also carry their colour,
+    // offset and effect settings in the colour modulator, model offset and texture matrix slots.
+    @WrapOperation(
+            method = "writeDynamicTransforms",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/renderer/DynamicUniforms;writeTransform(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;"
+            )
+    )
+    private GpuBufferSlice pawfectaddons$chamsTransform(DynamicUniforms uniforms, Matrix4f modelView, Matrix4f textureMatrix, Operation<GpuBufferSlice> original) {
+        if (!PlayerChams.isChams((RenderType) (Object) this)) return original.call(uniforms, modelView, textureMatrix);
+        return uniforms.writeTransform(new DynamicUniforms.Transform(
+                modelView,
+                PlayerChams.color(pawfectaddons$WHITE),
+                PlayerChams.offset(pawfectaddons$NO_OFFSET),
+                PlayerChams.params(textureMatrix)
+        ));
     }
 }

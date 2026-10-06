@@ -2,7 +2,6 @@ package dev.pawfect.addons.ui.gpu
 
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.vertex.VertexConsumer
-import dev.pawfect.addons.mixin.BufferBuilderInvoker
 import net.minecraft.client.gui.navigation.ScreenRectangle
 import net.minecraft.client.gui.render.TextureSetup
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState
@@ -53,9 +52,8 @@ class ChatBackdropRenderState(
         consumer.addVertexWith2DPose(pose, x, y)
         consumer.setColor(color)
 
-        val invoker = consumer as BufferBuilderInvoker
 
-        val localPointer = invoker.`pawfectaddons$beginElement`(UiFormats.LOCAL)
+        val localPointer = UiFormats.pointer(consumer, UiFormats.LOCAL)
         if (localPointer != -1L) {
             MemoryUtil.memPutFloat(localPointer, x - anchorX)
             MemoryUtil.memPutFloat(localPointer + 4L, y - anchorY)
@@ -63,7 +61,7 @@ class ChatBackdropRenderState(
             MemoryUtil.memPutFloat(localPointer + 12L, style.coerceIn(0, 15) + radius.coerceIn(0, 15) * 16f)
         }
 
-        val shapePointer = invoker.`pawfectaddons$beginElement`(UiFormats.SHAPE)
+        val shapePointer = UiFormats.pointer(consumer, UiFormats.SHAPE)
         if (shapePointer != -1L) {
             MemoryUtil.memPutFloat(shapePointer, (shapeRight - shapeLeft) / 2f)
             MemoryUtil.memPutFloat(shapePointer + 4L, (shapeBottom - shapeTop) / 2f)
@@ -71,7 +69,7 @@ class ChatBackdropRenderState(
             MemoryUtil.memPutFloat(shapePointer + 12L, (shapeTop + shapeBottom) / 2f - anchorY)
         }
 
-        val borderPointer = invoker.`pawfectaddons$beginElement`(UiFormats.BORDER_COLOR)
+        val borderPointer = UiFormats.pointer(consumer, UiFormats.BORDER_COLOR)
         if (borderPointer != -1L) {
             MemoryUtil.memPutByte(borderPointer, ((accent shr 16) and 0xFF).toByte())
             MemoryUtil.memPutByte(borderPointer + 1L, ((accent shr 8) and 0xFF).toByte())

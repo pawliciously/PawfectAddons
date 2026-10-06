@@ -2,7 +2,6 @@ package dev.pawfect.addons.ui.gpu
 
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.vertex.VertexConsumer
-import dev.pawfect.addons.mixin.BufferBuilderInvoker
 import net.minecraft.client.gui.navigation.ScreenRectangle
 import net.minecraft.client.gui.render.TextureSetup
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState
@@ -50,9 +49,8 @@ class MenuBackgroundRenderState(
         consumer.addVertexWith2DPose(pose, x, y)
         consumer.setColor(colorTop)
 
-        val invoker = consumer as BufferBuilderInvoker
 
-        val localPointer = invoker.`pawfectaddons$beginElement`(UiFormats.LOCAL)
+        val localPointer = UiFormats.pointer(consumer, UiFormats.LOCAL)
         if (localPointer != -1L) {
             MemoryUtil.memPutFloat(localPointer, x - centerX)
             MemoryUtil.memPutFloat(localPointer + 4L, y - centerY)
@@ -60,7 +58,7 @@ class MenuBackgroundRenderState(
             MemoryUtil.memPutFloat(localPointer + 12L, time)
         }
 
-        val shapePointer = invoker.`pawfectaddons$beginElement`(UiFormats.SHAPE)
+        val shapePointer = UiFormats.pointer(consumer, UiFormats.SHAPE)
         if (shapePointer != -1L) {
             MemoryUtil.memPutFloat(shapePointer, halfWidth)
             MemoryUtil.memPutFloat(shapePointer + 4L, halfHeight)
@@ -68,7 +66,7 @@ class MenuBackgroundRenderState(
             MemoryUtil.memPutFloat(shapePointer + 12L, ((accent shr 8) and 0xFF) / 255f)
         }
 
-        val borderPointer = invoker.`pawfectaddons$beginElement`(UiFormats.BORDER_COLOR)
+        val borderPointer = UiFormats.pointer(consumer, UiFormats.BORDER_COLOR)
         if (borderPointer != -1L) {
             MemoryUtil.memPutByte(borderPointer, ((colorBottom shr 16) and 0xFF).toByte())
             MemoryUtil.memPutByte(borderPointer + 1L, ((colorBottom shr 8) and 0xFF).toByte())

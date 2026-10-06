@@ -39,7 +39,7 @@ object MenuStyle {
     }
 
     private fun isOwnScreen(): Boolean {
-        val screen = McCompat.mc.screen
+        val screen = McCompat.screen
         if (screen is AbstractContainerScreen<*>) return false
         return isVanilla(screen?.javaClass)
     }

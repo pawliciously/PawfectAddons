@@ -2,7 +2,6 @@ package dev.pawfect.addons.ui.gpu
 
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.vertex.VertexConsumer
-import dev.pawfect.addons.mixin.BufferBuilderInvoker
 import net.minecraft.client.gui.navigation.ScreenRectangle
 import net.minecraft.client.gui.render.TextureSetup
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState
@@ -45,9 +44,8 @@ class MediaBackdropRenderState(
         consumer.addVertexWith2DPose(pose, px, py)
         consumer.setColor(((opacity.coerceIn(0f, 1f) * 255f).toInt() shl 24) or (palette[0] and 0xFFFFFF))
 
-        val invoker = consumer as BufferBuilderInvoker
 
-        val localPointer = invoker.`pawfectaddons$beginElement`(UiFormats.LOCAL)
+        val localPointer = UiFormats.pointer(consumer, UiFormats.LOCAL)
         if (localPointer != -1L) {
             MemoryUtil.memPutFloat(localPointer, px - centerX)
             MemoryUtil.memPutFloat(localPointer + 4L, py - centerY)
@@ -55,7 +53,7 @@ class MediaBackdropRenderState(
             MemoryUtil.memPutFloat(localPointer + 12L, radius)
         }
 
-        val shapePointer = invoker.`pawfectaddons$beginElement`(UiFormats.SHAPE)
+        val shapePointer = UiFormats.pointer(consumer, UiFormats.SHAPE)
         if (shapePointer != -1L) {
             MemoryUtil.memPutFloat(shapePointer, width / 2f)
             MemoryUtil.memPutFloat(shapePointer + 4L, height / 2f)
@@ -63,7 +61,7 @@ class MediaBackdropRenderState(
             MemoryUtil.memPutFloat(shapePointer + 12L, (palette[3] and 0xFFFFFF).toFloat())
         }
 
-        val borderPointer = invoker.`pawfectaddons$beginElement`(UiFormats.BORDER_COLOR)
+        val borderPointer = UiFormats.pointer(consumer, UiFormats.BORDER_COLOR)
         if (borderPointer != -1L) {
             val second = palette[1]
             MemoryUtil.memPutByte(borderPointer, ((second shr 16) and 0xFF).toByte())

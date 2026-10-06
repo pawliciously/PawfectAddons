@@ -2,6 +2,7 @@ package dev.pawfect.addons.features.experiments
 
 import dev.pawfect.addons.config.ConfigManager
 import net.minecraft.core.component.DataComponents
+import net.minecraft.world.item.DyeColor
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -9,16 +10,16 @@ import net.minecraft.world.item.Items
 object ChronomatronSolver : ExperimentSolver(Regex("^Chronomatron \\(\\w+\\)$")) {
 
     private val TERRACOTTA_TO_GLASS: Map<Item, Item> = mapOf(
-        Items.RED_TERRACOTTA to Items.RED_STAINED_GLASS,
-        Items.ORANGE_TERRACOTTA to Items.ORANGE_STAINED_GLASS,
-        Items.YELLOW_TERRACOTTA to Items.YELLOW_STAINED_GLASS,
-        Items.LIME_TERRACOTTA to Items.LIME_STAINED_GLASS,
-        Items.GREEN_TERRACOTTA to Items.GREEN_STAINED_GLASS,
-        Items.CYAN_TERRACOTTA to Items.CYAN_STAINED_GLASS,
-        Items.LIGHT_BLUE_TERRACOTTA to Items.LIGHT_BLUE_STAINED_GLASS,
-        Items.BLUE_TERRACOTTA to Items.BLUE_STAINED_GLASS,
-        Items.PURPLE_TERRACOTTA to Items.PURPLE_STAINED_GLASS,
-        Items.PINK_TERRACOTTA to Items.PINK_STAINED_GLASS,
+        Items.DYED_TERRACOTTA.pick(DyeColor.RED) to Items.STAINED_GLASS.pick(DyeColor.RED),
+        Items.DYED_TERRACOTTA.pick(DyeColor.ORANGE) to Items.STAINED_GLASS.pick(DyeColor.ORANGE),
+        Items.DYED_TERRACOTTA.pick(DyeColor.YELLOW) to Items.STAINED_GLASS.pick(DyeColor.YELLOW),
+        Items.DYED_TERRACOTTA.pick(DyeColor.LIME) to Items.STAINED_GLASS.pick(DyeColor.LIME),
+        Items.DYED_TERRACOTTA.pick(DyeColor.GREEN) to Items.STAINED_GLASS.pick(DyeColor.GREEN),
+        Items.DYED_TERRACOTTA.pick(DyeColor.CYAN) to Items.STAINED_GLASS.pick(DyeColor.CYAN),
+        Items.DYED_TERRACOTTA.pick(DyeColor.LIGHT_BLUE) to Items.STAINED_GLASS.pick(DyeColor.LIGHT_BLUE),
+        Items.DYED_TERRACOTTA.pick(DyeColor.BLUE) to Items.STAINED_GLASS.pick(DyeColor.BLUE),
+        Items.DYED_TERRACOTTA.pick(DyeColor.PURPLE) to Items.STAINED_GLASS.pick(DyeColor.PURPLE),
+        Items.DYED_TERRACOTTA.pick(DyeColor.PINK) to Items.STAINED_GLASS.pick(DyeColor.PINK),
     )
 
     private const val INSTRUCTION_SLOT = 49

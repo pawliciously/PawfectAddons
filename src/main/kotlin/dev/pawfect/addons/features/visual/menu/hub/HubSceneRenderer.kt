@@ -1,9 +1,10 @@
 package dev.pawfect.addons.features.visual.menu.hub
 
+import com.mojang.blaze3d.IndexType
+import com.mojang.blaze3d.PrimitiveTopology
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.RenderSystem
-import com.mojang.blaze3d.vertex.VertexFormat
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.MenuSpot
 import dev.pawfect.addons.mixin.LoadingOverlayAccessor
@@ -22,8 +23,8 @@ import org.joml.Vector4f
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Optional
 import java.util.OptionalDouble
-import java.util.OptionalInt
 import kotlin.io.path.exists
 import kotlin.math.PI
 import kotlin.math.cos
@@ -70,7 +71,7 @@ object HubSceneRenderer {
 
     private enum class State { IDLE, BUILDING, BUILT, READY, FAILED }
 
-    private class Layer(val pipeline: RenderPipeline, val vertices: GpuBuffer, val indices: GpuBuffer?, val type: VertexFormat.IndexType?, val count: Int)
+    private class Layer(val pipeline: RenderPipeline, val vertices: GpuBuffer, val indices: GpuBuffer?, val type: IndexType?, val count: Int)
 
     private class Pose(val x: Double, val y: Double, val z: Double, val yaw: Double, val pitch: Double)
 
@@ -150,7 +151,7 @@ object HubSceneRenderer {
     }
 
     private fun resourcesReady(): Boolean {
-        val overlay = McCompat.mc.overlay ?: return true
+        val overlay = McCompat.mc.gui.overlay() ?: return true
         val loading = overlay as? LoadingOverlay ?: return false
         return (loading as LoadingOverlayAccessor).`pawfectaddons$reload`().isDone
     }
@@ -177,7 +178,7 @@ object HubSceneRenderer {
             return true
         }
 
-        val target = mc.mainRenderTarget
+        val target = mc.gameRenderer.mainRenderTarget()
         val width = target.width.toFloat()
         val height = target.height.toFloat()
         if (width <= 0f || height <= 0f) return true
@@ -188,7 +189,7 @@ object HubSceneRenderer {
         lastFrame = now
         val ready = state == State.READY && layers.isNotEmpty()
         if (!ready) readyAt = 0L else if (readyAt == 0L) readyAt = now
-        if (ready && introStart < 0L && mc.overlay == null && now - readyAt >= SETTLE_BEFORE_INTRO_NANOS) introStart = now
+        if (ready && introStart < 0L && mc.gui.overlay() == null && now - readyAt >= SETTLE_BEFORE_INTRO_NANOS) introStart = now
         val sinceStart = if (introStart < 0L) 0.0 else (now - introStart) / 1e9
 
         if (newVisit) {
@@ -212,10 +213,10 @@ object HubSceneRenderer {
         val encoder = RenderSystem.getDevice().createCommandEncoder()
         val sceneSlice = buffer.slice(0L, UNIFORM_SIZE.toLong())
 
-        encoder.createRenderPass({ "pawfect hub sky" }, target.colorTextureView!!, OptionalInt.empty(), target.depthTextureView!!, OptionalDouble.of(1.0)).use { pass ->
+        encoder.createRenderPass({ "pawfect hub sky" }, target.colorTextureView!!, Optional.empty(), target.depthTextureView!!, OptionalDouble.of(0.0)).use { pass ->
             pass.setPipeline(HubPipelines.SKY)
             pass.setUniform("HubScene", sceneSlice)
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
 
         if (!ready) return true
@@ -228,22 +229,22 @@ object HubSceneRenderer {
         )
         val transform = RenderSystem.getDynamicUniforms().writeTransform(view, Vector4f(1f, 1f, 1f, 1f), offset, Matrix4f())
         val texture = atlas ?: return true
-        val quads = RenderSystem.getSequentialBuffer(VertexFormat.Mode.QUADS)
+        val quads = RenderSystem.getSequentialBuffer(PrimitiveTopology.QUADS)
 
-        encoder.createRenderPass({ "pawfect hub terrain" }, target.colorTextureView!!, OptionalInt.empty(), target.depthTextureView!!, OptionalDouble.empty()).use { pass ->
+        encoder.createRenderPass({ "pawfect hub terrain" }, target.colorTextureView!!, Optional.empty(), target.depthTextureView!!, OptionalDouble.empty()).use { pass ->
             pass.setUniform("Projection", projectionSlice)
             pass.setUniform("DynamicTransforms", transform)
             pass.setUniform("HubScene", sceneSlice)
             pass.bindTexture("Sampler0", texture.textureView, texture.sampler)
             for (layer in layers) {
                 pass.setPipeline(layer.pipeline)
-                pass.setVertexBuffer(0, layer.vertices)
+                pass.setVertexBuffer(0, layer.vertices.slice())
                 if (layer.indices != null && layer.type != null) {
                     pass.setIndexBuffer(layer.indices, layer.type)
                 } else {
                     pass.setIndexBuffer(quads.getBuffer(layer.count), quads.type())
                 }
-                pass.drawIndexed(0, 0, layer.count, 1)
+                pass.drawIndexed(layer.count, 1, 0, 0, 0)
             }
         }
 

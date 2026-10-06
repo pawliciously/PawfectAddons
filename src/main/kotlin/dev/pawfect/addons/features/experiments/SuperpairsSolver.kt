@@ -2,6 +2,7 @@ package dev.pawfect.addons.features.experiments
 
 import dev.pawfect.addons.config.ConfigManager
 import net.minecraft.world.Container
+import net.minecraft.world.item.DyeColor
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 
@@ -37,7 +38,7 @@ object SuperpairsSolver : ExperimentSolver(Regex("^Superpairs \\(\\w+\\)$")) {
         if (slots[prevClickedSlot] != null) return
         val stack = container.getItem(prevClickedSlot)
         if (stack.isEmpty) return
-        if (stack.`is`(Items.CYAN_STAINED_GLASS) || stack.`is`(Items.BLACK_STAINED_GLASS_PANE)) return
+        if (stack.`is`(Items.STAINED_GLASS.pick(DyeColor.CYAN)) || stack.`is`(Items.STAINED_GLASS_PANE.pick(DyeColor.BLACK))) return
 
         slots.entries.firstOrNull { ItemStack.matches(it.value, stack) }?.let {
             duplicated.add(it.key)

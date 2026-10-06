@@ -1,87 +1,34 @@
 package dev.pawfect.addons.ui.gpu
 
 import com.mojang.blaze3d.pipeline.RenderPipeline
-import com.mojang.blaze3d.shaders.UniformType
-import com.mojang.blaze3d.vertex.VertexFormat
 import dev.pawfect.addons.PawfectAddons
 import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.resources.Identifier
-import java.util.Optional
 
 object UiPipelines {
 
     private fun id(path: String): Identifier =
         Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, path)
 
-    val SHAPE: RenderPipeline = RenderPipelines.register(
-        RenderPipeline.builder()
-            .withLocation(id("pipeline/ui_shape"))
+    /** A GUI pipeline drawn with our rounded-shape vertices and the given fragment shader. */
+    private fun shape(name: String, fragment: String): RenderPipeline = RenderPipelines.register(
+        RenderPipeline.builder(RenderPipelines.GUI_SNIPPET)
+            .withLocation(id("pipeline/$name"))
             .withVertexShader(id("core/ui_shape"))
-            .withFragmentShader(id("core/ui_shape"))
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(UiFormats.SHAPE_FORMAT, VertexFormat.Mode.QUADS)
-            .withColorTargetState(RenderPipelines.GUI.colorTargetState)
-            .withDepthStencilState(Optional.ofNullable(RenderPipelines.GUI.depthStencilState))
-            .withCull(RenderPipelines.GUI.isCull)
+            .withFragmentShader(id("core/$fragment"))
+            .withVertexBinding(0, UiFormats.SHAPE_FORMAT)
             .build(),
     )
 
-    val MENU_BACKGROUND: RenderPipeline = RenderPipelines.register(
-        RenderPipeline.builder()
-            .withLocation(id("pipeline/menu_bg"))
-            .withVertexShader(id("core/ui_shape"))
-            .withFragmentShader(id("core/menu_bg"))
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(UiFormats.SHAPE_FORMAT, VertexFormat.Mode.QUADS)
-            .withColorTargetState(RenderPipelines.GUI.colorTargetState)
-            .withDepthStencilState(Optional.ofNullable(RenderPipelines.GUI.depthStencilState))
-            .withCull(RenderPipelines.GUI.isCull)
-            .build(),
-    )
+    val SHAPE: RenderPipeline = shape("ui_shape", "ui_shape")
 
-    val INVENTORY_BACKGROUND: RenderPipeline = RenderPipelines.register(
-        RenderPipeline.builder()
-            .withLocation(id("pipeline/inv_bg"))
-            .withVertexShader(id("core/ui_shape"))
-            .withFragmentShader(id("core/inv_bg"))
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(UiFormats.SHAPE_FORMAT, VertexFormat.Mode.QUADS)
-            .withColorTargetState(RenderPipelines.GUI.colorTargetState)
-            .withDepthStencilState(Optional.ofNullable(RenderPipelines.GUI.depthStencilState))
-            .withCull(RenderPipelines.GUI.isCull)
-            .build(),
-    )
+    val MENU_BACKGROUND: RenderPipeline = shape("menu_bg", "menu_bg")
 
-    val MEDIA_BACKGROUND: RenderPipeline = RenderPipelines.register(
-        RenderPipeline.builder()
-            .withLocation(id("pipeline/media_bg"))
-            .withVertexShader(id("core/ui_shape"))
-            .withFragmentShader(id("core/media_bg"))
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(UiFormats.SHAPE_FORMAT, VertexFormat.Mode.QUADS)
-            .withColorTargetState(RenderPipelines.GUI.colorTargetState)
-            .withDepthStencilState(Optional.ofNullable(RenderPipelines.GUI.depthStencilState))
-            .withCull(RenderPipelines.GUI.isCull)
-            .build(),
-    )
+    val INVENTORY_BACKGROUND: RenderPipeline = shape("inv_bg", "inv_bg")
 
-    val CHAT_BACKGROUND: RenderPipeline = RenderPipelines.register(
-        RenderPipeline.builder()
-            .withLocation(id("pipeline/chat_bg"))
-            .withVertexShader(id("core/ui_shape"))
-            .withFragmentShader(id("core/chat_bg"))
-            .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-            .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-            .withVertexFormat(UiFormats.SHAPE_FORMAT, VertexFormat.Mode.QUADS)
-            .withColorTargetState(RenderPipelines.GUI.colorTargetState)
-            .withDepthStencilState(Optional.ofNullable(RenderPipelines.GUI.depthStencilState))
-            .withCull(RenderPipelines.GUI.isCull)
-            .build(),
-    )
+    val MEDIA_BACKGROUND: RenderPipeline = shape("media_bg", "media_bg")
+
+    val CHAT_BACKGROUND: RenderPipeline = shape("chat_bg", "chat_bg")
 
     fun bootstrap() = Unit
 }

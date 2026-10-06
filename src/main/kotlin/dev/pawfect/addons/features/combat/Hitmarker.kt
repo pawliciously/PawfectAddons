@@ -25,7 +25,7 @@ object Hitmarker {
 
     fun render() {
         if (!config.markerEnabled || flashAt <= 0L) return
-        if (McCompat.hideGui || McCompat.mc.screen != null) return
+        if (McCompat.hideGui || McCompat.screen != null) return
 
         val age = System.currentTimeMillis() - flashAt
         if (age > DURATION_MS) {

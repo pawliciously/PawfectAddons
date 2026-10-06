@@ -14,10 +14,10 @@ object McCompat {
     val player: LocalPlayer? get() = mc.player
 
     var screen: Screen?
-        get() = mc.screen
-        set(value) = mc.setScreen(value)
+        get() = mc.gui.screen()
+        set(value) = mc.gui.setScreen(value)
 
-    val hideGui: Boolean get() = mc.options.hideGui
+    val hideGui: Boolean get() = mc.gui.hud.isHidden
 
     val scaledWidth: Int get() = mc.window.guiScaledWidth
     val scaledHeight: Int get() = mc.window.guiScaledHeight

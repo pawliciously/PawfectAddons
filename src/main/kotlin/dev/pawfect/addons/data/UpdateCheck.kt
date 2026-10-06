@@ -48,7 +48,7 @@ object UpdateCheck {
 
     private fun flush() {
         val latest = pending ?: return
-        if (McCompat.hideGui || McCompat.mc.screen != null) return
+        if (McCompat.hideGui || McCompat.screen != null) return
         pending = null
 
         Notifications.push(

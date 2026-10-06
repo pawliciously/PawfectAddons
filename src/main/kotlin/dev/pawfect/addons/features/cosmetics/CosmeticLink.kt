@@ -153,7 +153,7 @@ object CosmeticLink {
     private fun open(url: String) {
         val mc = McCompat.mc
         mc.execute {
-            ConfirmLinkScreen.confirmLinkNow(mc.screen, URI.create(url))
+            ConfirmLinkScreen.confirmLinkNow(mc.gui.screen(), URI.create(url))
         }
     }
 

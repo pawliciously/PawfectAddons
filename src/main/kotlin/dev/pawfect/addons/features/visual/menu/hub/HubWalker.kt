@@ -14,6 +14,7 @@ import dev.pawfect.addons.features.cosmetics.Trails
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.renderer.PlayerSkinRenderCache
 import net.minecraft.client.renderer.SubmitNodeCollector
+import net.minecraft.client.renderer.SubmitNodeStorage
 import net.minecraft.client.renderer.entity.state.AvatarRenderState
 import net.minecraft.client.renderer.state.level.CameraRenderState
 import net.minecraft.client.renderer.texture.DynamicTexture
@@ -161,6 +162,9 @@ internal object HubWalker {
     private var lightTexture: DynamicTexture? = null
     private var lightColour = 0
     private var lightmap: GpuTextureView? = null
+
+    // The walker's own submits, drawn with the scene camera.
+    private val storage = SubmitNodeStorage()
 
     /** The lightmap the game should hand out while the walker draws, or null for its own. */
     @JvmStatic
@@ -431,10 +435,8 @@ internal object HubWalker {
         camera.orientation.set(rotation)
         camera.initialized = true
 
-        val features = mc.gameRenderer.featureRenderDispatcher
-        val storage = features.submitNodeStorage
-        val buffers = mc.renderBuffers().bufferSource()
-        val lighting = mc.gameRenderer.lighting
+        val features = mc.gameRenderer.featureRenderDispatcher()
+        val lighting = mc.gameRenderer.lighting()
         val modelView = RenderSystem.getModelViewStack()
         RenderSystem.backupProjectionMatrix()
         RenderSystem.setProjectionMatrix(projection, ProjectionType.PERSPECTIVE)
@@ -448,16 +450,13 @@ internal object HubWalker {
             mc.entityRenderDispatcher.submit(state, camera, x - cameraX, y - cameraY, z - cameraZ, PoseStack(), storage)
             Trails.submitShowcase(PoseStack(), storage, ID, feet, height, eye)
             Motes.submitShowcase(PoseStack(), storage, ID, feet, height, eye)
-            // Features only fill the shared buffers; flushing here draws them with this camera
-            // instead of leaving the last batch for the menu to draw with its flat projection.
-            features.renderAllFeatures()
-            buffers.endBatch()
+            // Drawn here, with this camera, instead of with the menu's flat projection.
+            features.renderAllFeatures(storage)
 
             // The name tag stays clear of the scene's light, so it reads against the night.
             lightmap = null
             nameTag(storage, x - cameraX, y + height + 0.5 - cameraY, z - cameraZ, distance, pixelAngle)
-            features.renderAllFeatures()
-            buffers.endBatch()
+            features.renderAllFeatures(storage)
         } finally {
             lightmap = null
             modelView.popMatrix()
@@ -515,7 +514,7 @@ internal object HubWalker {
         pose.translate(x, y, z)
         pose.scale(scale, scale, scale)
         // Not see-through: the tag hides behind blocks like the walker does.
-        storage.submitNameTag(pose, TAG_ORIGIN, 0, name, false, FULL_BRIGHT, distance * distance, camera)
+        storage.submitNameTag(pose, TAG_ORIGIN, 0, name, false, FULL_BRIGHT, camera)
     }
 
     // A one pixel lightmap in the scene's colour at the walker's spot: every light level reads

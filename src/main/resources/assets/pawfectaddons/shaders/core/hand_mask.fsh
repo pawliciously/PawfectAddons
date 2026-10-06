@@ -11,6 +11,7 @@ layout(std140) uniform MaskData {
 
 void main() {
     float depth = texture(DepthSampler, texCoord).r;
-    float result = depth < maskParams.x ? 1.0 : 0.0;
+    // Depth is cleared to 0 (far) before the hands draw, so anything nearer is hand.
+    float result = depth > maskParams.x ? 1.0 : 0.0;
     fragColor = vec4(result, result, result, 1.0);
 }

@@ -54,13 +54,12 @@ object DungeonWaypointRenderer {
         val jobs = DungeonWaypoints.forRoom(match.name!!).filter { it.visible && it.showName }.map { match to it }
         if (jobs.isEmpty()) return
 
-        val eye = McCompat.mc.gameRenderer.mainCamera.position()
+        val eye = McCompat.mc.gameRenderer.mainCamera().position()
         poseStack.pushPose()
         poseStack.translate(-eye.x, -eye.y, -eye.z)
         jobs.forEach { (room, waypoint) ->
             val world = DungeonScanner.relativeToActual(room, waypoint.x, waypoint.y, waypoint.z)
             val centre = Vec3(world.x + 0.5, world.y + 1.3, world.z + 0.5)
-            val distance = centre.distanceToSqr(eye)
             collector.submitNameTag(
                 poseStack,
                 centre,
@@ -68,7 +67,6 @@ object DungeonWaypointRenderer {
                 Component.literal(waypoint.name),
                 config.throughWalls,
                 0xF000F0,
-                distance,
                 camera,
             )
         }
@@ -101,7 +99,7 @@ object DungeonWaypointRenderer {
         }
         lastError = "drew ${jobs.size}"
 
-        val camera = McCompat.mc.gameRenderer.mainCamera.position()
+        val camera = McCompat.mc.gameRenderer.mainCamera().position()
         val inflate = config.inflate.coerceIn(0f, 0.25f)
         val thickness = config.lineWidth.coerceIn(0.5f, 6f)
         val alpha = (config.opacity.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)

@@ -33,7 +33,7 @@ object NukekubiTracer {
         val heads = level.entitiesForRendering().filter(NukekubiGlow::isNearbyHead)
         if (heads.isEmpty()) return
 
-        val camera = mc.gameRenderer.mainCamera
+        val camera = mc.gameRenderer.mainCamera()
         val eye = camera.position()
         val forward = Vector3f(camera.forwardVector())
         val start = Vector3f(forward).mul(START_AHEAD)

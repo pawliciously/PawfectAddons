@@ -1,14 +1,13 @@
 package dev.pawfect.addons.features.visual.playerchams
 
+import com.mojang.blaze3d.PrimitiveTopology
 import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.ColorTargetState
 import com.mojang.blaze3d.pipeline.DepthStencilState
 import com.mojang.blaze3d.pipeline.RenderPipeline
-import com.mojang.blaze3d.shaders.UniformType
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.FilterMode
 import com.mojang.blaze3d.vertex.DefaultVertexFormat
-import com.mojang.blaze3d.vertex.VertexFormat
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.mixin.RenderSetupAccessor
@@ -16,6 +15,7 @@ import dev.pawfect.addons.mixin.RenderTypeAccessor
 import dev.pawfect.addons.mixin.RenderTypeInvoker
 import dev.pawfect.addons.mixin.TextureBindingAccessor
 import dev.pawfect.addons.utils.McCompat
+import dev.pawfect.addons.utils.withBindings
 import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.client.renderer.entity.state.AvatarRenderState
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState
@@ -48,16 +48,9 @@ object PlayerChams {
                 .withLocation(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "pipeline/player_chams"))
                 .withVertexShader(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "core/player_chams"))
                 .withFragmentShader(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "core/player_chams"))
-                .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-                .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-                .withUniform("Fog", UniformType.UNIFORM_BUFFER)
-                .withUniform("Globals", UniformType.UNIFORM_BUFFER)
-                .withUniform("Lighting", UniformType.UNIFORM_BUFFER)
-                .withSampler("Sampler0")
-                .withSampler("Sampler2")
-                .withSampler("Sampler3")
-                .withSampler("Sampler4")
-                .withVertexFormat(DefaultVertexFormat.ENTITY, VertexFormat.Mode.QUADS)
+                .withBindings(samplers = listOf("Sampler0", "Sampler2", "Sampler3", "Sampler4"), uniforms = listOf("DynamicTransforms", "Projection", "Fog", "Globals", "Lighting"))
+                .withVertexBinding(0, DefaultVertexFormat.ENTITY)
+                .withPrimitiveTopology(PrimitiveTopology.QUADS)
                 .withDepthStencilState(DepthStencilState.DEFAULT)
                 .withColorTargetState(ColorTargetState(BlendFunction.TRANSLUCENT))
                 .withCull(false)

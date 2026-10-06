@@ -29,7 +29,7 @@ object HealerBox {
             runCatching {
                 if (!config.healerBox || !SkyBlockData.inFloor7) return@runCatching
                 val poseStack = context.poseStack()
-                val camera = McCompat.mc.gameRenderer.mainCamera.position()
+                val camera = McCompat.mc.gameRenderer.mainCamera().position()
                 val color = (0xFF shl 24) or (config.healerBoxColor and 0xFFFFFF)
 
                 poseStack.pushPose()

@@ -14,21 +14,13 @@ import net.minecraft.resources.Identifier
 
 object TrailRenderTypes {
 
-    private class Blended(source: RenderPipeline, name: String, blend: BlendFunction) : RenderPipeline(
-        Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "pipeline/$name"),
-        source.vertexShader,
-        source.fragmentShader,
-        source.shaderDefines,
-        source.samplers,
-        source.uniforms,
-        ColorTargetState(blend),
-        DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, true),
-        source.polygonMode,
-        source.isCull,
-        source.vertexFormat,
-        source.vertexFormatMode,
-        source.sortKey,
-    )
+    /** Vanilla's debug quads with a chosen blend, depth tested (26.2 depth runs far = 0). */
+    private fun blended(name: String, blend: BlendFunction): RenderPipeline = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+        .withLocation(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "pipeline/$name"))
+        .withColorTargetState(ColorTargetState(blend))
+        .withDepthStencilState(DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true))
+        .withCull(false)
+        .build()
 
     private fun renderType(name: String, pipeline: RenderPipeline): RenderType =
         RenderTypeInvoker.`pawfectaddons$create`(
@@ -39,14 +31,14 @@ object TrailRenderTypes {
     private val glowing: RenderType by lazy {
         renderType(
             "trail_glow",
-            RenderPipelines.register(Blended(RenderPipelines.DEBUG_QUADS, "trail_glow", BlendFunction.LIGHTNING)),
+            RenderPipelines.register(blended("trail_glow", BlendFunction.LIGHTNING)),
         )
     }
 
     private val plain: RenderType by lazy {
         renderType(
             "trail",
-            RenderPipelines.register(Blended(RenderPipelines.DEBUG_QUADS, "trail", BlendFunction.TRANSLUCENT)),
+            RenderPipelines.register(blended("trail", BlendFunction.TRANSLUCENT)),
         )
     }
 

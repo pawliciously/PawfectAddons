@@ -1,12 +1,12 @@
 package dev.pawfect.addons.features.visual.motionblur
 
+import com.mojang.blaze3d.GpuFormat
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.CommandEncoder
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.FilterMode
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.GpuTextureView
-import com.mojang.blaze3d.textures.TextureFormat
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.utils.ChatUtils
 import dev.pawfect.addons.utils.McCompat
@@ -14,7 +14,7 @@ import org.joml.Vector3f
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.OptionalInt
+import java.util.Optional
 import kotlin.math.sqrt
 import kotlin.math.tan
 
@@ -81,13 +81,13 @@ object MotionBlur {
     }
 
     private fun draw() {
-        val target = McCompat.mc.mainRenderTarget
+        val target = McCompat.mc.gameRenderer.mainRenderTarget()
         val depthView = target.depthTextureView ?: return
         val colorView = target.colorTextureView ?: return
         if (!ensureTarget(target.width, target.height)) return
         val sceneView = view ?: return
 
-        val camera = McCompat.mc.gameRenderer.mainCamera
+        val camera = McCompat.mc.gameRenderer.mainCamera()
         val forward = Vector3f(camera.forwardVector())
         val up = Vector3f(camera.upVector())
         val right = Vector3f(forward).cross(up).normalize()
@@ -120,18 +120,18 @@ object MotionBlur {
         val aspect = target.width.toFloat() / target.height.toFloat()
         writeUniforms(encoder, buffer, camera.fov, aspect, right, up, forward, position.x, position.y, position.z)
 
-        encoder.createRenderPass({ "pawfect_motion_blur" }, sceneView, OptionalInt.empty()).use { pass ->
+        encoder.createRenderPass({ "pawfect_motion_blur" }, sceneView, Optional.empty()).use { pass ->
             pass.setPipeline(MotionBlurPipelines.BLUR)
             pass.bindTexture("ColorSampler", colorView, linear)
             pass.bindTexture("DepthSampler", depthView, nearest)
             pass.setUniform("MotionData", buffer.slice(0L, UNIFORM_STRIDE.toLong()))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
 
-        encoder.createRenderPass({ "pawfect_motion_blit" }, colorView, OptionalInt.empty()).use { pass ->
+        encoder.createRenderPass({ "pawfect_motion_blit" }, colorView, Optional.empty()).use { pass ->
             pass.setPipeline(MotionBlurPipelines.BLIT)
             pass.bindTexture("ColorSampler", sceneView, nearest)
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
 
         remember(right, up, forward, position.x, position.y, position.z)
@@ -156,7 +156,7 @@ object MotionBlur {
         val device = RenderSystem.getDevice()
         val usage = GpuTexture.USAGE_COPY_DST or GpuTexture.USAGE_COPY_SRC or
             GpuTexture.USAGE_TEXTURE_BINDING or GpuTexture.USAGE_RENDER_ATTACHMENT
-        val created = device.createTexture("pawfect_motion_blur", usage, TextureFormat.RGBA8, safeWidth, safeHeight, 1, 1)
+        val created = device.createTexture("pawfect_motion_blur", usage, GpuFormat.RGBA8_UNORM, safeWidth, safeHeight, 1, 1)
         texture = created
         view = device.createTextureView(created)
         width = safeWidth
@@ -200,7 +200,7 @@ object MotionBlur {
 
         scratch.putFloat(0.05f)
         scratch.putFloat(far)
-        scratch.putFloat(0f)
+        scratch.putFloat(if (RenderSystem.getDevice().deviceInfo.isZZeroToOne) 1f else 0f)
         scratch.putFloat(0f)
 
         while (scratch.position() < UNIFORM_STRIDE) scratch.put(0)

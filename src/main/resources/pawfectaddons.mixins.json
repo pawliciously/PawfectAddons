@@ -10,7 +10,7 @@
     "AbstractSliderButtonMixin",
     "AbstractTextureAccessor",
     "AvatarRendererMixin",
-    "BufferBuilderInvoker",
+    "BufferBuilderAccessor",
     "CapeLayerMixin",
     "ChatComponentMixin",
     "ChatDrawingAccessMixin",

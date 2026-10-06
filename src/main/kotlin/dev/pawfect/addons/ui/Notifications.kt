@@ -48,7 +48,7 @@ object Notifications {
 
     fun render() {
         if (active.isEmpty()) return
-        val screen = McCompat.mc.screen
+        val screen = McCompat.screen
         if (McCompat.hideGui || (screen != null && screen !is ChatScreen)) return
         if (!RenderContext.isActive) return
         val graphics = RenderContext.graphics

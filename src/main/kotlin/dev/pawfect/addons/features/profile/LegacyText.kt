@@ -4,6 +4,7 @@ import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
+import net.minecraft.network.chat.TextColor
 
 object LegacyText {
 
@@ -29,7 +30,7 @@ object LegacyText {
                     flush()
                     style = when {
                         format == ChatFormatting.RESET -> BASE
-                        format.isColor -> BASE.withColor(format)
+                        TextColor.fromLegacyFormat(format) != null -> BASE.withColor(format)
                         else -> style.applyFormat(format)
                     }
                 }

@@ -25,6 +25,6 @@ object LavaChanger {
     }
 
     fun invalidate() {
-        McCompat.mc.levelRenderer.allChanged()
+        McCompat.mc.levelExtractor.allChanged()
     }
 }

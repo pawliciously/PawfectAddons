@@ -30,7 +30,7 @@ object Watermark {
     fun render() {
         val theme = ConfigManager.features.theme
         if (!theme.watermark || McCompat.hideGui || !RenderContext.isActive) return
-        val screen = McCompat.mc.screen
+        val screen = McCompat.screen
         if (screen != null && screen !is ChatScreen && !GuiEditManager.isEditorOpen()) return
 
         val parts = parts()

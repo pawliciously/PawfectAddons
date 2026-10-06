@@ -56,13 +56,13 @@ object MediaOverlay {
     private var marqueeStart = 0L
 
     fun render() {
-        if (McCompat.mc.screen != null && !GuiEditManager.isEditorOpen()) return
+        if (McCompat.screen != null && !GuiEditManager.isEditorOpen()) return
         draw()
     }
 
     @JvmStatic
     fun renderOverScreen(graphics: GuiGraphicsExtractor) {
-        if (McCompat.mc.screen == null || GuiEditManager.isEditorOpen()) return
+        if (McCompat.screen == null || GuiEditManager.isEditorOpen()) return
         RenderContext.withContext(graphics) { draw() }
     }
 
@@ -334,7 +334,7 @@ object MediaOverlay {
 
         private fun drawControls(graphics: GuiGraphicsExtractor, cardWidth: Float, absX: Int, absY: Int) {
             val playing = track?.playing ?: false
-            val hoverable = McCompat.mc.screen != null && config.clickableInMenus
+            val hoverable = McCompat.screen != null && config.clickableInMenus
             val scale = config.position.effectiveScale
             val mouseX = (McCompat.mouseX - absX) / scale
             val mouseY = (McCompat.mouseY - absY) / scale

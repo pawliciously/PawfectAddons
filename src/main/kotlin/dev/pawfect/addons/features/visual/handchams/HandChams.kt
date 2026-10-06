@@ -14,16 +14,17 @@ import dev.pawfect.addons.utils.ColorInt
 import dev.pawfect.addons.utils.ItemUtil.rarityColor
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.resources.Identifier
+import org.joml.Vector4f
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.OptionalInt
+import java.util.Optional
 
 object HandChams {
 
     private const val UNIFORM_STRIDE = 256
     private const val MAX_UNIFORM_SLICES = 32
-    private const val HAND_DEPTH_LIMIT = 0.999999f
+    private const val HAND_DEPTH_LIMIT = 0.000001f
 
     private val END_SKY = Identifier.withDefaultNamespace("textures/environment/end_sky.png")
     private val END_PORTAL = Identifier.withDefaultNamespace("textures/entity/end_portal/end_portal.png")
@@ -63,7 +64,7 @@ object HandChams {
     }
 
     fun status(): List<String> {
-        val target = runCatching { McCompat.mc.mainRenderTarget }.getOrNull()
+        val target = runCatching { McCompat.mc.gameRenderer.mainRenderTarget() }.getOrNull()
         return listOf(
             "active=${config.anyActive} body=${config.bodyActive} failed=$failed",
             "composites=$compositedFrames lastSkip=$skipReason",
@@ -95,7 +96,7 @@ object HandChams {
     }
 
     private fun runPasses(): Boolean {
-        val target = McCompat.mc.mainRenderTarget
+        val target = McCompat.mc.gameRenderer.mainRenderTarget()
         val depthView = target.depthTextureView
         val colorView = target.colorTextureView
         if (depthView == null || colorView == null) {
@@ -122,11 +123,11 @@ object HandChams {
         val maskSlice = nextSlice()
         writeVec4(encoder, buffer, maskSlice, HAND_DEPTH_LIMIT, 0f, 0f, 0f)
 
-        encoder.createRenderPass({ "pawfect_chams_mask" }, mask.view, OptionalInt.of(0)).use { pass ->
+        encoder.createRenderPass({ "pawfect_chams_mask" }, mask.view, Optional.of(Vector4f(0f))).use { pass ->
             pass.setPipeline(ChamsPipelines.MASK)
             pass.bindTexture("DepthSampler", depthView, sampler)
             pass.setUniform("MaskData", buffer.slice(maskSlice, UNIFORM_STRIDE.toLong()))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
 
         val glowSource = if (config.edgeSoftness > 0.002f) {
@@ -152,7 +153,7 @@ object HandChams {
         val portal = portalTexture(END_PORTAL) ?: mask.view
         val repeat = RenderSystem.getSamplerCache().getRepeat(FilterMode.LINEAR)
 
-        encoder.createRenderPass({ "pawfect_chams_composite" }, colorView, OptionalInt.empty()).use { pass ->
+        encoder.createRenderPass({ "pawfect_chams_composite" }, colorView, Optional.empty()).use { pass ->
             pass.setPipeline(ChamsPipelines.COMPOSITE)
             pass.bindTexture("BlurSampler", blurResult.view, sampler)
             pass.bindTexture("MaskSampler", mask.view, sampler)
@@ -162,7 +163,7 @@ object HandChams {
             pass.bindTexture("TrailSampler", (ChamsTargets.trail ?: mask).view, sampler)
             pass.bindTexture("RowSampler", row.view, sampler)
             pass.setUniform("CompositeData", buffer.slice(compositeSlice, UNIFORM_STRIDE.toLong()))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
 
         if (config.trailEnabled) ChamsTargets.swapTrail()
@@ -184,11 +185,11 @@ object HandChams {
         val reach = kotlin.math.ceil(config.outlineThickness.coerceIn(0.5f, 6f))
         writeVec4(encoder, buffer, slice, 0f, 0f, reach, 0f)
 
-        encoder.createRenderPass({ "pawfect_chams_outline_row" }, row.view, OptionalInt.of(0)).use { pass ->
+        encoder.createRenderPass({ "pawfect_chams_outline_row" }, row.view, Optional.of(Vector4f(0f))).use { pass ->
             pass.setPipeline(ChamsPipelines.OUTLINE_ROW)
             pass.bindTexture("MaskSampler", mask.view, sampler)
             pass.setUniform("RowData", buffer.slice(slice, UNIFORM_STRIDE.toLong()))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
     }
 
@@ -205,12 +206,12 @@ object HandChams {
         val slice = nextSlice()
         writeVec4(encoder, buffer, slice, config.trailDecay.coerceIn(0.1f, 0.99f), 0f, 0f, 0f)
 
-        encoder.createRenderPass({ "pawfect_chams_trail" }, trail.view, OptionalInt.of(0)).use { pass ->
+        encoder.createRenderPass({ "pawfect_chams_trail" }, trail.view, Optional.of(Vector4f(0f))).use { pass ->
             pass.setPipeline(ChamsPipelines.TRAIL)
             pass.bindTexture("MaskSampler", mask.view, sampler)
             pass.bindTexture("HistorySampler", history.view, sampler)
             pass.setUniform("TrailData", buffer.slice(slice, UNIFORM_STRIDE.toLong()))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
     }
 
@@ -269,11 +270,11 @@ object HandChams {
         val slice = nextSlice()
         writeVec4(encoder, buffer, slice, sourceWidth.toFloat(), sourceHeight.toFloat(), offset, 0f)
 
-        encoder.createRenderPass({ "pawfect_chams_blur" }, destination.view, OptionalInt.of(0)).use { pass ->
+        encoder.createRenderPass({ "pawfect_chams_blur" }, destination.view, Optional.of(Vector4f(0f))).use { pass ->
             pass.setPipeline(pipeline)
             pass.bindTexture("Sampler0", sourceView, sampler)
             pass.setUniform("KawaseData", buffer.slice(slice, UNIFORM_STRIDE.toLong()))
-            pass.draw(0, 6)
+            pass.draw(6, 1, 0, 0)
         }
         return destination
     }
