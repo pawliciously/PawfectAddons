@@ -120,16 +120,37 @@ object SlayerManager {
     private var lowAlerted = false
     private var inHitPhase = false
 
+    // Hypixel no longer always names the owner over a boss, so the boss that appears next to you
+    // as your quest turns to "Slay the boss!" is taken as yours, until the quest moves on.
+    private var questBossUp = false
+    private var questSpawnedAt = 0L
+    private var claimedStand = -1
+
+    private fun trackQuest() {
+        val up = SkyBlockData.sidebarLines.any { it.contains(SLAY_LINE) }
+        if (up && !questBossUp) {
+            questSpawnedAt = System.currentTimeMillis()
+            claimedStand = -1
+        }
+        if (!up) claimedStand = -1
+        questBossUp = up
+    }
+
+    private val claimOpen: Boolean
+        get() = questBossUp && claimedStand == -1 && System.currentTimeMillis() - questSpawnedAt <= CLAIM_WINDOW_MS
+
     fun onTick() {
         if (!config.enabled || !SkyBlockData.onSkyBlock) {
             if (boss != null) onBossGone()
             boss = null
             return
         }
+        trackQuest()
 
         val current = boss
         if (current != null) current.hits = findHits(current)
-        if (current != null && current.alive && matchesTarget(current)) {
+        // A boss of someone else's is let go once yours spawns.
+        if (current != null && current.alive && matchesTarget(current) && (current.owned || !claimOpen)) {
             checkLowHealth(current)
             checkHitPhase(current)
             return
@@ -202,7 +223,7 @@ object SlayerManager {
         var best: Boss? = null
         var bestScore = Double.MAX_VALUE
 
-        for (stand in stands) {
+        for (stand in stands.sortedBy { player.distanceToSqr(it) }) {
             val name = stand.name.string.removeColor()
             val match = bossRegex.find(name) ?: continue
             if (parseHealth(stand.name.string) == null && parseHits(stand.name.string) == null) continue
@@ -210,7 +231,7 @@ object SlayerManager {
             val bossName = match.groupValues[1]
             val type = SlayerType.fromBossName(bossName) ?: continue
             val tier = SlayerTier.parse(match.groupValues.getOrNull(2), bossName)
-            val owned = isOwnedBy(stand, username)
+            val owned = isOwnedBy(stand, username) || stand.id == claimedStand || claim(stand)
 
             if (config.target == SlayerTarget.YOUR_BOSS && !owned) continue
 
@@ -223,6 +244,15 @@ object SlayerManager {
         }
 
         return best
+    }
+
+    /** The first boss within reach that is new when your quest's boss spawns. */
+    private fun claim(stand: ArmorStand): Boolean {
+        if (!claimOpen) return false
+        val player = McCompat.player ?: return false
+        if (stand.tickCount > CLAIM_MAX_AGE_TICKS || player.distanceToSqr(stand) > CLAIM_RANGE_SQ) return false
+        claimedStand = stand.id
+        return true
     }
 
     private fun findHits(boss: Boss): Int? {
@@ -272,6 +302,11 @@ object SlayerManager {
     }
 
     private const val OWNED_PREFERENCE = 100_000.0
+
+    private const val SLAY_LINE = "Slay the boss!"
+    private const val CLAIM_WINDOW_MS = 5_000L
+    private const val CLAIM_MAX_AGE_TICKS = 120
+    private const val CLAIM_RANGE_SQ = 20.0 * 20.0
 
     private const val SLAIN_RANGE_SQ = 900.0
 
