@@ -1,6 +1,7 @@
 package dev.pawfect.addons.commands
 
 import com.mojang.brigadier.CommandDispatcher
+import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import dev.pawfect.addons.PawfectAddons
@@ -24,6 +25,7 @@ import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.chat.LevelPrestige
 import dev.pawfect.addons.features.profile.ProfileViewerScreen
+import dev.pawfect.addons.features.debug.EntityInfo
 import dev.pawfect.addons.features.debug.IslandBlocks
 import dev.pawfect.addons.features.debug.StandDebug
 import dev.pawfect.addons.features.visual.handchams.HandChams
@@ -42,6 +44,9 @@ object PawfectCommands {
     private const val CLEAR_CONFIRM_WINDOW_MS = 15_000L
     private const val EMOJI_LIST_LIMIT = 60
     private const val BLOCK_PREVIEW = 15
+    private const val ENTITY_PREVIEW = 15
+    private const val ENTITY_RADIUS = 10
+    private const val MAX_ENTITY_RADIUS = 256
 
     private var craftableNamesCache: List<String> = emptyList()
     private var clearRequestedAt = 0L
@@ -225,7 +230,7 @@ object PawfectCommands {
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
             .executes {
-                ChatUtils.chat("/pa dev blocks | point | heads | stands | room | chams | exp | media | levels | actionbar")
+                ChatUtils.chat("/pa dev blocks | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
                 SUCCESS
             }
             .then(
@@ -240,6 +245,8 @@ object PawfectCommands {
                     SUCCESS
                 },
             )
+            .then(entityInfoNode("entityinfo"))
+            .then(entityInfoNode("einfo"))
             .then(
                 ClientCommands.literal("point")
                     .executes {
@@ -329,6 +336,24 @@ object PawfectCommands {
                     SUCCESS
                 },
             )
+
+    /** Saves the NBT of every entity within a radius of the player, and lists the nearest. */
+    private fun entityInfoNode(name: String): LiteralArgumentBuilder<FabricClientCommandSource> =
+        ClientCommands.literal(name)
+            .executes { entityInfo(ENTITY_RADIUS) }
+            .then(
+                ClientCommands.argument("radius", IntegerArgumentType.integer(1, MAX_ENTITY_RADIUS))
+                    .executes { context -> entityInfo(IntegerArgumentType.getInteger(context, "radius")) },
+            )
+
+    private fun entityInfo(radius: Int): Int {
+        val result = EntityInfo.scan(radius) ?: return SUCCESS
+        ChatUtils.chat("§a${result.found.size} entities §7within §f$radius §7blocks:")
+        result.found.take(ENTITY_PREVIEW).forEach { ChatUtils.chat("  ${EntityInfo.describe(it)}") }
+        if (result.found.size > ENTITY_PREVIEW) ChatUtils.chat("  §7and ${result.found.size - ENTITY_PREVIEW} more")
+        ChatUtils.chat("§7NBT saved to §f${result.file}")
+        return SUCCESS
+    }
 
     private fun untrackNode(name: String): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal(name)
