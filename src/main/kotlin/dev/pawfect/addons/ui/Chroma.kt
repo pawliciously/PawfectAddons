@@ -58,6 +58,18 @@ object Chroma {
         Shapes.rimTop(graphics, x, y, width, height, radius, thickness, flow(0f), flow(0.5f))
     }
 
+    /** A square filled with the same flowing gradient, top to bottom, for the selected tab. */
+    fun drawTile(graphics: GuiGraphicsExtractor, x: Float, y: Float, size: Float, radius: Float) {
+        Shapes.gradient(graphics, x, y, size, size, radius, flow(0.5f), flow(0f))
+    }
+
+    /** An icon colour that reads on [drawTile]: dark on a light accent, white on a dark one. */
+    fun onTile(): Int {
+        val rgb = Theme.mix(Theme.accent, 0xFFFFFF, 0.25f)
+        val luma = 0.299f * (rgb shr 16 and 0xFF) + 0.587f * (rgb shr 8 and 0xFF) + 0.114f * (rgb and 0xFF)
+        return if (luma > 170f) Theme.opaque(Theme.mix(Theme.background, 0x000000, 0.3f)) else 0xFFFFFFFF.toInt()
+    }
+
     /** Text with the same flowing gradient running through it, one letter at a time. */
     fun drawGradientText(graphics: GuiGraphicsExtractor, text: String, x: Float, y: Float, bold: Boolean = true): Float {
         var cursor = x

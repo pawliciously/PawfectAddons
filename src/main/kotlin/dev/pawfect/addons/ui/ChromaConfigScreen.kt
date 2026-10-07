@@ -12,6 +12,7 @@ import dev.pawfect.addons.ui.Draw.circle
 import dev.pawfect.addons.ui.Draw.dropShadow
 import dev.pawfect.addons.ui.Draw.gradientHorizontal
 import dev.pawfect.addons.ui.Draw.icon
+import dev.pawfect.addons.ui.Draw.iconCentered
 import dev.pawfect.addons.ui.Draw.pill
 import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Draw.roundPanel
@@ -303,10 +304,8 @@ class ChromaConfigScreen(
         val target = iconY(activeIndex) - windowY
         if (!indicatorReady || draggingWindow) { indicatorAnim.set(target); indicatorReady = true }
         val indicator = windowY + indicatorAnim.update(target)
-        // The selected tab: a small square in the accent around its icon, gliding between tabs.
-        if (searchQuery.isEmpty()) {
-            graphics.roundPanel(cellX, indicator, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(Theme.accent, 38), Theme.withAlpha(Theme.accent, 120))
-        }
+        // The selected tab: a square filled with the header's flowing gradient, gliding between tabs.
+        if (searchQuery.isEmpty()) Chroma.drawTile(graphics, cellX, indicator, ICON_CELL, 7f)
 
         tooltipIndex = -1
         tabs.forEachIndexed { i, t ->
@@ -317,15 +316,9 @@ class ChromaConfigScreen(
             val h = hoverFor("icon/${t.id}").update(if (hovered) 1f else 0f)
             if (h > 0.01f && !active) graphics.roundRect(cellX, y, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(Theme.text, (14 * h).toInt()))
             val lit = if (active) 1f else h
-            val color = Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(if (active) Theme.accent else Theme.text), lit)
+            val color = if (active) Chroma.onTile() else Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), lit)
             // Held at the 1.25x the large icon raster is made for; growing it on hover blurred it.
-            val scale = ICON_SCALE
-            val glyphWidth = UiFont.iconWidth(t.def.icon)
-            graphics.pose().pushMatrix()
-            graphics.pose().translate(cellX + ICON_CELL / 2f, y + ICON_CELL / 2f)
-            graphics.pose().scale(scale, scale)
-            graphics.icon(t.def.icon, -glyphWidth / 2f, -Draw.LINE_HEIGHT / 2f + 0.5f, color, large = true)
-            graphics.pose().popMatrix()
+            graphics.iconCentered(t.def.icon, cellX + ICON_CELL / 2f, y + ICON_CELL / 2f, ICON_SCALE, color)
         }
     }
 

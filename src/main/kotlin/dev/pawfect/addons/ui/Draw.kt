@@ -2,7 +2,6 @@ package dev.pawfect.addons.ui
 
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.gui.GuiGraphicsExtractor
-import kotlin.math.round
 
 object Draw {
 
@@ -154,25 +153,37 @@ object Draw {
     ) {
         pose().pushMatrix()
         pose().translate(x, y + Theme.textOffset)
-        snapToPixel()
         text(McCompat.font, UiFont.component(text, bold), 0, 0, color, shadow || Theme.fontShadow)
         pose().popMatrix()
     }
 
-    /** [large] draws from a raster made for 1.25x, so icons shown at that size stay sharp. */
-    fun GuiGraphicsExtractor.icon(glyph: String, x: Float, y: Float, color: Int, large: Boolean = false) {
+    fun GuiGraphicsExtractor.icon(glyph: String, x: Float, y: Float, color: Int) {
         pose().pushMatrix()
         pose().translate(x, y + Theme.textOffset)
-        snapToPixel()
-        val component = if (large) UiFont.largeIconComponent(glyph) else UiFont.iconComponent(glyph)
-        text(McCompat.font, component, 0, 0, color, Theme.fontShadow)
+        text(McCompat.font, UiFont.iconComponent(glyph), 0, 0, color, Theme.fontShadow)
+        pose().popMatrix()
+    }
+
+    /**
+     * An icon at [scale] with its ink centred on [centerX], [centerY]. It draws from the icon
+     * raster made for 1.25x, so it's sharp at that size. Centring on the ink rather than the
+     * advance keeps each glyph's own rounding from pushing it off centre.
+     */
+    fun GuiGraphicsExtractor.iconCentered(glyph: String, centerX: Float, centerY: Float, scale: Float, color: Int) {
+        val ink = UiFont.largeIconInk(glyph)
+        val inkX = ink?.let { (it[0] + it[1]) / 2f } ?: (UiFont.iconWidth(glyph) / 2f)
+        val inkY = ink?.let { (it[2] + it[3]) / 2f } ?: (LINE_HEIGHT / 2f)
+        pose().pushMatrix()
+        pose().translate(centerX, centerY)
+        pose().scale(scale, scale)
+        pose().translate(-inkX, -inkY)
+        text(McCompat.font, UiFont.largeIconComponent(glyph), 0, 0, color, Theme.fontShadow)
         pose().popMatrix()
     }
 
     fun GuiGraphicsExtractor.brand(text: String, x: Float, y: Float, color: Int, shadow: Boolean = false) {
         pose().pushMatrix()
         pose().translate(x, y)
-        snapToPixel()
         text(McCompat.font, UiFont.brandComponent(text), 0, 0, color, shadow)
         pose().popMatrix()
     }
@@ -187,7 +198,6 @@ object Draw {
     ) {
         pose().pushMatrix()
         pose().translate(x, y + Theme.textOffset)
-        snapToPixel()
         if (scale != 1f) pose().scale(scale, scale)
         text(McCompat.font, UiFont.component(text), 0, 0, color, shadow || Theme.fontShadow)
         pose().popMatrix()
@@ -199,15 +209,6 @@ object Draw {
 
     fun GuiGraphicsExtractor.stringCentered(text: String, centerX: Float, y: Float, color: Int, shadow: Boolean = false) {
         string(text, centerX - width(text) / 2f, y, color, shadow)
-    }
-
-    // Glyphs are rasterised for whole screen pixels and sampled nearest, so text that starts
-    // between two pixels comes out with doubled and dropped columns. Its origin goes on the grid.
-    private fun GuiGraphicsExtractor.snapToPixel() {
-        val pixels = McCompat.mc.window.width.toFloat() / McCompat.scaledWidth.coerceAtLeast(1)
-        val pose = pose()
-        pose.m20 = round(pose.m20 * pixels) / pixels
-        pose.m21 = round(pose.m21 * pixels) / pixels
     }
 
     fun width(text: String): Float = UiFont.width(text)

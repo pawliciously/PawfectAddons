@@ -2,6 +2,8 @@ package dev.pawfect.addons.ui
 
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.features.ThemeConfig.UiFontChoice
+import dev.pawfect.addons.mixin.BakedSheetGlyphAccessor
+import dev.pawfect.addons.mixin.FontAccessor
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
@@ -37,6 +39,7 @@ object UiFont {
     private val mediumCache = HashMap<String, Component>()
     private val iconCache = HashMap<String, Component>()
     private val largeIconCache = HashMap<String, Component>()
+    private val largeInkCache = HashMap<String, FloatArray>()
     private val brandCache = HashMap<String, Component>()
     private val widthCache = HashMap<String, Float>()
 
@@ -105,6 +108,16 @@ object UiFont {
         Component.literal(glyph).withStyle(largeIconStyle)
     }
 
+    /** The ink box of a large icon from its draw point: left, right, top, bottom. */
+    fun largeIconInk(glyph: String): FloatArray? {
+        largeInkCache[glyph]?.let { return it }
+        val baked = (McCompat.font as FontAccessor).`pawfectaddons$getGlyph`(glyph.codePointAt(0), largeIconStyle)
+        val sheet = baked as? BakedSheetGlyphAccessor ?: return null
+        val ink = floatArrayOf(sheet.`pawfectaddons$left`(), sheet.`pawfectaddons$right`(), sheet.`pawfectaddons$up`(), sheet.`pawfectaddons$down`())
+        largeInkCache[glyph] = ink
+        return ink
+    }
+
     fun iconWidth(glyph: String): Float = McCompat.font.width(iconComponent(glyph)).toFloat()
 
     fun brandComponent(text: String): Component {
@@ -122,6 +135,7 @@ object UiFont {
         mediumCache.clear()
         iconCache.clear()
         largeIconCache.clear()
+        largeInkCache.clear()
         brandCache.clear()
         widthCache.clear()
         lastChoice = null
