@@ -318,12 +318,13 @@ class ChromaConfigScreen(
             if (h > 0.01f && !active) graphics.roundRect(cellX, y, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(Theme.text, (14 * h).toInt()))
             val lit = if (active) 1f else h
             val color = Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(if (active) Theme.accent else Theme.text), lit)
-            val scale = 1.25f + 0.1f * h
+            // Held at the 1.25x the large icon raster is made for; growing it on hover blurred it.
+            val scale = ICON_SCALE
             val glyphWidth = UiFont.iconWidth(t.def.icon)
             graphics.pose().pushMatrix()
             graphics.pose().translate(cellX + ICON_CELL / 2f, y + ICON_CELL / 2f)
             graphics.pose().scale(scale, scale)
-            graphics.icon(t.def.icon, -glyphWidth / 2f, -Draw.LINE_HEIGHT / 2f + 0.5f, color)
+            graphics.icon(t.def.icon, -glyphWidth / 2f, -Draw.LINE_HEIGHT / 2f + 0.5f, color, large = true)
             graphics.pose().popMatrix()
         }
     }
@@ -723,6 +724,7 @@ class ChromaConfigScreen(
         private const val ICON_COLUMN = 46f
         private const val ICON_CELL = 32f
         private const val ICON_STEP = 36f
+        private const val ICON_SCALE = 1.25f
         private const val HEADER_HEIGHT = 32f
         private const val BUTTON_HEIGHT = 16f
         private const val SEARCH_WIDTH = 150f

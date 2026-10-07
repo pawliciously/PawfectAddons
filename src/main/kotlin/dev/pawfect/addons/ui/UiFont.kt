@@ -11,6 +11,7 @@ import net.minecraft.resources.Identifier
 object UiFont {
 
     private val ICONS: Identifier = font("icons")
+    private val LARGE_ICONS: Identifier = font("icons_large")
     private val BRAND: Identifier = font("brand")
     private val UNIFORM: Identifier = Identifier.fromNamespaceAndPath("minecraft", "uniform")
 
@@ -19,6 +20,7 @@ object UiFont {
     private fun style(id: Identifier): Style = Style.EMPTY.withFont(FontDescription.Resource(id))
 
     private val iconStyle: Style = style(ICONS)
+    private val largeIconStyle: Style = style(LARGE_ICONS)
     private val brandStyle: Style = style(BRAND)
     private val uniformStyle: Style = style(UNIFORM)
 
@@ -34,6 +36,7 @@ object UiFont {
     private val regularCache = HashMap<String, Component>()
     private val mediumCache = HashMap<String, Component>()
     private val iconCache = HashMap<String, Component>()
+    private val largeIconCache = HashMap<String, Component>()
     private val brandCache = HashMap<String, Component>()
     private val widthCache = HashMap<String, Float>()
 
@@ -98,6 +101,10 @@ object UiFont {
         return measured
     }
 
+    fun largeIconComponent(glyph: String): Component = largeIconCache.getOrPut(glyph) {
+        Component.literal(glyph).withStyle(largeIconStyle)
+    }
+
     fun iconWidth(glyph: String): Float = McCompat.font.width(iconComponent(glyph)).toFloat()
 
     fun brandComponent(text: String): Component {
@@ -114,6 +121,7 @@ object UiFont {
         regularCache.clear()
         mediumCache.clear()
         iconCache.clear()
+        largeIconCache.clear()
         brandCache.clear()
         widthCache.clear()
         lastChoice = null
