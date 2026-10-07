@@ -10,6 +10,8 @@ import dev.pawfect.addons.utils.StringUtil.removeColor
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.phys.Vec3
+import kotlin.math.abs
+import kotlin.math.ln
 
 object SlayerManager {
 
@@ -23,9 +25,12 @@ object SlayerManager {
             "Voidgloom Seraph|Inferno Demonlord|Riftstalker Bloodfiend|Bloodfiend)(?:\\s+(V|IV|III|II|I))?",
     )
 
-    private val healthRegex = Regex("(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?[kKmM]?)(?=❤)")
+    // Plates read "4.2M❤", or now "4.2M/10M❤": the first number is what's left, the second the max.
+    private const val AMOUNT = "(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?[kKmMbB]?)"
+    private val healthRegex = Regex("$AMOUNT(?:/$AMOUNT)?\\s*❤")
 
-    private val hitsRegex = Regex("(\\d+) Hits?")
+    // "12 Hits", or "12/60 Hits" in the same style as health.
+    private val hitsRegex = Regex("(\\d+)(?:/(\\d+))?\\s*Hits?", RegexOption.IGNORE_CASE)
 
     private val hitsPerTier = listOf(15, 30, 60, 100)
 
@@ -41,6 +46,14 @@ object SlayerManager {
         fun healthFor(bossName: String, tier: SlayerTier): Int {
             if (bossName.contains("Conjoined Brood")) return 20_000_000
             return tierHealth.getOrNull(tier.ordinal) ?: tierHealth.last()
+        }
+
+        /** The tier whose health is nearest [maxHealth], for plates that don't name one. */
+        fun tierFor(bossName: String, maxHealth: Int): SlayerTier? {
+            if (bossName.contains("Conjoined Brood") || bossName.contains("Atoned Horror")) return SlayerTier.V
+            if (maxHealth <= 0) return null
+            val index = tierHealth.indices.minByOrNull { abs(ln(tierHealth[it].toDouble() / maxHealth)) } ?: return null
+            return SlayerTier.entries.getOrNull(index)
         }
 
         companion object {
@@ -87,7 +100,10 @@ object SlayerManager {
 
         val currentHealth: Int?
             get() {
-                val health = parseHealth(stand.name.string) ?: return null
+                val name = stand.name.string
+                val health = parseHealth(name) ?: return null
+                // The plate's own max beats the tier table when it shows one.
+                parseMaxHealth(name)?.let { maxHealth = it }
                 if (health > maxHealth) maxHealth = health
                 return health
             }
@@ -102,8 +118,12 @@ object SlayerManager {
         var hits: Int? = null
             internal set
 
+        /** The plate's own hit count to break the shield, when it shows one. */
+        var shownMaxHits: Int? = null
+            internal set
+
         val maxHits: Int
-            get() = if (type == SlayerType.VOIDGLOOM) hitsPerTier.getOrNull(tier.ordinal) ?: hitsPerTier.last() else 0
+            get() = shownMaxHits ?: if (type == SlayerType.VOIDGLOOM) hitsPerTier.getOrNull(tier.ordinal) ?: hitsPerTier.last() else 0
 
         val position: Vec3 get() = stand.position()
 
@@ -148,7 +168,7 @@ object SlayerManager {
         trackQuest()
 
         val current = boss
-        if (current != null) current.hits = findHits(current)
+        if (current != null) updateHits(current)
         // A boss of someone else's is let go once yours spawns.
         if (current != null && current.alive && matchesTarget(current) && (current.owned || !claimOpen)) {
             checkLowHealth(current)
@@ -160,7 +180,7 @@ object SlayerManager {
         boss = findBoss()
 
         val found = boss ?: return
-        found.hits = findHits(found)
+        updateHits(found)
         if (found.stand.id == alertedStand) return
         alertedStand = found.stand.id
         lowAlerted = false
@@ -230,7 +250,11 @@ object SlayerManager {
 
             val bossName = match.groupValues[1]
             val type = SlayerType.fromBossName(bossName) ?: continue
-            val tier = SlayerTier.parse(match.groupValues.getOrNull(2), bossName)
+            val numeral = match.groupValues.getOrNull(2)
+            // New plates show "[Lv377] Name cur/max❤" with no tier, so the max picks it instead.
+            val tier = parseMaxHealth(stand.name.string)?.takeIf { numeral.isNullOrEmpty() }
+                ?.let { type.tierFor(bossName, it) }
+                ?: SlayerTier.parse(numeral, bossName)
             val owned = isOwnedBy(stand, username) || stand.id == claimedStand || claim(stand)
 
             if (config.target == SlayerTarget.YOUR_BOSS && !owned) continue
@@ -255,11 +279,17 @@ object SlayerManager {
         return true
     }
 
-    private fun findHits(boss: Boss): Int? {
+    private fun updateHits(boss: Boss) {
+        val match = findHits(boss)
+        boss.hits = match?.groupValues?.get(1)?.toIntOrNull()
+        boss.shownMaxHits = match?.groupValues?.get(2)?.toIntOrNull()
+    }
+
+    private fun findHits(boss: Boss): MatchResult? {
         if (boss.type != SlayerType.VOIDGLOOM) return null
         val level = McCompat.mc.level ?: return null
 
-        parseHits(boss.stand.name.string)?.let { return it }
+        hitsMatch(boss.stand.name.string)?.let { return it }
 
         val stands = level.getEntitiesOfClass(
             ArmorStand::class.java,
@@ -267,16 +297,18 @@ object SlayerManager {
         ) { it.hasCustomName() }
 
         for (stand in stands) {
-            parseHits(stand.name.string)?.let { return it }
+            hitsMatch(stand.name.string)?.let { return it }
         }
 
         return null
     }
 
-    private fun parseHits(name: String): Int? {
+    private fun parseHits(name: String): Int? = hitsMatch(name)?.groupValues?.get(1)?.toIntOrNull()
+
+    private fun hitsMatch(name: String): MatchResult? {
         val plain = name.removeColor()
-        if (!plain.contains("Hit")) return null
-        return hitsRegex.find(plain)?.groupValues?.get(1)?.toIntOrNull()
+        if (!plain.contains("hit", ignoreCase = true)) return null
+        return hitsRegex.find(plain)
     }
 
     private fun isOwnedBy(stand: ArmorStand, username: String): Boolean {
@@ -290,8 +322,13 @@ object SlayerManager {
     }
 
     private fun parseHealth(name: String): Int? {
-        val match = healthRegex.find(name) ?: return null
+        val match = healthRegex.find(name.removeColor()) ?: return null
         return match.groupValues[1].parseHypixelInt()
+    }
+
+    private fun parseMaxHealth(name: String): Int? {
+        val match = healthRegex.find(name.removeColor()) ?: return null
+        return match.groupValues[2].takeIf { it.isNotEmpty() }?.parseHypixelInt()
     }
 
     fun colorFor(percent: Double): String = when {
