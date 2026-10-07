@@ -58,17 +58,18 @@ object Chroma {
         Shapes.rimTop(graphics, x, y, width, height, radius, thickness, flow(0f), flow(0.5f))
     }
 
-    /** A square filled with the same flowing gradient, top to bottom, for the selected tab. */
-    fun drawTile(graphics: GuiGraphicsExtractor, x: Float, y: Float, size: Float, radius: Float) {
-        Shapes.gradient(graphics, x, y, size, size, radius, flow(0.5f), flow(0f))
+    /**
+     * A soft rounded-square glow for the selected tab, in the same flowing accent as the edge:
+     * a wide faint halo with a brighter, tighter core behind the icon.
+     */
+    fun drawGlow(graphics: GuiGraphicsExtractor, x: Float, y: Float, size: Float, radius: Float) {
+        val color = flow(0.25f)
+        Shapes.shadow(graphics, x, y, size, size, radius, GLOW_SPREAD, Theme.withAlpha(color, 70))
+        Shapes.shadow(graphics, x + GLOW_INSET, y + GLOW_INSET, size - GLOW_INSET * 2f, size - GLOW_INSET * 2f, radius, GLOW_CORE, Theme.withAlpha(color, 60))
     }
 
-    /** An icon colour that reads on [drawTile]: dark on a light accent, white on a dark one. */
-    fun onTile(): Int {
-        val rgb = Theme.mix(Theme.accent, 0xFFFFFF, 0.25f)
-        val luma = 0.299f * (rgb shr 16 and 0xFF) + 0.587f * (rgb shr 8 and 0xFF) + 0.114f * (rgb and 0xFF)
-        return if (luma > 170f) Theme.opaque(Theme.mix(Theme.background, 0x000000, 0.3f)) else 0xFFFFFFFF.toInt()
-    }
+    /** The selected tab's icon colour: the accent lifted so it reads over [drawGlow]. */
+    fun onGlow(): Int = Theme.opaque(Theme.mix(Theme.accent, 0xFFFFFF, 0.35f))
 
     /** Text with the same flowing gradient running through it, one letter at a time. */
     fun drawGradientText(graphics: GuiGraphicsExtractor, text: String, x: Float, y: Float, bold: Boolean = true): Float {
@@ -85,4 +86,7 @@ object Chroma {
     fun width(text: String, bold: Boolean): Float = McCompat.font.width(UiFont.component(text, bold)).toFloat()
 
     private const val PERIOD_MS = 3200L
+    private const val GLOW_SPREAD = 6f
+    private const val GLOW_INSET = 5f
+    private const val GLOW_CORE = 4f
 }

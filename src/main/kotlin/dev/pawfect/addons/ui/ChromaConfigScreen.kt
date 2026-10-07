@@ -304,8 +304,8 @@ class ChromaConfigScreen(
         val target = iconY(activeIndex) - windowY
         if (!indicatorReady || draggingWindow) { indicatorAnim.set(target); indicatorReady = true }
         val indicator = windowY + indicatorAnim.update(target)
-        // The selected tab: a square filled with the header's flowing gradient, gliding between tabs.
-        if (searchQuery.isEmpty()) Chroma.drawTile(graphics, cellX, indicator, ICON_CELL, 7f)
+        // The selected tab: a soft glow in the header's flowing accent, gliding between tabs.
+        if (searchQuery.isEmpty()) Chroma.drawGlow(graphics, cellX, indicator, ICON_CELL, 7f)
 
         tooltipIndex = -1
         tabs.forEachIndexed { i, t ->
@@ -316,7 +316,7 @@ class ChromaConfigScreen(
             val h = hoverFor("icon/${t.id}").update(if (hovered) 1f else 0f)
             if (h > 0.01f && !active) graphics.roundRect(cellX, y, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(Theme.text, (14 * h).toInt()))
             val lit = if (active) 1f else h
-            val color = if (active) Chroma.onTile() else Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), lit)
+            val color = if (active) Chroma.onGlow() else Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), lit)
             // Held at the 1.25x the large icon raster is made for; growing it on hover blurred it.
             graphics.iconCentered(t.def.icon, cellX + ICON_CELL / 2f, y + ICON_CELL / 2f, ICON_SCALE, color)
         }
