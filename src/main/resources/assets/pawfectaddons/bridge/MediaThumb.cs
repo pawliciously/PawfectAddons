@@ -54,15 +54,40 @@ public static class PawfectMedia {
         return "ok:" + hash.ToString("x8");
     }
 
-    public static string SaveThumb(string path, string appId, string title) {
-        string result = "unset";
-        var worker = new Thread(delegate() {
+    // A capture can take seconds while the player hands over its artwork, so it runs on its own
+    // thread. The bridge starts one and asks for the result on a later pass, and never waits.
+    static Thread worker;
+    static DateTime startedAt;
+    static volatile string finished;
+
+    const int ABANDON_SECONDS = 30;
+
+    public static bool Busy {
+        get { return worker != null && worker.IsAlive && (DateTime.UtcNow - startedAt).TotalSeconds < ABANDON_SECONDS; }
+    }
+
+    public static bool StartThumb(string path, string appId, string title) {
+        if (Busy) return false;
+        // A capture stuck past the limit is left to finish on its own; its result is dropped.
+        finished = null;
+        var run = new Thread(delegate() {
+            string result;
             try { result = Capture(path, appId, title); } catch (Exception error) { result = "error: " + error.Message; }
+            if (Thread.CurrentThread == worker) finished = result;
         });
-        worker.SetApartmentState(ApartmentState.MTA);
-        worker.IsBackground = true;
-        worker.Start();
-        if (!worker.Join(20000)) return "timeout";
+        run.SetApartmentState(ApartmentState.MTA);
+        run.IsBackground = true;
+        worker = run;
+        startedAt = DateTime.UtcNow;
+        run.Start();
+        return true;
+    }
+
+    /** The finished capture's result once, or null while one is running or none was started. */
+    public static string PollThumb() {
+        var result = finished;
+        if (result == null) return null;
+        finished = null;
         return result;
     }
 }

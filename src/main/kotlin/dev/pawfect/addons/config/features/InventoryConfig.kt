@@ -54,6 +54,7 @@ class InventoryConfig {
         SILK("Silk", 2),
         CARBON("Carbon", 3),
         EMBER("Ember", 4),
+        MIRAGE("Mirage", 5),
         ;
 
         override fun toString(): String = label

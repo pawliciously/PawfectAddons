@@ -129,6 +129,43 @@ vec3 liquid(vec2 uv, float time, vec3 colA, vec3 colB, vec3 colC) {
     return colour;
 }
 
+// Mirage, the media player's backdrop: soft fields of the overlay colours drift under a slow
+// noise warp and melt into each other, with a faint sweep of light.
+float mirageBlob(vec2 p, vec2 centre, float size) {
+    vec2 d = p - centre;
+    return exp(-dot(d, d) / (size * size));
+}
+
+vec3 mirage(vec2 uv, float time, vec3 colA, vec3 colB, vec3 colC, float aspect) {
+    float t = time * 0.9;
+    vec2 p = vec2(uv.x * aspect, uv.y);
+    vec2 warp = vec2(
+        fbm(p * 1.35 + vec2(t * 0.11, -t * 0.07)),
+        fbm(p * 1.35 + vec2(-t * 0.08, t * 0.12) + 7.3)
+    ) - 0.5;
+    vec2 q = p + warp * 0.75;
+
+    vec2 b1 = vec2(aspect * (0.16 + 0.12 * sin(t * 0.53)), 0.22 + 0.22 * cos(t * 0.41));
+    vec2 b2 = vec2(aspect * (0.84 + 0.10 * cos(t * 0.47 + 1.7)), 0.28 + 0.26 * sin(t * 0.59 + 0.6));
+    vec2 b3 = vec2(aspect * (0.58 + 0.26 * sin(t * 0.31 + 3.1)), 0.86 + 0.14 * cos(t * 0.37 + 2.2));
+    vec2 b4 = vec2(aspect * (0.34 + 0.22 * cos(t * 0.43 + 4.4)), 0.58 + 0.24 * sin(t * 0.29 + 5.0));
+
+    vec3 colD = mix(colA, colB, 0.5) * 0.7;
+    float size = 0.42 + 0.10 * clamp(aspect, 0.5, 3.0);
+    float w1 = mirageBlob(q, b1, size);
+    float w2 = mirageBlob(q, b2, size * 0.95);
+    float w3 = mirageBlob(q, b3, size * 1.10);
+    float w4 = mirageBlob(q, b4, size * 0.90);
+    vec3 floorColour = min(min(colA, colB), colC) * 0.45;
+    float floorWeight = 0.18;
+    vec3 colour = (colA * w1 + colB * w2 + colC * w3 + colD * w4 + floorColour * floorWeight)
+        / (w1 + w2 + w3 + w4 + floorWeight);
+
+    float sweep = 1.0 - abs(fract(uv.x * 0.45 - uv.y * 0.25 - t * 0.035) - 0.5) * 2.0;
+    colour += vec3(0.05) * smoothstep(0.7, 1.0, sweep);
+    return colour;
+}
+
 float starField(vec2 uv, float density, float twinkle, float time) {
     vec2 grid = uv * density;
     vec2 cell = floor(grid);
@@ -394,6 +431,13 @@ void main() {
     } else if (overlay == 6) {
         vec3 starFill = customColors > 0.5 ? colA : vec3(0.62, 0.45, 1.0);
         colour = mix(colour, stars(gl_FragCoord.xy, time, colour, starFill), overlayStrength);
+        alpha = max(alpha, coverage * opacity * overlayStrength);
+    } else if (overlay == 7) {
+        vec3 mirA = customColors > 0.5 ? colA : vec3(0.88, 0.37, 0.85);
+        vec3 mirB = customColors > 0.5 ? colB : vec3(0.33, 0.36, 0.98);
+        vec3 mirC = customColors > 0.5 ? colC : vec3(1.0, 0.66, 0.42);
+        vec2 size = vec2(textureSize(MaskSampler, 0));
+        colour = mix(colour, mirage(texCoord, time, mirA, mirB, mirC, size.x / max(size.y, 1.0)), overlayStrength);
         alpha = max(alpha, coverage * opacity * overlayStrength);
     }
 

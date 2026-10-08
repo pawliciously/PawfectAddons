@@ -13,7 +13,7 @@ import kotlin.concurrent.thread
 
 object MediaBridge {
 
-    class Track(
+    data class Track(
         val title: String,
         val artist: String,
         val album: String,
@@ -60,16 +60,39 @@ object MediaBridge {
     private var positionBase = 0.0
     private var positionStamp = 0L
 
+    // The bridge prints a line about four times a second. If it goes quiet, something on the
+    // Windows side is stuck, so it is restarted instead of leaving the card frozen.
+    @Volatile
+    private var lastLineAt = 0L
+    private var startedAt = 0L
+
+    // A play or pause shows straight away; the bridge's own reports take over once they agree.
+    @Volatile
+    private var heldPlaying: Boolean? = null
+    @Volatile
+    private var heldUntil = 0L
+
     val available: Boolean get() = System.getProperty("os.name", "").startsWith("Windows")
 
     fun tick() {
-        if (config.enabled && !running) start()
+        val now = System.currentTimeMillis()
+        if (config.enabled && !running && now - startedAt >= RESTART_GAP_MS) start()
         if (!config.enabled && running) stop()
+        if (running && config.enabled) {
+            val quietFor = now - maxOf(lastLineAt, startedAt)
+            val limit = if (lastLineAt < startedAt) STARTUP_TIMEOUT_MS else QUIET_TIMEOUT_MS
+            if (quietFor > limit) {
+                logger.warn("Media bridge went quiet for {} ms, restarting it", quietFor)
+                runCatching { process?.destroyForcibly() }
+                startedAt = now
+            }
+        }
     }
 
     fun start() {
         if (running || !available) return
         running = true
+        startedAt = System.currentTimeMillis()
 
         thread(name = "PawfectAddons Media Bridge", isDaemon = true) {
             runCatching { run() }.onFailure {
@@ -133,6 +156,7 @@ object MediaBridge {
     private fun consume(reader: BufferedReader) {
         while (running) {
             val line = reader.readLine() ?: break
+            lastLineAt = System.currentTimeMillis()
             if (line.isBlank()) continue
             runCatching { parse(line) }
         }
@@ -150,7 +174,9 @@ object MediaBridge {
         fun number(key: String) = json.get(key)?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
 
         val reported = number("position")
-        if (track == null || reported != positionBase) {
+        val holding = heldPlaying != null && System.currentTimeMillis() < heldUntil
+        // While a play or pause is held, the old position would pull the bar back.
+        if (!holding && (track == null || reported != positionBase)) {
             positionBase = reported
             positionStamp = System.currentTimeMillis()
         }
@@ -163,13 +189,22 @@ object MediaBridge {
             artVersion++
         }
 
+        val reportedPlaying = text("status").equals("Playing", ignoreCase = true)
+        val held = heldPlaying
+        val playing = if (held != null && System.currentTimeMillis() < heldUntil && held != reportedPlaying) {
+            held
+        } else {
+            heldPlaying = null
+            reportedPlaying
+        }
+
         track = Track(
             title = text("title"),
             artist = text("artist"),
             album = text("album"),
             app = text("app"),
-            playing = text("status").equals("Playing", ignoreCase = true),
-            position = reported,
+            playing = playing,
+            position = if (holding) positionBase else reported,
             duration = number("duration"),
             canPlay = flag("canPlay"),
             canPause = flag("canPause"),
@@ -192,11 +227,27 @@ object MediaBridge {
         }
     }
 
-    fun togglePlayback() = command("TOGGLE")
+    fun togglePlayback() {
+        command("TOGGLE")
+        val current = track ?: return
+        val now = System.currentTimeMillis()
+        if (current.playing) {
+            positionBase = smoothPosition()
+        }
+        positionStamp = now
+        heldPlaying = !current.playing
+        heldUntil = now + HOLD_MS
+        track = current.copy(playing = !current.playing, position = positionBase)
+    }
 
     fun next() = command("NEXT")
 
     fun previous() = command("PREV")
+
+    private const val RESTART_GAP_MS = 5_000L
+    private const val STARTUP_TIMEOUT_MS = 20_000L
+    private const val QUIET_TIMEOUT_MS = 8_000L
+    private const val HOLD_MS = 1_500L
 
     fun stop() {
         running = false

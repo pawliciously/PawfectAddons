@@ -15,9 +15,9 @@ $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-O
     $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
 })[0]
 
-function Await($operation, $resultType) {
+function Await($operation, $resultType, [int]$timeoutMs = 4000) {
     $task = $asTaskGeneric.MakeGenericMethod($resultType).Invoke($null, @($operation))
-    if (-not $task.Wait(4000)) { return $null }
+    if (-not $task.Wait($timeoutMs)) { return $null }
     return $task.Result
 }
 
@@ -34,7 +34,7 @@ if ($null -eq $manager) {
 $commandFile = Join-Path $WorkDir 'pawfect_media_command.txt'
 $thumbSlots = @((Join-Path $WorkDir 'pawfect_media_thumb_a.img'), (Join-Path $WorkDir 'pawfect_media_thumb_b.img'))
 $thumbSource = Join-Path $WorkDir 'MediaThumb.cs'
-$thumbDll = Join-Path $WorkDir 'PawfectMediaThumb2.dll'
+$thumbDll = Join-Path $WorkDir 'PawfectMediaThumb3.dll'
 $thumbReady = $false
 $thumbState = 'not attempted'
 
@@ -82,13 +82,14 @@ function Invoke-Command-File($session) {
         return
     }
     if ($command -eq '' -or $null -eq $session) { return }
+    # Sent and left to run: waiting on the reply held up every update for seconds.
     try {
         switch ($command.ToUpperInvariant()) {
-            'PLAY'   { Await ($session.TryPlayAsync()) $boolType | Out-Null }
-            'PAUSE'  { Await ($session.TryPauseAsync()) $boolType | Out-Null }
-            'TOGGLE' { Await ($session.TryTogglePlayPauseAsync()) $boolType | Out-Null }
-            'NEXT'   { Await ($session.TrySkipNextAsync()) $boolType | Out-Null }
-            'PREV'   { Await ($session.TrySkipPreviousAsync()) $boolType | Out-Null }
+            'PLAY'   { $null = $session.TryPlayAsync() }
+            'PAUSE'  { $null = $session.TryPauseAsync() }
+            'TOGGLE' { $null = $session.TryTogglePlayPauseAsync() }
+            'NEXT'   { $null = $session.TrySkipNextAsync() }
+            'PREV'   { $null = $session.TrySkipPreviousAsync() }
         }
     } catch { }
 }
@@ -124,6 +125,10 @@ $artKey = ''
 $trackKey = ''
 $trackChangedAt = 0
 $nextThumbCheck = 0
+$pendingTarget = ''
+$pendingKey = ''
+$lastProps = $null
+$lastPropsApp = ''
 
 while ($true) {
     try {
@@ -134,10 +139,19 @@ while ($true) {
         if ($null -eq $session) {
             Write-Output '{"state":"none"}'
         } else {
-            $properties = Await ($session.TryGetMediaPropertiesAsync()) $propsType
+            $properties = Await ($session.TryGetMediaPropertiesAsync()) $propsType 1500
             $timeline = $session.GetTimelineProperties()
             $playback = $session.GetPlaybackInfo()
             $app = $session.SourceAppUserModelId
+
+            # A player that is slow to answer, often right after a skip, keeps its last details
+            # instead of blanking the card.
+            if ($null -eq $properties -and $lastPropsApp -eq $app) {
+                $properties = $lastProps
+            } elseif ($null -ne $properties) {
+                $lastProps = $properties
+                $lastPropsApp = $app
+            }
 
             $title = ''
             $artist = ''
@@ -158,10 +172,12 @@ while ($true) {
 
             $thumbChanged = $false
             $thumbPath = ''
-            if ($thumbReady -and $now -ge $nextThumbCheck) {
-                $target = $thumbSlots[1 - $slot]
-                try {
-                    $saved = [PawfectMedia]::SaveThumb($target, $app, $title)
+            # The artwork is fetched on its own thread and picked up on a later pass, so a slow
+            # player never holds the card up.
+            if ($thumbReady) {
+                $saved = $null
+                try { $saved = [PawfectMedia]::PollThumb() } catch { }
+                if ($null -ne $saved -and $pendingKey -eq $key) {
                     $thumbState = $saved
                     if ($saved -like 'ok:*') {
                         $hash = $saved.Substring(3)
@@ -169,7 +185,7 @@ while ($true) {
                             $lastHash = $hash
                             $slot = 1 - $slot
                             $thumbChanged = $true
-                            $thumbPath = $target
+                            $thumbPath = $pendingTarget
                         }
                         $artKey = $key
                     } elseif ($artKey -ne $key -and ($now - $trackChangedAt) -gt 2500) {
@@ -177,11 +193,18 @@ while ($true) {
                         $artKey = $key
                         $thumbChanged = $true
                     }
-                } catch {
-                    $thumbState = 'error: ' + $_.Exception.Message
                 }
-                $sinceChange = $now - $trackChangedAt
-                $nextThumbCheck = $now + $(if ($sinceChange -lt 4000) { 700 } else { 3000 })
+                if ($now -ge $nextThumbCheck -and -not [PawfectMedia]::Busy) {
+                    $pendingTarget = $thumbSlots[1 - $slot]
+                    $pendingKey = $key
+                    try {
+                        [PawfectMedia]::StartThumb($pendingTarget, $app, $title) | Out-Null
+                    } catch {
+                        $thumbState = 'error: ' + $_.Exception.Message
+                    }
+                    $sinceChange = $now - $trackChangedAt
+                    $nextThumbCheck = $now + $(if ($sinceChange -lt 4000) { 700 } else { 3000 })
+                }
             }
 
             $controls = $playback.Controls

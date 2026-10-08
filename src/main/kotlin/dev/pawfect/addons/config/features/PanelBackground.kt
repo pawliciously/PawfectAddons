@@ -7,6 +7,7 @@ enum class PanelBackground(private val label: String, val style: Int) {
     SILK("Silk", 2),
     CARBON("Carbon", 3),
     EMBER("Ember", 4),
+    MIRAGE("Mirage", 5),
     ;
 
     override fun toString(): String = label

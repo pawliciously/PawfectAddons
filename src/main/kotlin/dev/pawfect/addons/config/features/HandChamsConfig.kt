@@ -124,6 +124,7 @@ class HandChamsConfig {
         HOLOGRAM("Hologram", 4),
         SPACE("Space", 5),
         STARS("Stars", 6),
+        MIRAGE("Mirage", 7),
         ;
 
         override fun toString(): String = label
