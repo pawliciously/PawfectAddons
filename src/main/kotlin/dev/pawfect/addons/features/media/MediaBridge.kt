@@ -131,6 +131,9 @@ object MediaBridge {
             script.toAbsolutePath().toString(),
             "-WorkDir",
             directory.toAbsolutePath().toString(),
+            // The bridge stops by itself once the game is gone, even after a crash.
+            "-ParentPid",
+            ProcessHandle.current().pid().toString(),
         )
         // Nothing reads the error stream, and a full pipe would block the bridge mid-write.
         builder.redirectError(ProcessBuilder.Redirect.DISCARD)

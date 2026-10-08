@@ -1,6 +1,7 @@
 param(
     [string]$WorkDir = $env:TEMP,
-    [int]$IntervalMs = 250
+    [int]$IntervalMs = 250,
+    [int]$ParentPid = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,6 +33,11 @@ if ($null -eq $manager) {
 }
 
 $commandFile = Join-Path $WorkDir 'pawfect_media_command.txt'
+# Only one bridge serves a folder: the newest writes its id here, and any older one that sees
+# someone else's id stops, as does a bridge whose game has closed. A bridge left behind by a
+# crashed game would otherwise fight the new one for commands and artwork.
+$ownerFile = Join-Path $WorkDir 'pawfect_media_bridge.pid'
+[System.IO.File]::WriteAllText($ownerFile, [string]$PID)
 $thumbSlots = @((Join-Path $WorkDir 'pawfect_media_thumb_a.img'), (Join-Path $WorkDir 'pawfect_media_thumb_b.img'))
 $thumbSource = Join-Path $WorkDir 'MediaThumb.cs'
 $thumbDll = Join-Path $WorkDir 'PawfectMediaThumb3.dll'
@@ -71,6 +77,18 @@ if (Test-Path $thumbSource) {
 }
 
 function Now-Ms { return [long]([DateTime]::UtcNow.Ticks / 10000) }
+
+function Still-Wanted {
+    try {
+        if ([System.IO.File]::ReadAllText($ownerFile).Trim() -ne [string]$PID) { return $false }
+    } catch { }
+    if ($ParentPid -gt 0) {
+        try {
+            if ([System.Diagnostics.Process]::GetProcessById($ParentPid).HasExited) { return $false }
+        } catch { return $false }
+    }
+    return $true
+}
 
 function Invoke-Command-File($session) {
     if (-not (Test-Path $commandFile)) { return }
@@ -129,8 +147,13 @@ $pendingTarget = ''
 $pendingKey = ''
 $lastProps = $null
 $lastPropsApp = ''
+$nextOwnerCheck = 0
 
 while ($true) {
+    if ((Now-Ms) -ge $nextOwnerCheck) {
+        if (-not (Still-Wanted)) { exit 0 }
+        $nextOwnerCheck = (Now-Ms) + 2000
+    }
     try {
         $session = Pick-Session
         $chosen = $session
