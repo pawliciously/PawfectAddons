@@ -7,10 +7,10 @@ import dev.pawfect.addons.features.dungeon.secrets.DungeonRoom
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker
-import dev.pawfect.addons.utils.ChatUtils
 import dev.pawfect.addons.utils.McCompat
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.core.BlockPos
+import org.slf4j.LoggerFactory
 import java.util.Collections
 import java.util.IdentityHashMap
 import kotlin.math.abs
@@ -96,6 +96,8 @@ object SecretRoutes {
         }
     }
 
+    private val logger = LoggerFactory.getLogger("PawfectAddons/Routes")
+
     private var fetched = false
 
     /** With routes on and none in the folder, gets the community routes once, so there's something to follow. */
@@ -103,12 +105,10 @@ object SecretRoutes {
         if (fetched || !config.enabled || RouteData.roomCount() > 0) return
         if (McCompat.player == null) return
         fetched = true
-        ChatUtils.chat("No secret routes yet, downloading the Secret Routes Mod's routes...")
+        logger.info("No secret routes yet, downloading the Secret Routes Mod's routes")
         RouteData.downloadCommunity { message ->
-            McCompat.mc.execute {
-                ChatUtils.chat(message)
-                progress.clear()
-            }
+            logger.info(message)
+            McCompat.mc.execute { progress.clear() }
         }
     }
 
