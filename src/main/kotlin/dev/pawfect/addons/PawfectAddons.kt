@@ -1,5 +1,6 @@
 package dev.pawfect.addons
 
+import dev.pawfect.addons.features.dungeon.RoomNameOverlay
 import dev.pawfect.addons.features.dungeon.routes.RouteRecorder
 import dev.pawfect.addons.features.dungeon.routes.RouteRenderer
 import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
@@ -194,6 +195,7 @@ object PawfectAddons : ClientModInitializer {
                     Hitmarker.render()
                     PacketOverlay.render()
                     Watermark.render()
+                    RoomNameOverlay.render()
                     Notifications.render()
                 }
             } catch (e: Exception) {

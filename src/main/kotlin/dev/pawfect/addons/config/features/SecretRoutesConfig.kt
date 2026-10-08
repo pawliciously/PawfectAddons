@@ -12,14 +12,22 @@ class SecretRoutesConfig {
         override fun toString(): String = label
     }
 
+    enum class Style(private val label: String) {
+        BOTH("Lines & Boxes"),
+        LINES("Lines"),
+        BOXES("Boxes");
+
+        override fun toString(): String = label
+    }
+
     @Expose
     var enabled: Boolean = false
 
     @Expose
-    var shown: Shown = Shown.CURRENT
+    var style: Style = Style.BOTH
 
     @Expose
-    var pathLine: Boolean = true
+    var shown: Shown = Shown.CURRENT
 
     @Expose
     var labels: Boolean = true

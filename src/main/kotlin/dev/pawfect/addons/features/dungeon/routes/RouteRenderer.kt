@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ModuleSwitch
+import dev.pawfect.addons.config.features.SecretRoutesConfig
 import dev.pawfect.addons.config.features.SecretRoutesConfig.Shown
 import dev.pawfect.addons.features.dungeon.WaypointRenderTypes
 import dev.pawfect.addons.features.dungeon.secrets.DungeonRoom
@@ -67,6 +68,8 @@ object RouteRenderer {
         val opacity = config.opacity.coerceIn(0.1f, 1f)
         val width = config.lineWidth.coerceIn(0.5f, 6f)
         val labels = ArrayList<Label>()
+        val lines = config.style != SecretRoutesConfig.Style.BOXES
+        boxesOn = config.style != SecretRoutesConfig.Style.LINES
         val start = if (state.index == 0) startPoint(room, state.route) else null
         if (start != null) {
             labels += Label(Component.literal("START").withStyle { it.withColor(config.pathColor).withBold(true) }, start.add(0.0, 1.0, 0.0))
@@ -90,7 +93,7 @@ object RouteRenderer {
                 fun color(rgb: Int) = ((alpha * 255f).roundToInt().coerceIn(0, 255) shl 24) or (rgb and 0xFFFFFF)
                 val stepNumber = state.index + i + 1
 
-                if (config.pathLine) {
+                if (lines) {
                     val points = step.locations.map { centre(room, it) }
                     // Steps shown together join up where one ends and the next begins.
                     val joined = listOfNotNull(previousEnd) + points
@@ -143,7 +146,7 @@ object RouteRenderer {
                     box(pose, consumer, pos, color(secretColor), width + 0.5f)
                     val name = "$stepNumber. ${describe(step)}"
                     labels += Label(if (step.extra) "$name (not in route)" else name, top(pos))
-                    if (config.pathLine) {
+                    if (lines) {
                         // From the step's last point, or for a step with none, from where the one before ended.
                         val end = step.locations.lastOrNull()?.let { centre(room, it) } ?: previousEnd
                         val middle = Vec3(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
@@ -220,11 +223,16 @@ object RouteRenderer {
         consumer.addVertex(pose, b.x.toFloat(), b.y.toFloat(), b.z.toFloat()).setColor(color).setNormal(pose, normal.x, normal.y, normal.z).setLineWidth(width)
     }
 
-    private fun box(pose: PoseStack.Pose, consumer: VertexConsumer, pos: BlockPos, color: Int, width: Float) =
-        cube(pose, consumer, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), 1.0, color, width)
+    /** Whether boxes are drawn this frame, from the route style. */
+    private var boxesOn = true
 
-    private fun small(pose: PoseStack.Pose, consumer: VertexConsumer, at: Vec3, color: Int, width: Float) =
-        cube(pose, consumer, at.x - 0.2, at.y, at.z - 0.2, 0.4, color, width)
+    private fun box(pose: PoseStack.Pose, consumer: VertexConsumer, pos: BlockPos, color: Int, width: Float) {
+        if (boxesOn) cube(pose, consumer, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), 1.0, color, width)
+    }
+
+    private fun small(pose: PoseStack.Pose, consumer: VertexConsumer, at: Vec3, color: Int, width: Float) {
+        if (boxesOn) cube(pose, consumer, at.x - 0.2, at.y, at.z - 0.2, 0.4, color, width)
+    }
 
     private fun cube(pose: PoseStack.Pose, consumer: VertexConsumer, x: Double, y: Double, z: Double, size: Double, color: Int, width: Float) {
         val corners = arrayOf(

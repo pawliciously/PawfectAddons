@@ -130,6 +130,7 @@ object RouteData {
         return Step(
             locations = ints(json, "locations"),
             etherwarps = ints(json, "etherwarps"),
+            teleports = ints(json, "teleports"),
             mines = ints(json, "mines"),
             interacts = ints(json, "interacts"),
             tnts = ints(json, "tnts"),
@@ -153,6 +154,7 @@ object RouteData {
     fun toJson(step: Step): JsonObject = JsonObject().also { json ->
         json.add("locations", points(step.locations))
         json.add("etherwarps", points(step.etherwarps))
+        if (step.teleports.isNotEmpty()) json.add("teleports", points(step.teleports))
         json.add("mines", points(step.mines))
         json.add("interacts", points(step.interacts))
         json.add("tnts", points(step.tnts))
@@ -172,17 +174,32 @@ object RouteData {
         }
     }
 
-    /** Saves [steps] as [room]'s route in your recordings, replacing any route it had there. */
-    fun saveRecorded(room: String, steps: List<Step>): Path {
+    /** Two recordings starting this close together, squared, are the same way into the room. */
+    private const val SAME_START_SQ = 36
+
+    /**
+     * Saves [steps] as one of [room]'s routes in your recordings. A recorded route that starts in
+     * the same place is replaced; otherwise it's kept alongside as "room:1", "room:2" and so on.
+     * Returns whether one was replaced.
+     */
+    fun saveRecorded(room: String, steps: List<Step>): Boolean {
         Files.createDirectories(folder)
         val file = folder.resolve(RECORDED_FILE)
         val json: JsonObject = runCatching {
             if (Files.exists(file)) Files.newBufferedReader(file).use { JsonParser.parseReader(it) }.asJsonObject else null
         }.getOrNull() ?: JsonObject()
-        json.add(room, JsonArray().also { array -> steps.forEach { array.add(toJson(it)) } })
+        val start = steps.firstNotNullOfOrNull { it.start }
+        val keys = json.keySet().filter { it.substringBefore(':').equals(room, ignoreCase = true) }
+        val same = keys.firstOrNull { key ->
+            val first = runCatching { (json.get(key) as? JsonArray)?.firstOrNull()?.asJsonObject?.let { parseStep(it) }?.start }.getOrNull()
+            start != null && first != null &&
+                (first[0] - start[0]) * (first[0] - start[0]) + (first[1] - start[1]) * (first[1] - start[1]) + (first[2] - start[2]) * (first[2] - start[2]) <= SAME_START_SQ
+        }
+        val key = same ?: if (keys.isEmpty()) room else generateSequence(1) { it + 1 }.map { "$room:$it" }.first { it !in keys }
+        json.add(key, JsonArray().also { array -> steps.forEach { array.add(toJson(it)) } })
         Files.writeString(file, GsonBuilder().setPrettyPrinting().create().toJson(json as JsonElement))
         load()
-        return file
+        return same != null
     }
 
     // ------------------------------------------------------------------ community routes

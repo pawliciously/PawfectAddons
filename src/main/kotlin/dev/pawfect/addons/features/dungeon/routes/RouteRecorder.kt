@@ -3,6 +3,7 @@ package dev.pawfect.addons.features.dungeon.routes
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.features.dungeon.secrets.DungeonRoom
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
+import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import dev.pawfect.addons.utils.ChatUtils
 import dev.pawfect.addons.utils.McCompat
 import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents
@@ -17,16 +18,18 @@ import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
 
 /**
- * Records your own route through a room as you play it: where you walk, where you etherwarp to,
- * what you stonk, levers you flip and pearls you throw, split into a step each time you collect
- * a secret. Stopping (or leaving the room) saves it to recorded.json, where it takes over from
- * any other route for that room.
+ * Records your own route through a room as you play it: where you walk, where you etherwarp or
+ * teleport to, what you stonk, levers you flip and pearls you throw, split into a step each time
+ * you collect a secret. Stopping (or leaving the dungeon) saves it to recorded.json, where it
+ * takes over from any other route for that room. Recording again from the same start replaces
+ * that route; from another start it's kept as a second route, picked when you come in that way.
  */
 object RouteRecorder {
 
     private class Builder {
         val locations = ArrayList<IntArray>()
         val etherwarps = ArrayList<IntArray>()
+        val teleports = ArrayList<IntArray>()
         val mines = ArrayList<IntArray>()
         val interacts = ArrayList<IntArray>()
         val tnts = ArrayList<IntArray>()
@@ -34,11 +37,12 @@ object RouteRecorder {
         val angles = ArrayList<FloatArray>()
 
         val empty: Boolean
-            get() = locations.isEmpty() && etherwarps.isEmpty() && mines.isEmpty() && interacts.isEmpty() && tnts.isEmpty() && pearls.isEmpty()
+            get() = locations.isEmpty() && etherwarps.isEmpty() && teleports.isEmpty() && mines.isEmpty() &&
+                interacts.isEmpty() && tnts.isEmpty() && pearls.isEmpty()
 
         fun build(type: String?, at: IntArray?) = RouteData.Step(
             locations.toList(), etherwarps.toList(), mines.toList(), interacts.toList(), tnts.toList(),
-            pearls.toList(), angles.toList(), type, at,
+            pearls.toList(), angles.toList(), type, at, teleports = teleports.toList(),
         )
     }
 
@@ -51,6 +55,12 @@ object RouteRecorder {
 
     private const val SAMPLE_GAP_SQ = 9
     private const val TELEPORT_SQ = 25.0
+
+    /** A bat has to die this close to you, squared, to be your secret. */
+    private const val BAT_RANGE_SQ = 256.0
+
+    /** How close a clicked chest or essence has to be to one of the room's secrets, squared. */
+    private const val SECRET_RANGE_SQ = 2
 
     fun register() {
         ClientPlayerBlockBreakEvents.AFTER.register { _, _, pos, _ -> runCatching { onMined(pos) } }
@@ -84,9 +94,10 @@ object RouteRecorder {
         }
         if (steps.isEmpty()) return "Nothing was recorded."
         return runCatching {
-            RouteData.saveRecorded(name, steps.toList())
+            val replaced = RouteData.saveRecorded(name, steps.toList())
             SecretRoutes.restart()
-            "Saved a ${steps.size} step route for $name."
+            if (replaced) "Saved a ${steps.size} step route for $name, replacing the one that starts there."
+            else "Saved a ${steps.size} step route for $name."
         }.getOrElse { "Could not save the route: ${it.message}" }
     }
 
@@ -101,7 +112,9 @@ object RouteRecorder {
 
     fun tick() {
         val here = room ?: return
-        if (!SkyBlockData.inDungeons || DungeonScanner.matchedRoom() !== here) {
+        // Positions stay relative to the room you started in, so a route can pass through the
+        // next room over; only leaving the dungeon ends it.
+        if (!SkyBlockData.inDungeons) {
             ChatUtils.chat(stop())
             return
         }
@@ -109,9 +122,11 @@ object RouteRecorder {
         val now = player.position()
         val last = lastTickPos
         lastTickPos = now
-        // A jump of more than five blocks in one tick is a teleport: an etherwarp onto the block below.
+        // A jump of more than five blocks in one tick is a teleport. Crouching makes it an
+        // etherwarp onto the block below you; otherwise it lands you in the air or on the ground.
         if (last != null && last.distanceToSqr(now) > TELEPORT_SQ) {
-            builder.etherwarps += relative(here, player.blockPosition().below())
+            if (player.isShiftKeyDown) builder.etherwarps += relative(here, player.blockPosition().below())
+            else builder.teleports += relative(here, player.blockPosition())
             sample(force = true)
             return
         }
@@ -135,9 +150,8 @@ object RouteRecorder {
     private fun finish(type: String, pos: BlockPos) {
         val here = room ?: return
         val at = relative(here, pos)
-        // A chest fires both its click and its opening; the second one is the same secret.
-        val last = steps.lastOrNull()
-        if (builder.empty && last != null && last.secretType == type && last.secretAt?.contentEquals(at) == true) return
+        // The same secret again (a chest's click and opening, or a second click) is one step.
+        if (steps.any { it.secretType == type && it.secretAt?.contentEquals(at) == true }) return
         sample(force = true)
         steps += builder.build(type, at)
         builder = Builder()
@@ -158,20 +172,35 @@ object RouteRecorder {
         builder.angles += RouteGeometry.angles(direction)
     }
 
+    /** Whether [at] is one of the room's chests or essences; any chest counts in a room we have no data for. */
+    private fun isSecret(here: DungeonRoom, at: IntArray): Boolean {
+        val secrets = here.name?.let { SecretRoomData.secretsFor(it) }.orEmpty()
+        if (secrets.isEmpty()) return true
+        return secrets.any { s ->
+            s.category in setOf("chest", "wither", "redstone_key") &&
+                (s.x - at[0]) * (s.x - at[0]) + (s.y - at[1]) * (s.y - at[1]) + (s.z - at[2]) * (s.z - at[2]) <= SECRET_RANGE_SQ
+        }
+    }
+
     fun onInteract(pos: BlockPos) {
         val here = room ?: return
         val level = McCompat.mc.level ?: return
         val block = level.getBlockState(pos).block
         when {
             block == Blocks.CHEST || block == Blocks.TRAPPED_CHEST || block == Blocks.PLAYER_HEAD || block == Blocks.PLAYER_WALL_HEAD ->
-                finish("interact", pos)
+                if (isSecret(here, relative(here, pos))) finish("interact", pos)
             block == Blocks.LEVER || block is ButtonBlock -> builder.interacts += relative(here, pos)
         }
     }
 
     fun onItem(pos: BlockPos) = finish("item", pos)
 
-    fun onBat(pos: BlockPos) = finish("bat", pos)
+    fun onBat(pos: BlockPos) {
+        val player = McCompat.player ?: return
+        // A bat killed in another room, by you or a teammate, isn't part of this route.
+        if (player.distanceToSqr(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5) > BAT_RANGE_SQ) return
+        finish("bat", pos)
+    }
 
     private fun relative(room: DungeonRoom, pos: BlockPos): IntArray {
         val rel = DungeonScanner.actualToRelative(room, pos)

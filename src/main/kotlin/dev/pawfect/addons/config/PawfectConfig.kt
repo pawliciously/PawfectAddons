@@ -17,6 +17,7 @@ import dev.pawfect.addons.config.features.ModulesConfig
 import dev.pawfect.addons.config.features.PlayerChamsConfig
 import dev.pawfect.addons.config.features.ScoreboardConfig
 import dev.pawfect.addons.config.features.SecretRoutesConfig
+import dev.pawfect.addons.config.features.DungeonHudConfig
 import dev.pawfect.addons.config.features.SecretWaypointsConfig
 import dev.pawfect.addons.config.features.MotionBlurConfig
 import dev.pawfect.addons.config.features.SkyboxConfig
@@ -55,6 +56,9 @@ class PawfectConfig {
 
     @Expose
     val secretRoutes: SecretRoutesConfig = SecretRoutesConfig()
+
+    @Expose
+    val dungeonHud: DungeonHudConfig = DungeonHudConfig()
 
     @Expose
     val handChams: HandChamsConfig = HandChamsConfig()

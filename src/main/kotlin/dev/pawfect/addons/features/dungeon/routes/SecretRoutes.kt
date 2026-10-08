@@ -42,6 +42,11 @@ object SecretRoutes {
 
         /** Set by going back a step, so it stays shown until something happens. */
         var hold = false
+
+        /** Items and essences seen in place, so one that's gone later was taken by someone. */
+        val seen: MutableSet<SecretRoomData.SecretEntry> = Collections.newSetFromMap(IdentityHashMap())
+
+        var nextRescan = 0L
     }
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.secretRoutes)
@@ -114,6 +119,11 @@ object SecretRoutes {
             return
         }
         val here = here(room) ?: return
+        val now = System.currentTimeMillis()
+        if (now >= state.nextRescan) {
+            state.nextRescan = now + RESCAN_MS
+            rescan(room, state)
+        }
 
         // Reaching a walking step's end.
         val step = state.route[state.index]
@@ -155,6 +165,45 @@ object SecretRoutes {
         if (barTotal > 0 && barFound >= barTotal && now - barAt < 1_500L && barAt - enteredAt > 2_000L) return "action bar says $barFound/$barTotal secrets"
         val all = state.route.indices.all { k -> state.route[k].walkOnly || stepDone(state, k) } && state.route.any { !it.walkOnly }
         return if (all) "every secret step done" else null
+    }
+
+    private const val RESCAN_MS = 3_000L
+
+    /** How close, squared, a secret has to be for its item or essence to be checked. */
+    private const val RESCAN_RANGE_SQ = 48.0 * 48.0
+
+    /**
+     * Looks over the room's items and essences that are still to collect. One that was there
+     * earlier and is gone now was taken, by you or a teammate, so the route moves past it.
+     * Chests and bats can't be told apart this way and are left to their own events.
+     */
+    private fun rescan(room: DungeonRoom, state: Progress) {
+        val level = McCompat.mc.level ?: return
+        val player = McCompat.player ?: return
+        var changed = false
+        state.route.forEach { step ->
+            val secret = step.ours ?: return@forEach
+            if (secret in state.collected) return@forEach
+            val pos = DungeonScanner.relativeToActual(room, secret.x, secret.y, secret.z)
+            if (player.distanceToSqr(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5) > RESCAN_RANGE_SQ) return@forEach
+            if (!level.isLoaded(pos)) return@forEach
+            val present = when (secret.category) {
+                "item" -> level.getEntitiesOfClass(
+                    net.minecraft.world.entity.item.ItemEntity::class.java,
+                    net.minecraft.world.phys.AABB(pos).inflate(2.0),
+                ).isNotEmpty()
+                "wither" -> level.getBlockState(pos).block.let {
+                    it == net.minecraft.world.level.block.Blocks.PLAYER_HEAD || it == net.minecraft.world.level.block.Blocks.PLAYER_WALL_HEAD
+                }
+                else -> return@forEach
+            }
+            if (present) state.seen += secret
+            else if (secret in state.seen) {
+                state.collected += secret
+                changed = true
+            }
+        }
+        if (changed && !state.hold) advance(state)
     }
 
     private fun secretDone(state: Progress, step: RouteData.Step): Boolean {

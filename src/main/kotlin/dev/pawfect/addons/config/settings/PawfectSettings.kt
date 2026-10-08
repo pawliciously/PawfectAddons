@@ -88,6 +88,7 @@ object PawfectSettings {
         val waypoints = config.dungeonWaypoints
         val secrets = config.secretWaypoints
         val routes = config.secretRoutes
+        val dungeonHud = config.dungeonHud
         val menu = config.menu
         val cosmetics = config.cosmetics
         val experiments = config.experiments
@@ -245,6 +246,13 @@ object PawfectSettings {
                         .showIf { visuals.batHighlighter },
                 ),
                 group(
+                    "Room Name",
+                    ToggleSetting("Room Name", "Show the name of the dungeon room you're in on screen.", dungeonHud::roomName),
+                    PositionSetting("Room Name Position", "Drag the room name to reposition it.", dungeonHud.roomNamePosition) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { dungeonHud.roomName },
+                ),
+                group(
                     "Secret Waypoints",
                     ToggleSetting("Secret Waypoints", "Show dungeon secret locations in the room you are in.", secrets::enabled),
                     ToggleSetting("Secret Names", "Draw the secret's name above it.", secrets::showNames)
@@ -263,7 +271,7 @@ object PawfectSettings {
                     ToggleSetting("Secret Routes", "Lead you through each room's secrets in order: where to walk, etherwarp, stonk, superboom and pearl, step by step. Uses route files in the routes folder.", routes::enabled),
                     DropdownSetting("Show", "How much of the route to draw ahead of you.", routes::shown, SecretRoutesConfig.Shown.entries.toList())
                         .showIf { routes.enabled },
-                    ToggleSetting("Path Line", "Draw a line along where to walk.", routes::pathLine)
+                    DropdownSetting("Route Style", "Draw the route as lines along where to walk, boxes on each spot, or both.", routes::style, SecretRoutesConfig.Style.entries.toList())
                         .showIf { routes.enabled },
                     ToggleSetting("Labels", "Name each marker, like Etherwarp or Stonk.", routes::labels)
                         .showIf { routes.enabled },
