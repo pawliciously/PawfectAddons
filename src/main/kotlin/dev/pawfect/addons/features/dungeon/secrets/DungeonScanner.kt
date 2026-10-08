@@ -34,7 +34,11 @@ object DungeonScanner {
         private set
 
     var status: String = "idle"
-        private set
+        private set(value) {
+            // Logged when it changes, so a log shows why rooms weren't picked up.
+            if (value != field && !value.startsWith("matched") && !value.startsWith("matching")) logger.info("Scanner: {}", value)
+            field = value
+        }
 
     fun reset() {
         absentTicks = 0
@@ -75,6 +79,7 @@ object DungeonScanner {
 
         if (!SkyBlockData.inDungeons) {
             absentTicks++
+            if (absentTicks == 1 && current != null) logger.info("Scanner: not in a dungeon by the scoreboard, waiting {} ticks", ABSENT_GRACE)
             if (absentTicks < ABSENT_GRACE) return
             if (current != null || rooms.isNotEmpty() || physicalEntrance != null) reset()
             status = "not in a dungeon"
