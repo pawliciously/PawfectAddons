@@ -10,4 +10,10 @@ public interface LoadingOverlayAccessor {
 
     @Accessor("reload")
     ReloadInstance pawfectaddons$reload();
+
+    @Accessor("currentProgress")
+    float pawfectaddons$currentProgress();
+
+    @Accessor("fadeOutStart")
+    long pawfectaddons$fadeOutStart();
 }

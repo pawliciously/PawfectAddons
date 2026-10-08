@@ -8,6 +8,9 @@ class MenuConfig {
     var enabled: Boolean = true
 
     @Expose
+    var pawLoadingScreen: Boolean = true
+
+    @Expose
     var styleButtons: Boolean = true
 
     @Expose

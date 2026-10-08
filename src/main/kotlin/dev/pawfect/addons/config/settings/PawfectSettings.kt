@@ -989,6 +989,7 @@ object PawfectSettings {
                 group(
                     "Core",
                     ToggleSetting("Custom Main Menu", "Replace the vanilla menu backdrop with an animated shader.", menu::enabled),
+                    ToggleSetting("Paw Loading Screen", "Replace the Mojang loading screen, on startup and when resource packs reload, with stars that join up into the PawfectAddons paw as the game loads.", menu::pawLoadingScreen),
                     ToggleSetting("Style Buttons", "Redraw every vanilla button and slider, overriding resource packs.", menu::styleButtons)
                         .showIf { menu.enabled },
                     ToggleSetting("Backdrop In World", "Also paint the backdrop on screens opened while playing.", menu::styleEverywhere)

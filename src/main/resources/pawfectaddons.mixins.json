@@ -43,6 +43,7 @@
     "LevelRendererMixin",
     "LivingEntityRendererMixin",
     "LoadingOverlayAccessor",
+    "LoadingOverlayMixin",
     "LoadingScreenMixin",
     "LogoRendererMixin",
     "RecipeBookMixin",
