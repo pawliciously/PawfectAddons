@@ -6,6 +6,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
@@ -39,7 +40,14 @@ object RouteData {
         val pearlAngles: List<FloatArray>,
         val secretType: String?,
         val secretAt: IntArray?,
+        /** The secret from our own room data this step collects, once the route is fitted to the room. */
+        val ours: SecretRoomData.SecretEntry? = null,
+        /** Added from our room data because the route skipped it. */
+        val extra: Boolean = false,
     ) {
+        /** A step with nothing to collect, done once you get there. */
+        val walkOnly: Boolean get() = secretType == null || secretType == "exit" || secretType == "exitroute" || secretType == "dummy"
+
         /** Where the step ends: its secret, or the last place it walks to. */
         val target: IntArray? get() = secretAt ?: locations.lastOrNull()
 
@@ -67,6 +75,8 @@ object RouteData {
         if (pearls) routes[Kind.PEARL]?.get(key)?.let { return it }
         return routes[Kind.STANDARD]?.get(key) ?: routes[Kind.PEARL]?.get(key).orEmpty()
     }
+
+    fun isRecorded(room: String): Boolean = routes[Kind.RECORDED]?.containsKey(room.lowercase()) == true
 
     fun roomCount(): Int = routes.values.flatMap { it.keys }.toSet().size
 

@@ -27,6 +27,7 @@ object SecretTracker {
     private val SECRET_ITEMS = listOf(
         "Decoy", "Defuse Kit", "Dungeon Chest Key", "Healing VIII", "Inflatable Jerry",
         "Spirit Leap", "Training Weights", "Trap", "Treasure Talisman", "Candycomb",
+        "Revive Stone", "Architect's First Draft",
     )
 
     private const val ITEM_RANGE_SQ = 25.0

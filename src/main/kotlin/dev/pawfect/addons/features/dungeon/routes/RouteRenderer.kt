@@ -16,6 +16,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
 import net.minecraft.world.phys.Vec3
 import org.joml.Vector3f
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -27,7 +28,9 @@ object RouteRenderer {
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.secretRoutes)
 
-    private class Label(val text: String, val at: Vec3)
+    private class Label(val text: Component, val at: Vec3) {
+        constructor(text: String, at: Vec3) : this(Component.literal(text), at)
+    }
 
     private val EDGES = arrayOf(
         intArrayOf(0, 1), intArrayOf(1, 2), intArrayOf(2, 3), intArrayOf(3, 0),
@@ -64,6 +67,11 @@ object RouteRenderer {
         val opacity = config.opacity.coerceIn(0.1f, 1f)
         val width = config.lineWidth.coerceIn(0.5f, 6f)
         val labels = ArrayList<Label>()
+        if (state.index == 0) {
+            startPoint(room, state.route)?.let { at ->
+                labels += Label(Component.literal("START").withStyle { it.withColor(config.pathColor).withBold(true) }, at.add(0.0, 1.0, 0.0))
+            }
+        }
 
         poseStack.pushPose()
         poseStack.translate(-eye.x, -eye.y, -eye.z)
@@ -86,11 +94,9 @@ object RouteRenderer {
                     box(pose, consumer, pos, color(config.etherwarpColor), width)
                     if (current) labels += Label("Etherwarp", top(pos))
                 }
-                step.mines.forEachIndexed { k, p ->
-                    val pos = block(room, p)
-                    box(pose, consumer, pos, color(config.stonkColor), width)
-                    if (current && k == 0) labels += Label("Stonk", top(pos))
-                }
+                step.mines.forEach { p -> box(pose, consumer, block(room, p), color(config.stonkColor), width) }
+                // One label for each run of blocks mined together.
+                if (current) clusters(step.mines).forEach { first -> labels += Label("Stonk", top(block(room, first))) }
                 step.tnts.forEach { p ->
                     val pos = block(room, p)
                     box(pose, consumer, pos, color(config.superboomColor), width)
@@ -116,20 +122,34 @@ object RouteRenderer {
                 if (secret != null && step.secretType != "dummy") {
                     val pos = block(room, secret)
                     box(pose, consumer, pos, color(config.secretColor), width + 0.5f)
-                    labels += Label("$stepNumber. ${describe(step.secretType)}", top(pos))
+                    val name = "$stepNumber. ${describe(step)}"
+                    labels += Label(if (step.extra) "$name (not in route)" else name, top(pos))
                     if (config.pathLine) {
-                        val end = step.locations.lastOrNull()?.let { centre(room, it) }
-                        if (end != null) line(pose, consumer, end, Vec3(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5), color(config.pathColor), width)
+                        // From the step's last point, or for a step with none, from where the one before ended.
+                        val end = step.locations.lastOrNull()?.let { centre(room, it) } ?: previousEnd
+                        val middle = Vec3(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
+                        if (end != null) line(pose, consumer, end, middle, color(config.pathColor), width)
+                        if (step.locations.isEmpty()) previousEnd = middle
                     }
                 }
             }
         }
         if (config.labels) {
             labels.forEach { label ->
-                collector.submitNameTag(poseStack, label.at, 0, Component.literal(label.text), config.throughWalls, 0xF000F0, camera)
+                collector.submitNameTag(poseStack, label.at, 0, label.text, config.throughWalls, 0xF000F0, camera)
             }
         }
         poseStack.popPose()
+    }
+
+    private fun describe(step: RouteData.Step): String = when (step.ours?.category) {
+        "chest" -> "Chest"
+        "wither" -> "Essence"
+        "lever" -> "Lever"
+        "redstone_key" -> "Redstone Key"
+        "item" -> "Item"
+        "bat" -> "Bat"
+        else -> describe(step.secretType)
     }
 
     private fun describe(type: String?): String = when (type) {
@@ -139,6 +159,28 @@ object RouteRenderer {
         "exit", "exitroute" -> "Exit"
         null -> "Go here"
         else -> type.replaceFirstChar { it.uppercase() }
+    }
+
+    /** Where the route begins: its first walking point, or failing that its first spot of any kind. */
+    private fun startPoint(room: DungeonRoom, route: List<RouteData.Step>): Vec3? {
+        val first = route.firstOrNull() ?: return null
+        first.locations.firstOrNull()?.let { return centre(room, it) }
+        val p = first.start ?: return null
+        val pos = block(room, p)
+        return Vec3(pos.x + 0.5, pos.y + 1.0, pos.z + 0.5)
+    }
+
+    /** The first block of each group of mined blocks that touch each other. */
+    private fun clusters(mines: List<IntArray>): List<IntArray> {
+        val firsts = ArrayList<IntArray>()
+        var previous: IntArray? = null
+        for (p in mines) {
+            val last = previous
+            val touching = last != null && abs(p[0] - last[0]) <= 1 && abs(p[1] - last[1]) <= 1 && abs(p[2] - last[2]) <= 1
+            if (!touching) firsts += p
+            previous = p
+        }
+        return firsts
     }
 
     private fun block(room: DungeonRoom, p: IntArray): BlockPos = DungeonScanner.relativeToActual(room, p[0], p[1], p[2])

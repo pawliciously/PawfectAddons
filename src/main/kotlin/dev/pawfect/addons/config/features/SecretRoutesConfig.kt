@@ -31,6 +31,9 @@ class SecretRoutesConfig {
     var usePearlRoutes: Boolean = false
 
     @Expose
+    var fillMissing: Boolean = true
+
+    @Expose
     var lineWidth: Float = 2f
 
     @Expose

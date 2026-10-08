@@ -18,22 +18,43 @@ import kotlin.math.abs
 /**
  * Follows a route through each room. A step is done when you collect its secret (an item you
  * pick up, a chest, essence or lever you click, a bat that dies near it) or, for a step that
- * only walks somewhere, when you get there. Collecting a later step's secret first jumps ahead
- * to it. Secrets our tracker has already marked as claimed count too.
+ * only walks somewhere, when you get there or collect something after it.
+ *
+ * Collecting secrets out of order never skips the ones you haven't got: the route waits on
+ * the first secret still left, so every secret in the room gets done.
  */
 object SecretRoutes {
 
     class Progress(val route: List<RouteData.Step>) {
+        /** The step being shown. */
         var index = 0
         val done: Boolean get() = index >= route.size
+
+        /** Our secrets collected in this room. */
+        val collected: MutableSet<SecretRoomData.SecretEntry> = Collections.newSetFromMap(IdentityHashMap())
+
+        /** Steps done some other way: reached, skipped by hand, or collected near the route's own spot. */
+        val passed = HashSet<Int>()
+
+        /** Set by going back a step, so it stays shown until something happens. */
+        var hold = false
     }
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.secretRoutes)
+
+    private val logger = LoggerFactory.getLogger("PawfectAddons/Routes")
 
     /** Each room of this run, to how far along its route you are. */
     private val progress: MutableMap<DungeonRoom, Progress> = Collections.synchronizedMap(IdentityHashMap())
 
     private var loaded = false
+
+    private var fetched = false
+
+    /** Our own ranges for telling which secret an event was, matching the secret tracker's. */
+    private const val ITEM_RANGE_SQ = 25
+    private const val BAT_RANGE_SQ = 144
+    private const val INTERACT_RANGE_SQ = 2
 
     fun active(): Boolean = config.enabled && SkyBlockData.inDungeons
 
@@ -53,7 +74,8 @@ object SecretRoutes {
         val name = room.name ?: return null
         val existing = progress[room]
         if (existing != null) return room to existing
-        val routes = RouteData.routesFor(name, config.usePearlRoutes)
+        val fill = config.fillMissing && !RouteData.isRecorded(name)
+        val routes = RouteData.routesFor(name, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill) }
         if (routes.isEmpty()) return null
         val here = here(room) ?: return null
         // With more than one route for the room, the one starting nearest to you.
@@ -76,31 +98,39 @@ object SecretRoutes {
         if (state.done) return
         val here = here(room) ?: return
 
-        // Secrets our own tracker has already marked as claimed.
-        val name = room.name ?: return
-        val claimedAt = SecretRoomData.secretsFor(name)
-            .filter { SecretTracker.isClaimed(it) }
-            .map { intArrayOf(it.x, it.y, it.z) }
-        for (k in state.index until state.route.size) {
-            val at = state.route[k].secretAt ?: continue
-            if (claimedAt.any { it.contentEquals(at) }) state.index = k + 1
-        }
-        if (state.done) return
-
-        // A step with nothing to collect is done once you reach it.
+        // Reaching a walking step's end.
         val step = state.route[state.index]
-        val type = step.secretType
-        if (type == null || type == "exit" || type == "exitroute" || type == "dummy") {
-            val target = step.target ?: run { state.index++; return }
-            if (reached(here, target)) state.index++
+        if (step.walkOnly) {
+            val target = step.target
+            if (target == null || reached(here, target)) {
+                state.passed += state.index
+                state.hold = false
+            }
+        }
+        if (!state.hold) advance(state)
+    }
+
+    private fun secretDone(state: Progress, step: RouteData.Step): Boolean {
+        val ours = step.ours ?: return false
+        return ours in state.collected || SecretTracker.isClaimed(ours)
+    }
+
+    private fun stepDone(state: Progress, k: Int): Boolean {
+        if (k in state.passed) return true
+        val step = state.route[k]
+        if (!step.walkOnly) return secretDone(state, step)
+        // A walk is behind you once anything after it is collected.
+        return (k + 1 until state.route.size).any { later ->
+            val next = state.route[later]
+            !next.walkOnly && (later in state.passed || secretDone(state, next))
         }
     }
 
-    private val logger = LoggerFactory.getLogger("PawfectAddons/Routes")
+    /** Moves past every step that's done, stopping at the first one that isn't. */
+    private fun advance(state: Progress) {
+        while (!state.done && stepDone(state, state.index)) state.index++
+    }
 
-    private var fetched = false
-
-    /** With routes on and none in the folder, gets the community routes once, so there's something to follow. */
     private fun fetchIfEmpty() {
         if (fetched || !config.enabled || RouteData.roomCount() > 0) return
         if (McCompat.player == null) return
@@ -131,21 +161,36 @@ object SecretRoutes {
         return dx * dx + dy * dy + dz * dz
     }
 
-    /** Moves past the first step from here on whose secret is [type] within [range] of [pos]. */
-    private fun collected(pos: BlockPos, types: Set<String>, range: Double) {
+    /**
+     * Something of [type] was collected at [pos]. It counts as our nearest secret of that kind
+     * when there is one in range; otherwise as the route's own step whose spot is near it.
+     */
+    private fun collected(pos: BlockPos, type: String, ourRangeSq: Int, routeRange: Double) {
         val (room, state) = current() ?: return
-        if (state.done) return
+        val name = room.name ?: return
         val rel = DungeonScanner.actualToRelative(room, pos)
         val at = intArrayOf(rel.x, rel.y, rel.z)
-        for (k in state.index until state.route.size) {
-            val step = state.route[k]
-            val secret = step.secretAt ?: continue
-            if (step.secretType !in types) continue
-            if (distanceSq(secret, at) <= range * range) {
-                state.index = k + 1
-                return
-            }
+        val categories = RouteFit.CATEGORIES.getValue(type)
+
+        val ours = SecretRoomData.secretsFor(name)
+            .filter { it.category in categories }
+            .map { it to distanceSq(intArrayOf(it.x, it.y, it.z), at) }
+            .filter { it.second <= ourRangeSq }
+            .minByOrNull { it.second }
+            ?.first
+        if (ours != null && state.route.any { it.ours === ours }) {
+            state.collected += ours
+        } else {
+            // A step not tied to any of our secrets: the first one from here whose spot is close.
+            val k = (state.index until state.route.size).firstOrNull { k ->
+                val step = state.route[k]
+                step.ours == null && step.secretType == type && k !in state.passed &&
+                    step.secretAt?.let { distanceSq(it, at) <= routeRange * routeRange } == true
+            } ?: return
+            state.passed += k
         }
+        state.hold = false
+        advance(state)
     }
 
     // ------------------------------------------------------------------ events, from the secret tracker
@@ -162,7 +207,7 @@ object SecretRoutes {
         lastInteractAt = now
         runCatching {
             RouteRecorder.onInteract(pos)
-            if (active()) collected(pos, setOf("interact"), 1.75)
+            if (active()) collected(pos, "interact", INTERACT_RANGE_SQ, 1.75)
         }
     }
 
@@ -170,7 +215,7 @@ object SecretRoutes {
     fun onItemPicked(pos: BlockPos) {
         runCatching {
             RouteRecorder.onItem(pos)
-            if (active()) collected(pos, setOf("item"), 4.0)
+            if (active()) collected(pos, "item", ITEM_RANGE_SQ, 4.0)
         }
     }
 
@@ -178,7 +223,7 @@ object SecretRoutes {
     fun onBatDeath(pos: BlockPos) {
         runCatching {
             RouteRecorder.onBat(pos)
-            if (active()) collected(pos, setOf("bat"), 12.0)
+            if (active()) collected(pos, "bat", BAT_RANGE_SQ, 12.0)
         }
     }
 
@@ -187,13 +232,17 @@ object SecretRoutes {
     fun next(): String {
         val (_, state) = current() ?: return "No route for this room."
         if (state.done) return "This room's route is done."
-        state.index++
-        return "Step ${state.index + 1} of ${state.route.size}."
+        state.passed += state.index
+        state.hold = false
+        advance(state)
+        return if (state.done) "Route done." else "Step ${state.index + 1} of ${state.route.size}."
     }
 
     fun back(): String {
         val (_, state) = current() ?: return "No route for this room."
         state.index = (state.index - 1).coerceAtLeast(0)
+        state.passed -= state.index
+        state.hold = true
         return "Step ${state.index + 1} of ${state.route.size}."
     }
 
@@ -206,7 +255,9 @@ object SecretRoutes {
     fun status(): String {
         val room = DungeonScanner.matchedRoom()
         val state = room?.let { progress[it] }
+        val extra = state?.route?.count { it.extra } ?: 0
         return "Routes: ${RouteData.report}. Room: ${room?.name ?: "unknown"}" +
-            (state?.let { ", step ${(it.index + 1).coerceAtMost(it.route.size)} of ${it.route.size}" } ?: "")
+            (state?.let { ", step ${(it.index + 1).coerceAtMost(it.route.size)} of ${it.route.size}" } ?: "") +
+            (if (extra > 0) ", $extra added from our room data" else "")
     }
 }
