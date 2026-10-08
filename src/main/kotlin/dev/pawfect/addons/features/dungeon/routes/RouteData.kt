@@ -53,7 +53,7 @@ object RouteData {
         ) = Step(locations, etherwarps, mines, interacts, tnts, pearls, pearlAngles, secretType, secretAt, ours, extra)
 
         /** A step with nothing to collect, done once you get there. */
-        val walkOnly: Boolean get() = secretType == null || secretType == "exit" || secretType == "exitroute" || secretType == "dummy"
+        val walkOnly: Boolean get() = secretType == null || secretType == "exit" || secretType == "exitroute" || secretType == "dummy" || secretType == "plate"
 
         /** Where the step ends: its secret, or the last place it walks to. */
         val target: IntArray? get() = secretAt ?: locations.lastOrNull()

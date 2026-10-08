@@ -108,9 +108,11 @@ object RouteFit {
                 return@forEach
             }
             pending.forEach { lever ->
+                // A pressure plate is stood on, not clicked: done once you get there.
+                val plate = lever.secretName.contains("plate", ignoreCase = true)
                 out += RouteData.Step(
                     emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(),
-                    "lever", intArrayOf(lever.x, lever.y, lever.z), lever, step.extra,
+                    if (plate) "plate" else "lever", intArrayOf(lever.x, lever.y, lever.z), lever, step.extra,
                 )
             }
             val stonks = related("stonk")

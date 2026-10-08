@@ -75,7 +75,11 @@ object RouteRenderer {
         poseStack.pushPose()
         poseStack.translate(-eye.x, -eye.y, -eye.z)
         collector.submitCustomGeometry(poseStack, WaypointRenderTypes.forMode(config.throughWalls)) { pose, consumer ->
-            var previousEnd: Vec3? = null
+            // Lines carry on from where the step before the first one shown ended.
+            var previousEnd: Vec3? = state.route.getOrNull(state.index - 1)?.let { before ->
+                before.locations.lastOrNull()?.let { centre(room, it) }
+                    ?: before.secretAt?.let { block(room, it) }?.let { Vec3(it.x + 0.5, it.y + 0.5, it.z + 0.5) }
+            }
             // The block you start on.
             if (start != null) {
                 val at = BlockPos.containing(start.x, start.y - 0.5, start.z)
@@ -125,7 +129,7 @@ object RouteRenderer {
                 val secret = step.secretAt
                 if (secret != null && step.secretType != "dummy") {
                     val pos = block(room, secret)
-                    val secretColor = if (step.secretType == "lever") config.interactColor else config.secretColor
+                    val secretColor = if (step.secretType == "lever" || step.secretType == "plate") config.interactColor else config.secretColor
                     box(pose, consumer, pos, color(secretColor), width + 0.5f)
                     val name = "$stepNumber. ${describe(step)}"
                     labels += Label(if (step.extra) "$name (not in route)" else name, top(pos))
@@ -147,7 +151,7 @@ object RouteRenderer {
         poseStack.popPose()
     }
 
-    private fun describe(step: RouteData.Step): String = when (step.ours?.category) {
+    private fun describe(step: RouteData.Step): String = if (step.secretType == "plate") "Pressure Plate" else when (step.ours?.category) {
         "chest" -> "Chest"
         "wither" -> "Essence"
         "lever" -> "Lever"

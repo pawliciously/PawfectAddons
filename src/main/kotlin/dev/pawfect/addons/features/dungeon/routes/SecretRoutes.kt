@@ -84,6 +84,10 @@ object SecretRoutes {
         val here = here(room) ?: return null
         // With more than one route for the room, the one starting nearest to you.
         val route = routes.minBy { route -> route.firstNotNullOfOrNull { it.start }?.let { distanceSq(it, here) } ?: Double.MAX_VALUE }
+        logger.info(
+            "Route for {}: {} steps, {} added from our room data, {} levers",
+            name, route.size, route.count { it.extra }, route.count { it.secretType == "lever" || it.secretType == "plate" },
+        )
         return room to Progress(route).also { progress[room] = it }
     }
 
@@ -104,8 +108,9 @@ object SecretRoutes {
             enteredAt = System.currentTimeMillis()
         }
         if (state.done) return
-        if (roomComplete(room, state)) {
+        roomComplete(room, state)?.let { why ->
             state.complete = true
+            logger.info("Route for {} finished: {}", room.name, why)
             return
         }
         val here = here(room) ?: return
@@ -143,13 +148,13 @@ object SecretRoutes {
      * Every secret here is collected: the room's checkmark is green, the action bar says all
      * of them are found, or every step that collects something is done.
      */
-    private fun roomComplete(room: DungeonRoom, state: Progress): Boolean {
-        if (room.greenChecked) return true
+    private fun roomComplete(room: DungeonRoom, state: Progress): String? {
+        if (room.greenChecked) return "green checkmark"
         val now = System.currentTimeMillis()
         // The action bar lags a moment behind walking into a room, so it only counts once you've been here a bit.
-        if (barTotal > 0 && barFound >= barTotal && now - barAt < 1_500L && barAt - enteredAt > 2_000L) return true
-        return state.route.indices.all { k -> state.route[k].walkOnly || stepDone(state, k) } &&
-            state.route.any { !it.walkOnly }
+        if (barTotal > 0 && barFound >= barTotal && now - barAt < 1_500L && barAt - enteredAt > 2_000L) return "action bar says $barFound/$barTotal secrets"
+        val all = state.route.indices.all { k -> state.route[k].walkOnly || stepDone(state, k) } && state.route.any { !it.walkOnly }
+        return if (all) "every secret step done" else null
     }
 
     private fun secretDone(state: Progress, step: RouteData.Step): Boolean {
