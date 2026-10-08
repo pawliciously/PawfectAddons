@@ -40,9 +40,6 @@ class ThemeConfig {
     var opacity: Float = 1f
 
     @Expose
-    var textOffset: Float = 0f
-
-    @Expose
     var font: UiFontChoice = UiFontChoice.INTER
 
     @Expose

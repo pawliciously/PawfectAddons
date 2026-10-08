@@ -152,15 +152,15 @@ object Draw {
         bold: Boolean = false,
     ) {
         pose().pushMatrix()
-        pose().translate(x, y + Theme.textOffset)
-        text(McCompat.font, UiFont.component(text, bold), 0, 0, color, shadow || Theme.fontShadow)
+        pose().translate(x, y)
+        text(McCompat.font, UiFont.component(text, bold), 0, 0, color, shadow || textShadow(text))
         pose().popMatrix()
     }
 
     fun GuiGraphicsExtractor.icon(glyph: String, x: Float, y: Float, color: Int) {
         pose().pushMatrix()
-        pose().translate(x, y + Theme.textOffset)
-        text(McCompat.font, UiFont.iconComponent(glyph), 0, 0, color, Theme.fontShadow)
+        pose().translate(x, y)
+        text(McCompat.font, UiFont.iconComponent(glyph), 0, 0, color, false)
         pose().popMatrix()
     }
 
@@ -177,7 +177,7 @@ object Draw {
         pose().translate(centerX, centerY)
         pose().scale(scale, scale)
         pose().translate(-inkX, -inkY)
-        text(McCompat.font, UiFont.largeIconComponent(glyph), 0, 0, color, Theme.fontShadow)
+        text(McCompat.font, UiFont.largeIconComponent(glyph), 0, 0, color, false)
         pose().popMatrix()
     }
 
@@ -197,9 +197,9 @@ object Draw {
         shadow: Boolean = false,
     ) {
         pose().pushMatrix()
-        pose().translate(x, y + Theme.textOffset)
+        pose().translate(x, y)
         if (scale != 1f) pose().scale(scale, scale)
-        text(McCompat.font, UiFont.component(text), 0, 0, color, shadow || Theme.fontShadow)
+        text(McCompat.font, UiFont.component(text), 0, 0, color, shadow || textShadow(text))
         pose().popMatrix()
     }
 
@@ -218,6 +218,10 @@ object Draw {
     const val BRAND_HEIGHT = 27f
 
     const val LINE_HEIGHT = 9f
+
+    /** The theme's font shadow, left off for icon glyphs so they don't look doubled. */
+    private fun textShadow(text: String): Boolean =
+        Theme.fontShadow && text.none { it in ''..'' }
 
     fun inside(mouseX: Float, mouseY: Float, x: Float, y: Float, width: Float, height: Float): Boolean =
         mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height

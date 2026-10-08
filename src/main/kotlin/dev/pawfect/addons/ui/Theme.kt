@@ -57,8 +57,6 @@ object Theme {
 
     val opacity: Float get() = config.opacity.coerceIn(0.1f, 1f)
 
-    val textOffset: Float get() = config.textOffset.coerceIn(-4f, 4f)
-
     val fontShadow: Boolean get() = runCatching { config.fontShadow }.getOrDefault(false)
 
     val fontChoice get() = config.font

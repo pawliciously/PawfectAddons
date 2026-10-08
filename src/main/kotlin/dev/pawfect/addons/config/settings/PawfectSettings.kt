@@ -548,7 +548,7 @@ object PawfectSettings {
                         .showIf { cosmetics.enabled },
                     DropdownSetting("Trails", "Whose motion trails to render.", cosmetics::trails, Visibility.entries.toList())
                         .showIf { cosmetics.enabled },
-                    DropdownSetting("Ambient Motes", "Whose drifting motes to render.", cosmetics::motes, Visibility.entries.toList())
+                    DropdownSetting("Motes", "Whose drifting motes to render.", cosmetics::motes, Visibility.entries.toList())
                         .showIf { cosmetics.enabled },
                     DropdownSetting("Badges", "Whose status badges to show beside their name.", cosmetics::badges, Visibility.entries.toList())
                         .showIf { cosmetics.enabled },
@@ -941,21 +941,6 @@ object PawfectSettings {
                         .showIf { menu.enabled && menu.styleButtons },
                 ),
                 group(
-                    "SkyBlock Hub",
-                    ToggleSetting("Hub Background", "Show a SkyBlock area in 3D behind the main menu, flying in from the sky. Stand where the camera should end and run /pa menu here; set spots in several areas and each launch picks one.", menu::hubScene),
-                    ToggleSetting("Capture While Playing", "Keep each scene up to date by saving the blocks around its spot whenever you're in that area. Nothing is sent anywhere.", menu::hubCapture)
-                        .showIf { menu.hubScene },
-                    ToggleSetting("Cosmetics Showcase", "A player walks through the hub scene wearing their PawfectAddons cosmetics.", menu::showcase)
-                        .showIf { menu.hubScene },
-                ),
-                group(
-                    "Branding",
-                    ToggleSetting("Hide Splash", "Remove the yellow splash text.", menu::hideSplash)
-                        .showIf { menu.enabled },
-                    ToggleSetting("Show Branding", "Replace the Minecraft logo with an animated PawfectAddons title.", menu::showBranding)
-                        .showIf { menu.enabled },
-                ),
-                group(
                     "Colours",
                     ToggleSetting("Custom Colours", "Use your own palette instead of the theme.", menu::customColors)
                         .showIf { menu.enabled },
@@ -1004,7 +989,6 @@ object PawfectSettings {
                     FloatSliderSetting("Transparency", "Opacity of the whole menu.", theme::opacity, 0.1f, 1f, 0.05f),
                     DropdownSetting("Font", "Typeface used across the mod.", theme::font, UiFontChoice.entries.toList()),
                     ToggleSetting("Font Shadow", "Draw a drop shadow behind all text.", theme::fontShadow),
-                    FloatSliderSetting("Text Offset", "Nudge text up or down if the font sits off centre.", theme::textOffset, -4f, 4f, 0.5f),
                     ToggleSetting("Animations", "Animate hovers, toggles and scrolling.", theme::animations),
                     ToggleSetting("Click Sounds", "Play a click when you change a setting.", theme::clickSounds),
                 ),
@@ -1088,11 +1072,21 @@ object PawfectSettings {
     )
 
     private val SECTIONS = listOf(
-        Triple("skyblock", "SkyBlock", listOf("dungeon", "slayers", "experiments", "recipetracker")),
-        Triple("interface", "Interface", listOf("chat", "scoreboard", "inventory", "media", "theme")),
-        Triple("effects", "Effects", listOf("visuals", "chams", "skybox", "hitsounds")),
+        Triple("skyblock", "SkyBlock", listOf("dungeon", "slayers")),
+        Triple("interface", "Interface", listOf("chat", "scoreboard", "inventory", "theme")),
+        Triple("effects", "Effects", listOf("visuals", "chams", "skybox")),
         Triple("social", "Social", listOf("cosmetics", "discord")),
+        Triple("misc", "Misc", listOf("experiments", "media", "hitsounds", "recipetracker")),
         Triple("dev", "Dev", listOf("dev")),
+    )
+
+    private val SECTION_ICONS = mapOf(
+        "skyblock" to Icons.SWORD,
+        "interface" to Icons.SLIDERS,
+        "effects" to Icons.EYE,
+        "social" to Icons.USER,
+        "misc" to Icons.PACKAGE,
+        "dev" to Icons.GEAR,
     )
 
     private val MERGES = mapOf(
@@ -1119,7 +1113,7 @@ object PawfectSettings {
         val placed = HashSet<String>()
         val sections = SECTIONS.map { (id, title, ids) ->
             val categories = ids.mapNotNull { built[it] }.onEach { placed += it.id }
-            section(id, title, Icons.GEAR, *categories.toTypedArray())
+            section(id, title, SECTION_ICONS[id] ?: Icons.GEAR, *categories.toTypedArray())
         }
         val rest = built.values.filter { it.id !in placed }
         return if (rest.isEmpty()) sections else sections + section("other", "Other", Icons.GEAR, *rest.toTypedArray())

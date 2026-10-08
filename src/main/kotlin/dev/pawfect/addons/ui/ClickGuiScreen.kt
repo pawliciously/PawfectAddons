@@ -28,30 +28,35 @@ import net.minecraft.resources.Identifier
 import net.minecraft.util.Util
 import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.math.sin
 
 /**
- * The click GUI: one panel per category that you can drag anywhere, with its modules listed
- * underneath. A module lights up in the accent when it's on; left click switches it, right click
- * (or its arrow) opens its settings in place. Typing anywhere searches, from the bar along the
- * bottom. Panel positions are saved.
+ * The click GUI, laid out like NoammAddons: a panel per section that you can drag anywhere, with
+ * its modules listed underneath. Clicking a module opens its config in a window beside the
+ * panel, so the list never moves. A module lights up in the accent while any of its switches are
+ * on. Typing anywhere searches, from the bar along the bottom, and the search reaches into every
+ * config: matching settings are listed under their module and open straight to themselves.
  */
 class ClickGuiScreen(
     sections: List<SettingSection>,
     private val initialTab: String? = null,
 ) : Screen(Component.literal("PawfectAddons")) {
 
-    private class Module(val category: SettingCategory, val group: SettingGroup, val switch: ToggleSetting?) {
-        val key = "${category.id}/${group.title}"
-        val settings: List<Setting<*>> = group.settings.filter { it !== switch }
+    private class Module(val category: SettingCategory, val switches: List<ToggleSetting>) {
+        val key get() = category.id
     }
 
-    private inner class Panel(val category: SettingCategory, val modules: List<Module>) {
-        val id get() = category.id
+    /** A search result inside a module: a group, or one setting in it. */
+    private class Hit(val module: Module, val group: SettingGroup, val setting: Setting<*>?) {
+        val label: String get() = if (setting == null) group.title else "${group.title} / ${setting.name}"
+    }
+
+    private inner class Panel(val section: SettingSection, val modules: List<Module>) {
+        val id get() = section.id
         var x = 0f
         var y = 0f
-        var scroll = 0f
         var bodyHeight = 0f
-        var contentHeight = 0f
+
         val collapsed: Boolean get() = theme.clickPanels[id]?.collapsed == true
 
         /** The saved entry, made from where the panel is now when it was never saved. */
@@ -59,55 +64,70 @@ class ClickGuiScreen(
             ThemeConfig.ClickPanel().also { it.x = x; it.y = y }
         }
 
-        val width: Float get() = if (openModule?.let { open -> modules.any { it.key == open && it.wide() } } == true) WIDE_WIDTH else PANEL_WIDTH
+        val width: Float get() = PANEL_WIDTH
 
         val height: Float get() = if (collapsed) HEADER else HEADER + bodyHeight + BODY_PAD * 2f
     }
 
+    /** One line of a config window, placed from the top of its content. */
+    private sealed class Line(val top: Float, val height: Float) {
+        class Band(val label: String, top: Float) : Line(top, BAND)
+        class Label(val group: SettingGroup, top: Float) : Line(top, GROUP_LABEL)
+        class Row(val group: SettingGroup, val widget: Widget, top: Float) : Line(top, widget.height)
+    }
+
+    private inner class Config(val module: Module, val panel: Panel) {
+        var x = 0f
+        var y = 0f
+        var scroll = 0f
+        var contentHeight = 0f
+        var bodyHeight = 0f
+        var lines: List<Line> = emptyList()
+        var placed = false
+        val anim = Anim(160L, 0f)
+
+        val width: Float get() = if (wide) WIDE_CONFIG else CONFIG_WIDTH
+        val height: Float get() = HEADER + bodyHeight + CONFIG_PAD * 2f
+        val wide: Boolean by lazy { rowsOf(module).any { it.second is PacketLogWidget || it.second is WaypointListWidget } }
+    }
+
     private val theme get() = ConfigManager.features.theme
-    private val categories = sections.flatMap { it.categories }
-    private val panels: List<Panel> = categories.map { category ->
-        Panel(category, category.groups.map { group -> Module(category, group, switchOf(group)) })
+
+    private val panels: List<Panel> = sections.filter { it.categories.isNotEmpty() }.map { section ->
+        Panel(section, section.categories.map { category -> Module(category, category.groups.mapNotNull { switchOf(it) }) })
     }
     private val byId = panels.associateBy { it.id }
+    private val modules = panels.flatMap { it.modules }
 
     private val widgets = HashMap<String, Widget>()
     private val hover = HashMap<String, Anim>()
     private val openAnim = Anim(220L, 0f)
 
-    private var openModule: String? = remembered
     private var query = rememberedQuery
+    private var config: Config? = null
 
     private var focused: Widget? = null
     private var dragged: Widget? = null
 
     private var pressedPanel: Panel? = null
     private var draggingPanel = false
+    private var draggingConfig = false
     private var pressX = 0f
     private var pressY = 0f
     private var grabX = 0f
     private var grabY = 0f
 
-    private var draggingBar: Panel? = null
+    private var draggingBar = false
     private var barGrab = 0f
+
+    private var flashKey: String? = null
+    private var flashUntil = 0L
 
     private var linkTip = -1
     private var lastLinkTip = -1
     private val linkTipAnim = Anim(120L)
 
     private var placed = false
-
-    init {
-        initialTab?.let { wanted -> byId[wanted]?.let { bringToFront(it) } }
-    }
-
-    /** Lays the panels out on the first frame, once the scale for this screen is known. */
-    private fun placeOnce() {
-        if (placed) return
-        placed = true
-        placeDefaults()
-        initialTab?.let { wanted -> byId[wanted]?.let { panel -> if (panel.collapsed) panel.saved().collapsed = false } }
-    }
 
     override fun isPauseScreen(): Boolean = false
 
@@ -117,7 +137,7 @@ class ClickGuiScreen(
     }
 
     override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
-        UiScale.minWidth = COLUMNS * PANEL_WIDTH + (COLUMNS - 1) * GAP + MARGIN * 2f
+        UiScale.minWidth = MIN_WIDTH
         UiScale.minHeight = 300f
         UiScale.push(graphics)
         val mx = UiScale.mouseX(mouseX.toDouble())
@@ -125,8 +145,7 @@ class ClickGuiScreen(
         try {
             placeOnce()
             if (pressedPanel == null) panels.forEach { clamp(it) }
-            dragPanel(mx, my)
-            draggingBar?.let { scrollFromBar(it, my) }
+            dragHeld(mx, my)
             dragged?.mouseDragged(mx, my)
 
             // Panels drop in from just above their spot as the menu opens.
@@ -134,13 +153,17 @@ class ClickGuiScreen(
             graphics.pose().pushMatrix()
             graphics.pose().translate(0f, (1f - open) * -8f)
 
-            val top = topmostAt(mx, my)
+            val window = config
+            window?.let { layoutConfig(it) }
+            val overWindow = window != null && Draw.inside(mx, my, window.x, window.y, window.width, window.height)
+            val top = if (overWindow) null else topmostAt(mx, my)
             ordered().forEach { panel ->
                 // Only the panel on top reacts to the mouse.
-                val px = if (panel === top) mx else -1000f
-                val py = if (panel === top) my else -1000f
+                val px = if (panel === top) mx else OFF
+                val py = if (panel === top) my else OFF
                 drawPanel(graphics, panel, px, py)
             }
+            window?.let { drawConfig(graphics, it, if (overWindow) mx else OFF, if (overWindow) my else OFF) }
             graphics.pose().popMatrix()
 
             drawSearch(graphics, mx, my)
@@ -151,12 +174,27 @@ class ClickGuiScreen(
         }
     }
 
-    // ------------------------------------------------------------------ modules
+    /** Lays the panels out on the first frame, once the scale for this screen is known. */
+    private fun placeOnce() {
+        if (placed) return
+        placed = true
+        placeDefaults()
+        val wanted = initialTab ?: rememberedModule
+        val module = modules.firstOrNull { it.key == wanted }
+        val panel = module?.let { m -> panels.first { m in it.modules } } ?: initialTab?.let { byId[it] }
+        if (panel != null) {
+            if (panel.collapsed) panel.saved().collapsed = false
+            bringToFront(panel)
+        }
+        if (module != null && panel != null) openConfig(module, panel, null, quiet = true)
+        rememberedModule = null
+    }
+
+    // ------------------------------------------------------------------ modules and search
 
     /**
-     * The switch a module is named after: an "Enabled" toggle, or a first toggle that shares a
-     * word with the group's title, like Packet Overlay in Overlay. Groups without one are
-     * settings only.
+     * The switch a group is named after: an "Enabled" toggle, or a first toggle that shares a
+     * word with the group's title, like Packet Overlay in Overlay.
      */
     private fun switchOf(group: SettingGroup): ToggleSetting? {
         val toggles = group.settings.filterIsInstance<ToggleSetting>()
@@ -169,32 +207,37 @@ class ClickGuiScreen(
     private fun stems(text: String): Set<String> =
         text.lowercase().split(' ', '-', '/').filter { it.length >= 3 }.map { it.removeSuffix("s") }.toSet()
 
-    private fun Module.wide(): Boolean = widgetsOf(this).any { it is PacketLogWidget || it is WaypointListWidget }
+    private fun needle(): String = query.trim().lowercase()
 
-    private fun widgetsOf(module: Module): List<Widget> = module.settings.mapNotNull { setting ->
-        val key = "${module.key}/${setting.name}"
-        widgets[key] ?: ClickWidgets.create(setting)?.also { widgets[key] = it }
+    private fun searching(): Boolean = needle().isNotEmpty()
+
+    private fun hitsIn(module: Module): List<Hit> {
+        val needle = needle()
+        if (needle.isEmpty()) return emptyList()
+        val hits = ArrayList<Hit>()
+        module.category.groups.forEach { group ->
+            if (group.title.lowercase().contains(needle)) hits += Hit(module, group, null)
+            group.settings.filter { it.name.lowercase().contains(needle) }.forEach { hits += Hit(module, group, it) }
+        }
+        return hits
     }
 
-    private fun hasSettings(module: Module): Boolean = module.settings.isNotEmpty()
-
-    private fun searching(): Boolean = query.isNotBlank()
-
-    private fun matches(module: Module): Boolean {
-        val needle = query.trim().lowercase()
-        if (needle.isEmpty()) return true
-        return module.group.title.lowercase().contains(needle) ||
-            module.category.title.lowercase().contains(needle) ||
-            module.settings.any { it.name.lowercase().contains(needle) }
-    }
+    private fun matches(module: Module): Boolean =
+        !searching() || module.category.title.lowercase().contains(needle()) || hitsIn(module).isNotEmpty()
 
     private fun shownModules(panel: Panel): List<Module> = panel.modules.filter { matches(it) }
 
-    private fun toggleOpen(module: Module) {
-        dropFocus()
-        openModule = if (openModule == module.key) null else module.key
-        UiSound.click()
+    private fun settingMatches(setting: Setting<*>): Boolean = searching() && setting.name.lowercase().contains(needle())
+
+    private fun rowsOf(module: Module): List<Pair<SettingGroup, Widget>> = module.category.groups.flatMap { group ->
+        group.settings.mapNotNull { setting ->
+            val key = "${module.key}/${group.title}/${setting.name}"
+            (widgets[key] ?: ClickWidgets.create(setting)?.also { widgets[key] = it })?.let { group to it }
+        }
     }
+
+    private fun widgetKey(module: Module, group: SettingGroup, setting: Setting<*>?): String =
+        if (setting == null) "${module.key}/${group.title}" else "${module.key}/${group.title}/${setting.name}"
 
     // ------------------------------------------------------------------ panels
 
@@ -206,27 +249,26 @@ class ClickGuiScreen(
 
     private fun bringToFront(panel: Panel) {
         val order = theme.clickOrder
+        order.retainAll { it in byId }
         order.remove(panel.id)
         panels.filter { it.id !in order && it !== panel }.forEach { order.add(it.id) }
         order.add(panel.id)
     }
 
-    /** Panels that were never moved go in columns, each one under the shortest column so far. */
+    /** Panels that were never moved sit side by side along the top. */
     private fun placeDefaults() {
-        val total = COLUMNS * PANEL_WIDTH + (COLUMNS - 1) * GAP
-        val left = floor(((UiScale.width - total) / 2f).coerceAtLeast(MARGIN))
-        val heights = FloatArray(COLUMNS) { TOP }
+        val total = panels.size * PANEL_WIDTH + (panels.size - 1).coerceAtLeast(0) * GAP
+        var x = floor(((UiScale.width - total) / 2f).coerceAtLeast(MARGIN))
         panels.forEach { panel ->
-            val column = heights.indices.minBy { heights[it] }
             val saved = theme.clickPanels[panel.id]
             if (saved == null) {
-                panel.x = left + column * (PANEL_WIDTH + GAP)
-                panel.y = heights[column]
+                panel.x = x
+                panel.y = TOP
             } else {
                 panel.x = saved.x
                 panel.y = saved.y
             }
-            heights[column] += HEADER + BODY_PAD * 2f + panel.modules.size * MODULE_HEIGHT + GAP
+            x += PANEL_WIDTH + GAP
         }
         panels.forEach { clamp(it) }
     }
@@ -236,7 +278,14 @@ class ClickGuiScreen(
         panel.y = floor(panel.y.coerceIn(0f, (UiScale.height - HEADER).coerceAtLeast(0f)))
     }
 
-    private fun dragPanel(mouseX: Float, mouseY: Float) {
+    private fun dragHeld(mouseX: Float, mouseY: Float) {
+        val window = config
+        if (draggingBar && window != null) scrollFromBar(window, mouseY)
+        if (draggingConfig && window != null) {
+            window.x = floor((mouseX - grabX).coerceIn(0f, (UiScale.width - window.width).coerceAtLeast(0f)))
+            window.y = floor((mouseY - grabY).coerceIn(0f, (UiScale.height - HEADER).coerceAtLeast(0f)))
+            return
+        }
         val panel = pressedPanel ?: return
         if (!draggingPanel && abs(mouseX - pressX) + abs(mouseY - pressY) > DRAG_SLOP) draggingPanel = true
         if (!draggingPanel) return
@@ -248,29 +297,22 @@ class ClickGuiScreen(
     private fun topmostAt(mouseX: Float, mouseY: Float): Panel? =
         ordered().lastOrNull { Draw.inside(mouseX, mouseY, it.x, it.y, it.width, it.height) }
 
-    /** The body's rows, laid out from its top; also works out how tall the body is. */
-    private fun layout(panel: Panel) {
-        var content = 0f
-        val shown = shownModules(panel)
-        if (shown.isEmpty()) content = NO_MATCH_HEIGHT
-        shown.forEach { module ->
-            content += MODULE_HEIGHT
-            if (module.key == openModule && hasSettings(module)) {
-                content += SETTINGS_PAD * 2f + widgetsOf(module).sumOf { it.height.toDouble() + WIDGET_GAP }.toFloat() - WIDGET_GAP
-            }
-        }
-        panel.contentHeight = content
-        val room = (UiScale.height - panel.y - HEADER - BODY_PAD * 2f - MARGIN).coerceAtLeast(MODULE_HEIGHT * 3f)
-        panel.bodyHeight = content.coerceAtMost(room)
-        panel.scroll = panel.scroll.coerceIn(0f, maxScroll(panel))
+    private fun moduleHeight(module: Module): Float {
+        val hits = hitsIn(module)
+        if (hits.isEmpty()) return MODULE_HEIGHT
+        val shown = hits.size.coerceAtMost(MAX_HITS) + if (hits.size > MAX_HITS) 1 else 0
+        return MODULE_HEIGHT + shown * HIT_HEIGHT + 2f
     }
 
-    private fun maxScroll(panel: Panel): Float = (panel.contentHeight - panel.bodyHeight).coerceAtLeast(0f)
+    private fun layoutPanel(panel: Panel) {
+        val shown = shownModules(panel)
+        panel.bodyHeight = if (shown.isEmpty()) NO_MATCH_HEIGHT else shown.sumOf { moduleHeight(it).toDouble() }.toFloat()
+    }
 
     private fun bodyTop(panel: Panel): Float = panel.y + HEADER + BODY_PAD
 
     private fun drawPanel(graphics: GuiGraphicsExtractor, panel: Panel, mouseX: Float, mouseY: Float) {
-        layout(panel)
+        layoutPanel(panel)
         val x = panel.x
         val y = panel.y
         val w = panel.width
@@ -288,120 +330,290 @@ class ClickGuiScreen(
 
         val textY = y + (HEADER - ACCENT_LINE - Draw.LINE_HEIGHT) / 2f
         val headerHovered = pressedPanel == null && Draw.inside(mouseX, mouseY, x, y, w, HEADER)
-        graphics.icon(panel.category.icon, x + 7f, textY, Theme.opaque(Theme.accent))
-        val nameX = x + 7f + UiFont.iconWidth(panel.category.icon) + 5f
-        val switches = panel.modules.mapNotNull { it.switch }
-        val count = if (switches.isEmpty()) "" else "${switches.count { it.value }}/${switches.size}"
-        val countWidth = if (count.isEmpty()) 0f else Draw.width(count) + 6f
+        graphics.icon(panel.section.icon, x + 7f, textY, Theme.opaque(Theme.accent))
+        val nameX = x + 7f + UiFont.iconWidth(panel.section.icon) + 5f
+        val count = panel.modules.size.toString()
         graphics.string(
-            Draw.truncate(panel.category.title, x + w - 7f - countWidth - nameX),
+            Draw.truncate(panel.section.title, x + w - 13f - Draw.width(count) - nameX),
             nameX,
             textY,
             if (headerHovered) Theme.opaque(Theme.accent) else Theme.opaque(Theme.text),
             bold = true,
         )
-        if (count.isNotEmpty()) graphics.stringRight(count, x + w - 7f, textY, Theme.opaque(Theme.textDim))
+        graphics.stringRight(count, x + w - 7f, textY, Theme.opaque(Theme.textDim))
 
-        if (!panel.collapsed) drawBody(graphics, panel, mouseX, mouseY)
+        if (!panel.collapsed) drawModules(graphics, panel, mouseX, mouseY)
 
         // A panel with nothing that matches the search fades back.
         if (missed) graphics.roundRect(x, y, w, h, RADIUS, Theme.withAlpha(Theme.background, 165))
     }
 
-    private fun drawBody(graphics: GuiGraphicsExtractor, panel: Panel, mouseX: Float, mouseY: Float) {
-        val top = bodyTop(panel)
+    private fun drawModules(graphics: GuiGraphicsExtractor, panel: Panel, mouseX: Float, mouseY: Float) {
+        val shown = shownModules(panel)
+        var y = bodyTop(panel)
+        if (shown.isEmpty()) {
+            graphics.string("No match", panel.x + MODULE_INSET, y + (NO_MATCH_HEIGHT - Draw.LINE_HEIGHT) / 2f, Theme.opaque(Theme.textDim))
+            return
+        }
+        shown.forEach { module ->
+            drawModule(graphics, panel, module, y, mouseX, mouseY)
+            var hy = y + MODULE_HEIGHT
+            val hits = hitsIn(module)
+            hits.take(MAX_HITS).forEach { hit ->
+                drawHit(graphics, panel, hit.label, widgetKey(module, hit.group, hit.setting), hy, mouseX, mouseY, true)
+                hy += HIT_HEIGHT
+            }
+            if (hits.size > MAX_HITS) drawHit(graphics, panel, "${hits.size - MAX_HITS} more", "${module.key}/more", hy, mouseX, mouseY, false)
+            y += moduleHeight(module)
+        }
+    }
+
+    private fun drawModule(graphics: GuiGraphicsExtractor, panel: Panel, module: Module, y: Float, mouseX: Float, mouseY: Float) {
         val x = panel.x
         val w = panel.width
-        val inBody = Draw.inside(mouseX, mouseY, x, top, w, panel.bodyHeight)
-        val mx = if (inBody) mouseX else -1000f
-        val my = if (inBody) mouseY else -1000f
-        val shown = shownModules(panel)
-
-        Shapes.pushScissor(graphics, x + 1f, top, w - 2f, panel.bodyHeight)
-        if (shown.isEmpty()) {
-            graphics.string("No match", x + MODULE_INSET, top + (NO_MATCH_HEIGHT - Draw.LINE_HEIGHT) / 2f, Theme.opaque(Theme.textDim))
+        val open = config?.module === module
+        val hovered = Draw.inside(mouseX, mouseY, x + 1f, y, w - 2f, MODULE_HEIGHT)
+        val h = hover.getOrPut(module.key) { Anim(120L) }.update(if (hovered) 1f else 0f)
+        when {
+            open -> graphics.rect(x + 1f, y, w - 2f, MODULE_HEIGHT, Theme.withAlpha(Theme.accent, 30))
+            h > 0.01f -> graphics.rect(x + 1f, y, w - 2f, MODULE_HEIGHT, Theme.withAlpha(Theme.text, (13 * h).toInt()))
         }
-        var y = top - panel.scroll
-        shown.forEach { module ->
-            drawModule(graphics, module, x, y, w, mx, my)
-            y += MODULE_HEIGHT
-            if (module.key == openModule && hasSettings(module)) {
-                val list = widgetsOf(module)
-                val blockHeight = SETTINGS_PAD * 2f + list.sumOf { it.height.toDouble() + WIDGET_GAP }.toFloat() - WIDGET_GAP
-                graphics.rect(x + 1f, y, w - 2f, blockHeight, Theme.surface(Theme.background, 245))
-                graphics.rect(x + 1f, y, w - 2f, 1f, Theme.opaque(Theme.border))
-                graphics.rect(x + 1f, y + blockHeight - 1f, w - 2f, 1f, Theme.opaque(Theme.border))
-                var wy = y + SETTINGS_PAD
-                list.forEach { widget ->
-                    widget.x = x + SETTINGS_INSET
-                    widget.y = wy
-                    widget.width = w - SETTINGS_INSET * 2f
-                    if (wy + widget.height >= top && wy <= top + panel.bodyHeight) widget.draw(graphics, mx, my)
-                    wy += widget.height + WIDGET_GAP
+        if (open) graphics.rect(x + 1f, y + 2f, 1.5f, MODULE_HEIGHT - 4f, Theme.opaque(Theme.accent))
+
+        val on = module.switches.any { it.value }
+        val color = when {
+            on -> Theme.opaque(Theme.accent)
+            module.switches.isNotEmpty() -> Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), h)
+            else -> Theme.lerp(Theme.mix(Theme.textDim, Theme.text, 0.55f), Theme.opaque(Theme.text), h)
+        }
+        val textX = x + MODULE_INSET
+        val textY = y + (MODULE_HEIGHT - Draw.LINE_HEIGHT) / 2f
+        val caret = Icons.CARET_RIGHT
+        val shown = Draw.truncate(module.category.title, w - MODULE_INSET - UiFont.iconWidth(caret) - 10f)
+        mark(graphics, shown, textX, textY)
+        graphics.string(shown, textX, textY, color)
+        val caretColor = if (open) Theme.opaque(Theme.accent) else Theme.lerp(Theme.withAlpha(Theme.textDim, 150), Theme.opaque(Theme.text), h)
+        graphics.icon(caret, x + w - 6f - UiFont.iconWidth(caret) + if (open) 1f else 0f, textY, caretColor)
+    }
+
+    private fun drawHit(graphics: GuiGraphicsExtractor, panel: Panel, label: String, key: String, y: Float, mouseX: Float, mouseY: Float, marked: Boolean) {
+        val x = panel.x
+        val w = panel.width
+        val hovered = Draw.inside(mouseX, mouseY, x + 1f, y, w - 2f, HIT_HEIGHT)
+        val h = hover.getOrPut("hit/$key") { Anim(100L) }.update(if (hovered) 1f else 0f)
+        if (h > 0.01f) graphics.rect(x + 1f, y, w - 2f, HIT_HEIGHT, Theme.withAlpha(Theme.text, (11 * h).toInt()))
+        val textX = x + HIT_INSET
+        val textY = y + (HIT_HEIGHT - Draw.LINE_HEIGHT) / 2f
+        graphics.rect(x + HIT_INSET - 6f, y + 2f, 1f, HIT_HEIGHT - 4f, Theme.withAlpha(Theme.border, 255))
+        val shown = Draw.truncate(label, w - HIT_INSET - 6f)
+        if (marked) mark(graphics, shown, textX, textY)
+        graphics.string(shown, textX, textY, Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), h))
+    }
+
+    /** The part of [shown] that the search matched, on a soft accent mark. */
+    private fun mark(graphics: GuiGraphicsExtractor, shown: String, textX: Float, textY: Float) {
+        val needle = query.trim()
+        if (needle.isEmpty()) return
+        val at = shown.lastIndexOf(needle, ignoreCase = true)
+        if (at < 0) return
+        val markX = textX + Draw.width(shown.substring(0, at))
+        val markW = Draw.width(shown.substring(at, (at + needle.length).coerceAtMost(shown.length)))
+        graphics.roundRect(markX - 1f, textY - 1f, markW + 2f, Draw.LINE_HEIGHT + 1f, 2f, Theme.withAlpha(Theme.accent, 90))
+    }
+
+    // ------------------------------------------------------------------ config window
+
+    private fun openConfig(module: Module, panel: Panel, jumpTo: String?, quiet: Boolean = false) {
+        dropFocus()
+        val current = config
+        if (current != null && current.module === module && jumpTo == null) {
+            config = null
+            if (!quiet) UiSound.click()
+            return
+        }
+        val window = Config(module, panel)
+        if (current != null && current.placed && movedConfig) {
+            window.x = current.x
+            window.y = current.y
+            window.placed = true
+        }
+        window.scroll = if (current?.module === module) current.scroll else 0f
+        config = window
+        layoutConfig(window)
+        if (jumpTo != null) {
+            val line = window.lines.firstOrNull { lineKey(module, it) == jumpTo }
+            if (line != null) window.scroll = (line.top - window.bodyHeight / 3f).coerceIn(0f, maxScroll(window))
+            flashKey = jumpTo
+            flashUntil = System.currentTimeMillis() + FLASH_MS
+        }
+        if (!quiet) UiSound.click()
+    }
+
+    private fun lineKey(module: Module, line: Line): String? = when (line) {
+        is Line.Label -> widgetKey(module, line.group, null)
+        is Line.Row -> widgetKey(module, line.group, line.widget.setting)
+        is Line.Band -> null
+    }
+
+    /** Places every line of the window and sizes it to the screen. */
+    private fun layoutConfig(window: Config) {
+        val lines = ArrayList<Line>()
+        var y = 0f
+        var section: String? = null
+        val title = window.module.category.title
+        window.module.category.groups.forEachIndexed { index, group ->
+            // A merged category marks where each of its parts begins.
+            val wanted = group.section ?: section
+            if (wanted != null && wanted != section && !(index == 0 && wanted.equals(title, ignoreCase = true))) {
+                if (index > 0) y += GROUP_GAP
+                lines += Line.Band(wanted, y)
+                y += BAND
+            }
+            section = wanted
+            if (index > 0 && lines.lastOrNull() !is Line.Band) y += GROUP_GAP
+            lines += Line.Label(group, y)
+            y += GROUP_LABEL
+            rowsOf(window.module).filter { it.first === group }.forEach { (_, widget) ->
+                lines += Line.Row(group, widget, y)
+                y += widget.height + WIDGET_GAP
+            }
+        }
+        window.lines = lines
+        window.contentHeight = (y - WIDGET_GAP).coerceAtLeast(0f)
+        val room = (UiScale.height - TOP - BOTTOM_ROOM - HEADER - CONFIG_PAD * 2f).coerceAtLeast(80f)
+        window.bodyHeight = window.contentHeight.coerceAtMost(room)
+        window.scroll = window.scroll.coerceIn(0f, maxScroll(window))
+        if (!window.placed) {
+            window.placed = true
+            val panel = window.panel
+            val right = panel.x + panel.width + CONFIG_GAP
+            window.x = if (right + window.width <= UiScale.width - MARGIN) right else panel.x - CONFIG_GAP - window.width
+            window.x = floor(window.x.coerceIn(MARGIN, (UiScale.width - window.width - MARGIN).coerceAtLeast(MARGIN)))
+            window.y = floor(panel.y.coerceIn(TOP, (UiScale.height - BOTTOM_ROOM - window.height).coerceAtLeast(TOP)))
+        }
+        window.y = window.y.coerceIn(0f, (UiScale.height - HEADER).coerceAtLeast(0f))
+    }
+
+    private fun maxScroll(window: Config): Float = (window.contentHeight - window.bodyHeight).coerceAtLeast(0f)
+
+    private fun configBody(window: Config): Float = window.y + HEADER + CONFIG_PAD
+
+    private fun closeBounds(window: Config): FloatArray {
+        val size = HEADER - 6f
+        return floatArrayOf(window.x + window.width - size - 3f, window.y + 3f, size, size)
+    }
+
+    private fun drawConfig(graphics: GuiGraphicsExtractor, window: Config, mouseX: Float, mouseY: Float) {
+        val shown = Anim.easeOutCubic(window.anim.update(1f).toDouble()).toFloat()
+        val x = window.x
+        val y = window.y
+        val w = window.width
+        val h = window.height
+        graphics.pose().pushMatrix()
+        graphics.pose().translate((1f - shown) * -6f, 0f)
+
+        graphics.dropShadow(x, y, w, h, RADIUS, 16f, Theme.withAlpha(0x000000, 140), 5f)
+        graphics.roundPanel(x, y, w, h, RADIUS, Theme.surface(Theme.background, 248), Theme.opaque(Theme.border))
+        Shapes.pushScissor(graphics, x, y, w, HEADER)
+        graphics.roundRect(x + 1f, y + 1f, w - 2f, h - 2f, RADIUS - 1f, Theme.surface(Theme.header, 252))
+        Shapes.popScissor(graphics)
+        graphics.rect(x + 1f, y + HEADER - ACCENT_LINE, w - 2f, ACCENT_LINE, Theme.opaque(Theme.accent))
+
+        val category = window.module.category
+        val textY = y + (HEADER - ACCENT_LINE - Draw.LINE_HEIGHT) / 2f
+        graphics.icon(category.icon, x + 8f, textY, Theme.opaque(Theme.accent))
+        val nameX = x + 8f + UiFont.iconWidth(category.icon) + 5f
+        graphics.string(category.title, nameX, textY, Theme.opaque(Theme.text), bold = true)
+        val sectionX = nameX + Draw.width(category.title) + 7f
+        graphics.string(Draw.truncate(window.panel.section.title, closeBounds(window)[0] - sectionX - 4f), sectionX, textY, Theme.opaque(Theme.textDim))
+
+        val c = closeBounds(window)
+        val closeHovered = Draw.inside(mouseX, mouseY, c[0], c[1], c[2], c[3])
+        val ch = hover.getOrPut("config/close") { Anim(120L) }.update(if (closeHovered) 1f else 0f)
+        if (ch > 0.01f) graphics.roundRect(c[0], c[1], c[2], c[3], 3f, Theme.withAlpha(Theme.text, (20 * ch).toInt()))
+        graphics.icon(Icons.CLOSE, c[0] + (c[2] - UiFont.iconWidth(Icons.CLOSE)) / 2f, c[1] + (c[3] - Draw.LINE_HEIGHT) / 2f,
+            Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), ch))
+
+        drawConfigBody(graphics, window, mouseX, mouseY)
+        graphics.pose().popMatrix()
+    }
+
+    private fun drawConfigBody(graphics: GuiGraphicsExtractor, window: Config, mouseX: Float, mouseY: Float) {
+        val top = configBody(window)
+        val left = window.x + CONFIG_INSET
+        val inner = window.width - CONFIG_INSET * 2f - SCROLL_ROOM
+        val inBody = Draw.inside(mouseX, mouseY, window.x, top, window.width, window.bodyHeight)
+        val mx = if (inBody) mouseX else OFF
+        val my = if (inBody) mouseY else OFF
+        val now = System.currentTimeMillis()
+        val flash = if (now < flashUntil) flashKey else null
+        val pulse = if (flash != null) 0.5f + 0.5f * sin((flashUntil - now) / 120f) else 0f
+
+        Shapes.pushScissor(graphics, window.x + 1f, top - 2f, window.width - 2f, window.bodyHeight + 4f)
+        window.lines.forEach { line ->
+            val y = top + line.top - window.scroll
+            val visible = y + line.height >= top - 2f && y <= top + window.bodyHeight + 2f
+            val key = lineKey(window.module, line)
+            if (key != null && key == flash) {
+                graphics.roundRect(left - 4f, y - 1f, inner + 8f, line.height + 2f, 3f, Theme.withAlpha(Theme.accent, (24 + 40 * pulse).toInt()))
+            }
+            when (line) {
+                is Line.Band -> if (visible) {
+                    val label = line.label.uppercase()
+                    val ty = y + (BAND - Draw.LINE_HEIGHT) / 2f
+                    graphics.string(label, left, ty, Theme.opaque(Theme.accent), bold = true)
+                    val ruleX = left + Draw.width(label) + 7f
+                    graphics.rect(ruleX, y + BAND / 2f, (left + inner - ruleX).coerceAtLeast(0f), 1f, Theme.withAlpha(Theme.accent, 90))
                 }
-                y += blockHeight
+                is Line.Label -> if (visible) {
+                    val ty = y + (GROUP_LABEL - Draw.LINE_HEIGHT) / 2f
+                    val label = line.group.title
+                    mark(graphics, label, left, ty)
+                    graphics.string(label, left, ty, Theme.opaque(Theme.text), bold = true)
+                    val ruleX = left + Draw.width(label) + 7f
+                    graphics.rect(ruleX, y + GROUP_LABEL / 2f, (left + inner - ruleX).coerceAtLeast(0f), 1f, Theme.withAlpha(Theme.border, 200))
+                }
+                is Line.Row -> {
+                    val widget = line.widget
+                    widget.x = left
+                    widget.y = y
+                    widget.width = inner
+                    if (visible) {
+                        // Settings the search found keep a mark beside them.
+                        if (settingMatches(widget.setting)) {
+                            graphics.roundRect(left - 4f, y - 1f, inner + 8f, widget.height + 2f, 3f, Theme.withAlpha(Theme.accent, 22))
+                            graphics.rect(left - 4f, y + 1f, 1.5f, (widget.height - 2f).coerceAtLeast(1f), Theme.opaque(Theme.accent))
+                        }
+                        widget.draw(graphics, mx, my)
+                    }
+                }
             }
         }
         Shapes.popScissor(graphics)
-        drawScrollbar(graphics, panel, mouseX, mouseY)
+        drawScrollbar(graphics, window, mouseX, mouseY)
     }
 
-    private fun drawModule(graphics: GuiGraphicsExtractor, module: Module, x: Float, y: Float, w: Float, mouseX: Float, mouseY: Float) {
-        val hovered = Draw.inside(mouseX, mouseY, x + 1f, y, w - 2f, MODULE_HEIGHT)
-        val h = hover.getOrPut(module.key) { Anim(120L) }.update(if (hovered) 1f else 0f)
-        if (h > 0.01f) graphics.rect(x + 1f, y, w - 2f, MODULE_HEIGHT, Theme.withAlpha(Theme.text, (13 * h).toInt()))
-
-        val switch = module.switch
-        val color = when {
-            switch?.value == true -> Theme.opaque(Theme.accent)
-            switch != null -> Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), h)
-            else -> Theme.lerp(Theme.mix(Theme.textDim, Theme.text, 0.55f), Theme.opaque(Theme.text), h)
-        }
-        val name = module.group.title
-        val textX = x + MODULE_INSET
-        val textY = y + (MODULE_HEIGHT - Draw.LINE_HEIGHT) / 2f
-        val caretRoom = if (hasSettings(module)) ClickWidgets.caretWidth() + 10f else 4f
-        val shown = Draw.truncate(name, w - MODULE_INSET - caretRoom)
-
-        // The part of the name the search matched sits on a soft accent mark.
-        val needle = query.trim()
-        val at = if (needle.isEmpty()) -1 else shown.indexOf(needle, ignoreCase = true)
-        if (at >= 0) {
-            val markX = textX + Draw.width(shown.substring(0, at))
-            val markW = Draw.width(shown.substring(at, (at + needle.length).coerceAtMost(shown.length)))
-            graphics.roundRect(markX - 1f, textY - 1f, markW + 2f, Draw.LINE_HEIGHT + 1f, 2f, Theme.withAlpha(Theme.accent, 90))
-        }
-        graphics.string(shown, textX, textY, if (at >= 0) Theme.opaque(Theme.text) else color)
-
-        if (hasSettings(module)) {
-            val open = module.key == openModule
-            val caret = if (open) Icons.CARET_DOWN else Icons.CARET_RIGHT
-            val caretColor = if (open) Theme.opaque(Theme.accent) else Theme.lerp(Theme.withAlpha(Theme.textDim, 170), Theme.opaque(Theme.text), h)
-            graphics.icon(caret, x + w - 6f - UiFont.iconWidth(caret), textY, caretColor)
-        }
+    private fun barBounds(window: Config): FloatArray {
+        val top = configBody(window)
+        val trackHeight = window.bodyHeight - 4f
+        val thumb = (trackHeight * window.bodyHeight / window.contentHeight.coerceAtLeast(1f)).coerceIn(14f, trackHeight)
+        val max = maxScroll(window)
+        val thumbY = top + 2f + if (max > 0f) window.scroll / max * (trackHeight - thumb) else 0f
+        return floatArrayOf(window.x + window.width - 6f, top + 2f, 2.5f, trackHeight, thumbY, thumb)
     }
 
-    private fun barBounds(panel: Panel): FloatArray {
-        val top = bodyTop(panel)
-        val trackHeight = panel.bodyHeight - 4f
-        val thumb = (trackHeight * panel.bodyHeight / panel.contentHeight.coerceAtLeast(1f)).coerceIn(14f, trackHeight)
-        val max = maxScroll(panel)
-        val thumbY = top + 2f + if (max > 0f) panel.scroll / max * (trackHeight - thumb) else 0f
-        return floatArrayOf(panel.x + panel.width - 4f, top + 2f, 2f, trackHeight, thumbY, thumb)
-    }
-
-    private fun drawScrollbar(graphics: GuiGraphicsExtractor, panel: Panel, mouseX: Float, mouseY: Float) {
-        if (maxScroll(panel) <= 0f) return
-        val b = barBounds(panel)
-        val near = draggingBar === panel || Draw.inside(mouseX, mouseY, b[0] - 3f, b[1], b[2] + 5f, b[3])
+    private fun drawScrollbar(graphics: GuiGraphicsExtractor, window: Config, mouseX: Float, mouseY: Float) {
+        if (maxScroll(window) <= 0f) return
+        val b = barBounds(window)
+        val near = draggingBar || Draw.inside(mouseX, mouseY, b[0] - 3f, b[1], b[2] + 5f, b[3])
         Shapes.pill(graphics, b[0], b[1], b[2], b[3], Theme.withAlpha(Theme.text, if (near) 30 else 16))
         Shapes.pill(graphics, b[0], b[4], b[2], b[5], if (near) Theme.opaque(Theme.accent) else Theme.withAlpha(Theme.text, 90))
     }
 
-    private fun scrollFromBar(panel: Panel, mouseY: Float) {
-        val b = barBounds(panel)
+    private fun scrollFromBar(window: Config, mouseY: Float) {
+        val b = barBounds(window)
         val room = b[3] - b[5]
-        panel.scroll = if (room > 0f) ((mouseY - barGrab - b[1]) / room).coerceIn(0f, 1f) * maxScroll(panel) else 0f
+        window.scroll = if (room > 0f) ((mouseY - barGrab - b[1]) / room).coerceIn(0f, 1f) * maxScroll(window) else 0f
     }
 
     // ------------------------------------------------------------------ search and links
@@ -411,7 +623,7 @@ class ClickGuiScreen(
 
     private fun drawSearch(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float) {
         val s = searchBounds()
-        val active = searching()
+        val active = query.isNotEmpty()
         val h = hover.getOrPut("search") { Anim(140L) }.update(if (active || Draw.inside(mouseX, mouseY, s[0], s[1], s[2], s[3])) 1f else 0f)
         graphics.dropShadow(s[0], s[1], s[2], s[3], RADIUS, 10f, Theme.withAlpha(0x000000, 100), 3f)
         graphics.roundPanel(
@@ -493,6 +705,12 @@ class ClickGuiScreen(
             }
         }
 
+        val window = config
+        if (window != null && Draw.inside(mx, my, window.x, window.y, window.width, window.height)) {
+            clickConfig(window, mx, my, button)
+            return true
+        }
+
         val panel = topmostAt(mx, my)
         if (panel == null) {
             dropFocus()
@@ -512,70 +730,95 @@ class ClickGuiScreen(
             UiScale.lock()
             return true
         }
-        if (panel.collapsed) return true
+        if (panel.collapsed || button != 0 && button != 1) return true
 
-        if (maxScroll(panel) > 0f) {
-            val b = barBounds(panel)
-            if (Draw.inside(mx, my, b[0] - 3f, b[1], b[2] + 5f, b[3])) {
-                dropFocus()
-                barGrab = if (my in b[4]..(b[4] + b[5])) my - b[4] else b[5] / 2f
-                draggingBar = panel
-                scrollFromBar(panel, my)
-                UiScale.lock()
-                return true
-            }
-        }
-
-        val top = bodyTop(panel)
-        if (!Draw.inside(mx, my, panel.x, top, panel.width, panel.bodyHeight)) {
-            dropFocus()
-            return true
-        }
-
-        var y = top - panel.scroll
+        var y = bodyTop(panel)
         for (module in shownModules(panel)) {
             if (Draw.inside(mx, my, panel.x, y, panel.width, MODULE_HEIGHT)) {
-                val onCaret = mx >= panel.x + panel.width - ClickWidgets.caretWidth() - 12f
-                val switch = module.switch
-                when {
-                    button == 1 && hasSettings(module) -> toggleOpen(module)
-                    button != 0 -> {}
-                    onCaret && hasSettings(module) -> toggleOpen(module)
-                    switch != null -> { dropFocus(); switch.value = !switch.value; UiSound.click() }
-                    hasSettings(module) -> toggleOpen(module)
-                }
+                openConfig(module, panel, null)
                 return true
             }
-            y += MODULE_HEIGHT
-            if (module.key == openModule && hasSettings(module)) {
-                val list = widgetsOf(module)
-                for (widget in list) {
-                    if (widget.mouseClicked(mx, my, button)) {
-                        if (focused !== widget) dropFocus()
-                        focused = widget
-                        dragged = widget
-                        UiScale.lock()
-                        return true
-                    }
+            var hy = y + MODULE_HEIGHT
+            val hits = hitsIn(module)
+            for (hit in hits.take(MAX_HITS)) {
+                if (Draw.inside(mx, my, panel.x, hy, panel.width, HIT_HEIGHT)) {
+                    openConfig(module, panel, widgetKey(module, hit.group, hit.setting))
+                    return true
                 }
-                y += SETTINGS_PAD * 2f + list.sumOf { it.height.toDouble() + WIDGET_GAP }.toFloat() - WIDGET_GAP
+                hy += HIT_HEIGHT
             }
+            if (hits.size > MAX_HITS && Draw.inside(mx, my, panel.x, hy, panel.width, HIT_HEIGHT)) {
+                val next = hits[MAX_HITS]
+                openConfig(module, panel, widgetKey(module, next.group, next.setting))
+                return true
+            }
+            y += moduleHeight(module)
         }
         dropFocus()
         return true
     }
 
+    private fun clickConfig(window: Config, mx: Float, my: Float, button: Int) {
+        val c = closeBounds(window)
+        if (button == 0 && Draw.inside(mx, my, c[0], c[1], c[2], c[3])) {
+            closeConfig()
+            UiSound.click()
+            return
+        }
+        if (Draw.inside(mx, my, window.x, window.y, window.width, HEADER)) {
+            dropFocus()
+            draggingConfig = true
+            movedConfig = true
+            grabX = mx - window.x
+            grabY = my - window.y
+            UiScale.lock()
+            return
+        }
+        if (maxScroll(window) > 0f) {
+            val b = barBounds(window)
+            if (Draw.inside(mx, my, b[0] - 3f, b[1], b[2] + 5f, b[3])) {
+                dropFocus()
+                barGrab = if (my in b[4]..(b[4] + b[5])) my - b[4] else b[5] / 2f
+                draggingBar = true
+                scrollFromBar(window, my)
+                UiScale.lock()
+                return
+            }
+        }
+        if (!Draw.inside(mx, my, window.x, configBody(window), window.width, window.bodyHeight)) {
+            dropFocus()
+            return
+        }
+        for (line in window.lines) {
+            if (line !is Line.Row) continue
+            val widget = line.widget
+            if (widget.mouseClicked(mx, my, button)) {
+                if (focused !== widget) dropFocus()
+                focused = widget
+                dragged = widget
+                UiScale.lock()
+                return
+            }
+        }
+        dropFocus()
+    }
+
+    private fun closeConfig() {
+        dropFocus()
+        config = null
+    }
+
     override fun mouseReleased(click: MouseButtonEvent): Boolean {
         dragged?.mouseReleased(click.button())
         dragged = null
-        draggingBar = null
+        draggingBar = false
+        draggingConfig = false
         pressedPanel?.let { panel ->
             if (draggingPanel) {
                 panel.saved().x = panel.x
                 panel.saved().y = panel.y
             } else {
                 panel.saved().collapsed = !panel.collapsed
-                panel.scroll = 0f
                 UiSound.click()
             }
         }
@@ -589,34 +832,34 @@ class ClickGuiScreen(
         if (verticalAmount == 0.0) return false
         val mx = UiScale.mouseX(mouseX)
         val my = UiScale.mouseY(mouseY)
-        val panel = topmostAt(mx, my) ?: return true
+        val window = config ?: return true
+        if (!Draw.inside(mx, my, window.x, window.y, window.width, window.height)) return true
         val amount = verticalAmount.toFloat() * SCROLL_STEP
 
-        // A list under the cursor scrolls before the panel does.
-        val open = shownModules(panel).firstOrNull { it.key == openModule }
-        if (open != null && !panel.collapsed) {
-            for (widget in widgetsOf(open)) {
-                val bounds = when (widget) {
-                    is ClickSound -> widget.listBounds()
-                    is WaypointListWidget -> widget.listBounds()
-                    is SoundListWidget -> widget.listBounds()
-                    is PacketLogWidget -> widget.listBounds()
-                    is PresetListWidget -> widget.listBounds()
-                    else -> continue
-                }
-                if (!Draw.inside(mx, my, bounds[0], bounds[1], bounds[2], bounds[3])) continue
-                val handled = when (widget) {
-                    is ClickSound -> widget.scrollBy(amount)
-                    is WaypointListWidget -> widget.scrollBy(amount)
-                    is SoundListWidget -> widget.scrollBy(amount)
-                    is PacketLogWidget -> widget.scrollBy(amount)
-                    is PresetListWidget -> widget.scrollBy(amount)
-                    else -> false
-                }
-                if (handled) return true
+        // A list under the cursor scrolls before the window does.
+        for (line in window.lines) {
+            if (line !is Line.Row) continue
+            val widget = line.widget
+            val bounds = when (widget) {
+                is ClickSound -> widget.listBounds()
+                is WaypointListWidget -> widget.listBounds()
+                is SoundListWidget -> widget.listBounds()
+                is PacketLogWidget -> widget.listBounds()
+                is PresetListWidget -> widget.listBounds()
+                else -> continue
             }
+            if (!Draw.inside(mx, my, bounds[0], bounds[1], bounds[2], bounds[3])) continue
+            val handled = when (widget) {
+                is ClickSound -> widget.scrollBy(amount)
+                is WaypointListWidget -> widget.scrollBy(amount)
+                is SoundListWidget -> widget.scrollBy(amount)
+                is PacketLogWidget -> widget.scrollBy(amount)
+                is PresetListWidget -> widget.scrollBy(amount)
+                else -> false
+            }
+            if (handled) return true
         }
-        panel.scroll = (panel.scroll - amount).coerceIn(0f, maxScroll(panel))
+        window.scroll = (window.scroll - amount).coerceIn(0f, maxScroll(window))
         return true
     }
 
@@ -625,16 +868,19 @@ class ClickGuiScreen(
         if (event.isPaste) {
             val clipboard = runCatching { McCompat.mc.keyboardHandler.clipboard }.getOrNull().orEmpty()
             focused?.let { if (it.paste(clipboard)) return true }
-            setQuery(query + clipboard.lineSequence().firstOrNull().orEmpty())
+            query += clipboard.lineSequence().firstOrNull().orEmpty()
             return true
         }
-        // An open dropdown, list or field gets keys first, so Esc closes it before the menu.
+        // An open dropdown, list or field gets keys first, so Esc closes it before anything else.
         focused?.let { if (it.keyPressed(key)) return true }
         when (key) {
-            KEY_BACKSPACE -> { if (query.isNotEmpty()) setQuery(query.dropLast(1)); return true }
+            KEY_BACKSPACE -> { if (query.isNotEmpty()) query = query.dropLast(1); return true }
             KEY_ESCAPE -> {
-                if (query.isNotEmpty()) { setQuery(""); return true }
-                onClose()
+                when {
+                    config != null -> closeConfig()
+                    query.isNotEmpty() -> query = ""
+                    else -> onClose()
+                }
                 return true
             }
         }
@@ -645,13 +891,8 @@ class ClickGuiScreen(
         val character = event.codepoint().toChar()
         focused?.let { if (it.charTyped(character)) return true }
         // Like Odin, typing anywhere goes to the search bar.
-        if (character.code >= 32) setQuery(query + character)
+        if (character.code >= 32) query += character
         return true
-    }
-
-    private fun setQuery(text: String) {
-        query = text
-        panels.forEach { it.scroll = 0f }
     }
 
     private fun dropFocus() {
@@ -661,7 +902,7 @@ class ClickGuiScreen(
 
     override fun removed() {
         // Kept for a reopen, like when the theme changes; closing the menu clears them.
-        remembered = openModule
+        rememberedModule = config?.module?.key
         rememberedQuery = query
         super.removed()
     }
@@ -669,15 +910,20 @@ class ClickGuiScreen(
     override fun onClose() {
         dropFocus()
         panels.filter { theme.clickPanels.containsKey(it.id) }.forEach { it.saved().x = it.x; it.saved().y = it.y }
+        theme.clickPanels.keys.retainAll(byId.keys + DEV_PANELS)
         ConfigManager.save(ConfigFileType.FEATURES, "config screen closed")
         super.onClose()
-        remembered = null
+        rememberedModule = null
         rememberedQuery = ""
+        movedConfig = false
     }
 
     companion object {
-        private var remembered: String? = null
+        private var rememberedModule: String? = null
         private var rememberedQuery = ""
+
+        /** Once a config window is dragged, the next ones open where it was left. */
+        private var movedConfig = false
 
         private val LINKS = listOf(
             Link("discord", "Discord", "https://discord.gg/FmuqVEPEdg"),
@@ -685,25 +931,40 @@ class ClickGuiScreen(
             Link("github", "GitHub", "https://github.com/pawliciously/PawfectAddons"),
         )
 
-        private const val COLUMNS = 7
-        private const val PANEL_WIDTH = 128f
-        private const val WIDE_WIDTH = 236f
-        private const val GAP = 8f
+        /** Saved even for players who don't see them, so a dev's layout survives an account switch. */
+        private val DEV_PANELS = setOf("dev")
+
+        private const val OFF = -1000f
+        private const val MIN_WIDTH = 820f
+        private const val PANEL_WIDTH = 124f
+        private const val GAP = 10f
         private const val MARGIN = 8f
-        private const val TOP = 12f
+        private const val TOP = 14f
+        private const val BOTTOM_ROOM = 42f
         private const val HEADER = 20f
         private const val ACCENT_LINE = 1.5f
         private const val RADIUS = 5f
         private const val BODY_PAD = 2f
-        private const val MODULE_HEIGHT = 15f
-        private const val MODULE_INSET = 8f
+        private const val MODULE_HEIGHT = 16f
+        private const val MODULE_INSET = 9f
+        private const val HIT_HEIGHT = 12f
+        private const val HIT_INSET = 18f
+        private const val MAX_HITS = 4
         private const val NO_MATCH_HEIGHT = 15f
-        private const val SETTINGS_PAD = 5f
-        private const val SETTINGS_INSET = 7f
+        private const val CONFIG_WIDTH = 236f
+        private const val WIDE_CONFIG = 300f
+        private const val CONFIG_GAP = 6f
+        private const val CONFIG_PAD = 7f
+        private const val CONFIG_INSET = 10f
+        private const val SCROLL_ROOM = 4f
+        private const val BAND = 17f
+        private const val GROUP_LABEL = 15f
+        private const val GROUP_GAP = 7f
         private const val WIDGET_GAP = 3f
+        private const val FLASH_MS = 1400L
         private const val DRAG_SLOP = 2f
         private const val SCROLL_STEP = 18f
-        private const val SEARCH_WIDTH = 190f
+        private const val SEARCH_WIDTH = 200f
         private const val SEARCH_HEIGHT = 20f
         private const val LINK_SIZE = 20f
         private const val LINK_ICON = 11f

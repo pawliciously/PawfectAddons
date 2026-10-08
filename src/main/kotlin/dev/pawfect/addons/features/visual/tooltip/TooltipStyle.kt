@@ -13,6 +13,7 @@ import dev.pawfect.addons.utils.ItemUtil.rarityColor
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.FontDescription
+import net.minecraft.network.chat.TextColor
 import net.minecraft.world.item.ItemStack
 
 object TooltipStyle {
@@ -43,12 +44,26 @@ object TooltipStyle {
         return lines.map { reface(it, face) }
     }
 
-    private fun reface(component: Component, face: FontDescription): Component {
+    /**
+     * Text in this colour is turned into a moving rainbow by Aaron's Mod (and Skyblocker through
+     * it). Its rainbow shader reads glyphs as full colour images, but a TTF font's glyphs are
+     * greyscale, so on our font each letter came out in a black box. Those runs keep the game's
+     * font.
+     */
+    private const val CHROMA_TRIGGER = 0xAA5500
+
+    private fun reface(component: Component, face: FontDescription, inherited: TextColor? = null): Component {
         val style = component.style
+        val color = style.color ?: inherited
         val current = style.font
-        val wanted = if (current == null || current == FontDescription.DEFAULT) style.withFont(face) else style
+        val wanted = when {
+            current != null && current != FontDescription.DEFAULT -> style
+            // Set outright, so a rainbow run inside restyled text doesn't inherit our font.
+            color?.value == CHROMA_TRIGGER -> style.withFont(FontDescription.DEFAULT)
+            else -> style.withFont(face)
+        }
         val copy = component.plainCopy().setStyle(wanted)
-        component.siblings.forEach { copy.append(reface(it, face)) }
+        component.siblings.forEach { copy.append(reface(it, face, color)) }
         return copy
     }
 

@@ -390,7 +390,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
     private fun aboutLine(graphics: GuiGraphicsExtractor, line: String, x: Float, y: Float, color: Int) {
         if (line.isEmpty()) return
         graphics.pose().pushMatrix()
-        graphics.pose().translate(x, y + Theme.textOffset)
+        graphics.pose().translate(x, y)
         graphics.text(McCompat.font, AboutText.render(line), 0, 0, color, Theme.fontShadow)
         graphics.pose().popMatrix()
     }
@@ -429,7 +429,7 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
             }
             Emojis.glyph(code)?.let { glyph ->
                 graphics.pose().pushMatrix()
-                graphics.pose().translate(x + 9f, ry + 3f + Theme.textOffset)
+                graphics.pose().translate(x + 9f, ry + 3f)
                 graphics.text(McCompat.font, glyph, 0, 0, 0xFFFFFFFF.toInt(), false)
                 graphics.pose().popMatrix()
             }
@@ -917,7 +917,6 @@ class ProfileViewerScreen(private val target: String) : Screen(Component.literal
         graphics.pose().pushMatrix()
         graphics.pose().translate(x, y)
         graphics.pose().scale(scale, scale)
-        graphics.pose().translate(0f, Theme.textOffset)
         graphics.text(McCompat.font, text, 0, 0, Theme.opaque(Theme.text), Theme.fontShadow)
         graphics.pose().popMatrix()
     }

@@ -19,11 +19,11 @@ class MenuConfig {
     @Expose
     var buttonRadius: Float = 6f
 
-    @Expose
-    var hideSplash: Boolean = true
+    /** Always on; no longer a setting. */
+    val hideSplash: Boolean = true
 
-    @Expose
-    var showBranding: Boolean = true
+    /** Always on; no longer a setting. */
+    val showBranding: Boolean = true
 
     @Expose
     var customColors: Boolean = false
@@ -37,14 +37,14 @@ class MenuConfig {
     @Expose
     var colorAccent: Int = 0x6C5CE7
 
-    @Expose
-    var hubScene: Boolean = true
+    /** Always on; no longer a setting. */
+    val hubScene: Boolean = true
 
-    @Expose
-    var hubCapture: Boolean = true
+    /** Always on; no longer a setting. */
+    val hubCapture: Boolean = true
 
-    @Expose
-    var showcase: Boolean = true
+    /** Always on; no longer a setting. */
+    val showcase: Boolean = true
 
     @Expose
     var anchorSet: Boolean = false
