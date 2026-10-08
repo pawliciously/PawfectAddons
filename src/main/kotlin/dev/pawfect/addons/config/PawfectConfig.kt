@@ -13,6 +13,7 @@ import dev.pawfect.addons.config.features.HitsoundConfig
 import dev.pawfect.addons.config.features.InventoryConfig
 import dev.pawfect.addons.config.features.MediaConfig
 import dev.pawfect.addons.config.features.MenuConfig
+import dev.pawfect.addons.config.features.ModulesConfig
 import dev.pawfect.addons.config.features.PlayerChamsConfig
 import dev.pawfect.addons.config.features.ScoreboardConfig
 import dev.pawfect.addons.config.features.SecretWaypointsConfig
@@ -95,4 +96,7 @@ class PawfectConfig {
 
     @Expose
     val theme: ThemeConfig = ThemeConfig()
+
+    @Expose
+    val modules: ModulesConfig = ModulesConfig()
 }

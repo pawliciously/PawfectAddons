@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.handchams
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.pipeline.RenderPipeline
 import com.mojang.blaze3d.systems.CommandEncoder
@@ -48,7 +49,7 @@ object HandChams {
     @JvmStatic
     val isEnabled: Boolean
         get() {
-            if (failed || !config.anyActive) return false
+            if (failed || !config.anyActive || !ModuleSwitch.enabled("chams")) return false
             val client = McCompat.mc
             if (client.player == null || client.level == null) return false
             return client.options.cameraType.isFirstPerson

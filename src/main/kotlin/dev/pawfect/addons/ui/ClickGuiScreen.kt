@@ -3,14 +3,16 @@ package dev.pawfect.addons.ui
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.ConfigFileType
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.features.ThemeConfig
 import dev.pawfect.addons.config.settings.Setting
 import dev.pawfect.addons.config.settings.SettingCategory
 import dev.pawfect.addons.config.settings.SettingGroup
 import dev.pawfect.addons.config.settings.SettingSection
-import dev.pawfect.addons.config.settings.ToggleSetting
+import dev.pawfect.addons.ui.Draw.circle
 import dev.pawfect.addons.ui.Draw.dropShadow
 import dev.pawfect.addons.ui.Draw.icon
+import dev.pawfect.addons.ui.Draw.pill
 import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Draw.roundPanel
 import dev.pawfect.addons.ui.Draw.roundRect
@@ -42,8 +44,10 @@ class ClickGuiScreen(
     private val initialTab: String? = null,
 ) : Screen(Component.literal("PawfectAddons")) {
 
-    private class Module(val category: SettingCategory, val switches: List<ToggleSetting>) {
+    private class Module(val category: SettingCategory) {
         val key get() = category.id
+        val switchable = ModuleSwitch.switchable(category)
+        val enabled: Boolean get() = ModuleSwitch.enabled(category.id)
     }
 
     /** A search result inside a module: a group, or one setting in it. */
@@ -94,7 +98,7 @@ class ClickGuiScreen(
     private val theme get() = ConfigManager.features.theme
 
     private val panels: List<Panel> = sections.filter { it.categories.isNotEmpty() }.map { section ->
-        Panel(section, section.categories.map { category -> Module(category, category.groups.mapNotNull { switchOf(it) }) })
+        Panel(section, section.categories.map { Module(it) })
     }
     private val byId = panels.associateBy { it.id }
     private val modules = panels.flatMap { it.modules }
@@ -161,7 +165,7 @@ class ClickGuiScreen(
                 // Only the panel on top reacts to the mouse.
                 val px = if (panel === top) mx else OFF
                 val py = if (panel === top) my else OFF
-                drawPanel(graphics, panel, px, py)
+                drawAround(graphics, window) { drawPanel(graphics, panel, px, py) }
             }
             window?.let { drawConfig(graphics, it, if (overWindow) mx else OFF, if (overWindow) my else OFF) }
             graphics.pose().popMatrix()
@@ -171,6 +175,33 @@ class ClickGuiScreen(
             Notifications.renderScaled(graphics)
         } finally {
             UiScale.pop(graphics)
+        }
+    }
+
+    /**
+     * Draws [draw] everywhere except under the config window, so its see-through background shows
+     * the game behind it rather than the panels. It runs once for each side of the window.
+     */
+    private inline fun drawAround(graphics: GuiGraphicsExtractor, window: Config?, draw: () -> Unit) {
+        if (window == null) { draw(); return }
+        val screenW = UiScale.width
+        val screenH = UiScale.height + 16f
+        val inset = 1.5f
+        val left = window.x + inset
+        val top = window.y + inset
+        val right = window.x + window.width - inset
+        val bottom = window.y + window.height - inset
+        val strips = arrayOf(
+            floatArrayOf(-16f, -16f, screenW + 32f, top + 16f),
+            floatArrayOf(-16f, bottom, screenW + 32f, screenH - bottom + 16f),
+            floatArrayOf(-16f, top, left + 16f, bottom - top),
+            floatArrayOf(right, top, screenW - right + 16f, bottom - top),
+        )
+        for (strip in strips) {
+            if (strip[2] <= 0f || strip[3] <= 0f) continue
+            Shapes.pushScissor(graphics, strip[0], strip[1], strip[2], strip[3])
+            draw()
+            Shapes.popScissor(graphics)
         }
     }
 
@@ -191,21 +222,6 @@ class ClickGuiScreen(
     }
 
     // ------------------------------------------------------------------ modules and search
-
-    /**
-     * The switch a group is named after: an "Enabled" toggle, or a first toggle that shares a
-     * word with the group's title, like Packet Overlay in Overlay.
-     */
-    private fun switchOf(group: SettingGroup): ToggleSetting? {
-        val toggles = group.settings.filterIsInstance<ToggleSetting>()
-        toggles.firstOrNull { it.name.equals("Enabled", ignoreCase = true) }?.let { return it }
-        val first = group.settings.firstOrNull() as? ToggleSetting ?: return null
-        val title = stems(group.title)
-        return first.takeIf { stems(it.name).any { word -> word in title } }
-    }
-
-    private fun stems(text: String): Set<String> =
-        text.lowercase().split(' ', '-', '/').filter { it.length >= 3 }.map { it.removeSuffix("s") }.toSet()
 
     private fun needle(): String = query.trim().lowercase()
 
@@ -380,20 +396,42 @@ class ClickGuiScreen(
         }
         if (open) graphics.rect(x + 1f, y + 2f, 1.5f, MODULE_HEIGHT - 4f, Theme.opaque(Theme.accent))
 
-        val on = module.switches.any { it.value }
         val color = when {
-            on -> Theme.opaque(Theme.accent)
-            module.switches.isNotEmpty() -> Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), h)
-            else -> Theme.lerp(Theme.mix(Theme.textDim, Theme.text, 0.55f), Theme.opaque(Theme.text), h)
+            open -> Theme.opaque(Theme.accent)
+            !module.enabled -> Theme.lerp(Theme.withAlpha(Theme.textDim, 190), Theme.opaque(Theme.textDim), h)
+            else -> Theme.lerp(Theme.mix(Theme.textDim, Theme.text, 0.7f), Theme.opaque(Theme.text), h)
         }
         val textX = x + MODULE_INSET
         val textY = y + (MODULE_HEIGHT - Draw.LINE_HEIGHT) / 2f
-        val caret = Icons.CARET_RIGHT
-        val shown = Draw.truncate(module.category.title, w - MODULE_INSET - UiFont.iconWidth(caret) - 10f)
+        val right = if (module.switchable) SWITCH_W + 8f else UiFont.iconWidth(Icons.CARET_RIGHT) + 10f
+        val shown = Draw.truncate(module.category.title, w - MODULE_INSET - right - 2f)
         mark(graphics, shown, textX, textY)
         graphics.string(shown, textX, textY, color)
-        val caretColor = if (open) Theme.opaque(Theme.accent) else Theme.lerp(Theme.withAlpha(Theme.textDim, 150), Theme.opaque(Theme.text), h)
-        graphics.icon(caret, x + w - 6f - UiFont.iconWidth(caret) + if (open) 1f else 0f, textY, caretColor)
+        if (module.switchable) {
+            val sx = x + w - 6f - SWITCH_W
+            drawSwitch(graphics, "row/undefined", sx, y + (MODULE_HEIGHT - SWITCH_H) / 2f, module.enabled)
+        } else {
+            val caret = Icons.CARET_RIGHT
+            val caretColor = if (open) Theme.opaque(Theme.accent) else Theme.lerp(Theme.withAlpha(Theme.textDim, 150), Theme.opaque(Theme.text), h)
+            graphics.icon(caret, x + w - 6f - UiFont.iconWidth(caret), textY, caretColor)
+        }
+    }
+
+    /** A module's switch, the same small switch the settings use. */
+    private fun drawSwitch(graphics: GuiGraphicsExtractor, key: String, x: Float, y: Float, on: Boolean) {
+        val t = hover.getOrPut("switch/$key") { Anim(140L, if (on) 1f else 0f) }.update(if (on) 1f else 0f)
+        graphics.pill(x, y, SWITCH_W, SWITCH_H, Theme.lerp(Theme.withAlpha(Theme.text, 42), Theme.opaque(Theme.accent), t))
+        graphics.circle(x + SWITCH_H / 2f + (SWITCH_W - SWITCH_H) * t, y + SWITCH_H / 2f, SWITCH_H / 2f - 1.3f,
+            Theme.lerp(Theme.opaque(Theme.text), ClickWidgets.onAccent(), t))
+    }
+
+    private fun switchHit(mx: Float, my: Float, x: Float, rowY: Float, rowHeight: Float, rightEdge: Float): Boolean =
+        Draw.inside(mx, my, rightEdge - SWITCH_W - 4f, rowY, SWITCH_W + 8f, rowHeight)
+
+    private fun flip(module: Module) {
+        dropFocus()
+        ModuleSwitch.set(module.category, !module.enabled)
+        UiSound.click()
     }
 
     private fun drawHit(graphics: GuiGraphicsExtractor, panel: Panel, label: String, key: String, y: Float, mouseX: Float, mouseY: Float, marked: Boolean) {
@@ -439,6 +477,10 @@ class ClickGuiScreen(
         }
         window.scroll = if (current?.module === module) current.scroll else 0f
         config = window
+        if (jumpTo != null) {
+            module.category.groups.firstOrNull { jumpTo == widgetKey(module, it, null) || jumpTo.startsWith(widgetKey(module, it, null) + "/") }
+                ?.let { setFolded(module, it, false) }
+        }
         layoutConfig(window)
         if (jumpTo != null) {
             val line = window.lines.firstOrNull { lineKey(module, it) == jumpTo }
@@ -473,6 +515,7 @@ class ClickGuiScreen(
             if (index > 0 && lines.lastOrNull() !is Line.Band) y += GROUP_GAP
             lines += Line.Label(group, y)
             y += GROUP_LABEL
+            if (folded(window.module, group)) return@forEachIndexed
             rowsOf(window.module).filter { it.first === group }.forEach { (_, widget) ->
                 lines += Line.Row(group, widget, y)
                 y += widget.height + WIDGET_GAP
@@ -492,6 +535,16 @@ class ClickGuiScreen(
             window.y = floor(panel.y.coerceIn(TOP, (UiScale.height - BOTTOM_ROOM - window.height).coerceAtLeast(TOP)))
         }
         window.y = window.y.coerceIn(0f, (UiScale.height - HEADER).coerceAtLeast(0f))
+    }
+
+    private fun foldKey(module: Module, group: SettingGroup): String = "click/${module.key}/${group.title}"
+
+    private fun folded(module: Module, group: SettingGroup): Boolean = foldKey(module, group) in theme.collapsedGroups
+
+    private fun setFolded(module: Module, group: SettingGroup, fold: Boolean) {
+        val list = theme.collapsedGroups
+        val key = foldKey(module, group)
+        if (fold) { if (key !in list) list.add(key) } else list.remove(key)
     }
 
     private fun maxScroll(window: Config): Float = (window.contentHeight - window.bodyHeight).coerceAtLeast(0f)
@@ -525,9 +578,13 @@ class ClickGuiScreen(
         val nameX = x + 8f + UiFont.iconWidth(category.icon) + 5f
         graphics.string(category.title, nameX, textY, Theme.opaque(Theme.text), bold = true)
         val sectionX = nameX + Draw.width(category.title) + 7f
-        graphics.string(Draw.truncate(window.panel.section.title, closeBounds(window)[0] - sectionX - 4f), sectionX, textY, Theme.opaque(Theme.textDim))
+        val sectionRoom = closeBounds(window)[0] - sectionX - 4f - if (window.module.switchable) SWITCH_W + 8f else 0f
+        graphics.string(Draw.truncate(window.panel.section.title, sectionRoom), sectionX, textY, Theme.opaque(Theme.textDim))
 
         val c = closeBounds(window)
+        if (window.module.switchable) {
+            drawSwitch(graphics, "header/${window.module.key}", c[0] - 6f - SWITCH_W, y + (HEADER - ACCENT_LINE - SWITCH_H) / 2f, window.module.enabled)
+        }
         val closeHovered = Draw.inside(mouseX, mouseY, c[0], c[1], c[2], c[3])
         val ch = hover.getOrPut("config/close") { Anim(120L) }.update(if (closeHovered) 1f else 0f)
         if (ch > 0.01f) graphics.roundRect(c[0], c[1], c[2], c[3], 3f, Theme.withAlpha(Theme.text, (20 * ch).toInt()))
@@ -568,9 +625,20 @@ class ClickGuiScreen(
                 is Line.Label -> if (visible) {
                     val ty = y + (GROUP_LABEL - Draw.LINE_HEIGHT) / 2f
                     val label = line.group.title
-                    mark(graphics, label, left, ty)
-                    graphics.string(label, left, ty, Theme.opaque(Theme.text), bold = true)
-                    val ruleX = left + Draw.width(label) + 7f
+                    val isFolded = folded(window.module, line.group)
+                    val hovered = Draw.inside(mx, my, left - 4f, y, inner + 8f, GROUP_LABEL)
+                    val lh = hover.getOrPut("fold/${key}") { Anim(120L) }.update(if (hovered) 1f else 0f)
+                    val caret = if (isFolded) Icons.CARET_RIGHT else Icons.CARET_DOWN
+                    graphics.icon(caret, left, ty, Theme.lerp(Theme.withAlpha(Theme.textDim, 200), Theme.opaque(Theme.accent), lh))
+                    val labelX = left + UiFont.iconWidth(caret) + 5f
+                    mark(graphics, label, labelX, ty)
+                    graphics.string(label, labelX, ty, Theme.lerp(Theme.opaque(Theme.text), Theme.opaque(Theme.accent), lh * 0.6f), bold = true)
+                    var ruleX = labelX + Draw.width(label) + 7f
+                    if (isFolded) {
+                        val count = line.group.settings.size.toString()
+                        graphics.string(count, ruleX, ty, Theme.withAlpha(Theme.textDim, 200))
+                        ruleX += Draw.width(count) + 6f
+                    }
                     graphics.rect(ruleX, y + GROUP_LABEL / 2f, (left + inner - ruleX).coerceAtLeast(0f), 1f, Theme.withAlpha(Theme.border, 200))
                 }
                 is Line.Row -> {
@@ -735,7 +803,8 @@ class ClickGuiScreen(
         var y = bodyTop(panel)
         for (module in shownModules(panel)) {
             if (Draw.inside(mx, my, panel.x, y, panel.width, MODULE_HEIGHT)) {
-                openConfig(module, panel, null)
+                if (module.switchable && button == 0 && switchHit(mx, my, panel.x, y, MODULE_HEIGHT, panel.x + panel.width - 6f)) flip(module)
+                else openConfig(module, panel, null)
                 return true
             }
             var hy = y + MODULE_HEIGHT
@@ -765,6 +834,10 @@ class ClickGuiScreen(
             UiSound.click()
             return
         }
+        if (window.module.switchable && button == 0 && switchHit(mx, my, window.x, window.y, HEADER, c[0] - 6f)) {
+            flip(window.module)
+            return
+        }
         if (Draw.inside(mx, my, window.x, window.y, window.width, HEADER)) {
             dropFocus()
             draggingConfig = true
@@ -789,7 +862,18 @@ class ClickGuiScreen(
             dropFocus()
             return
         }
+        val top = configBody(window)
         for (line in window.lines) {
+            if (line is Line.Label) {
+                val ly = top + line.top - window.scroll
+                if (button == 0 && Draw.inside(mx, my, window.x, ly, window.width, GROUP_LABEL)) {
+                    dropFocus()
+                    setFolded(window.module, line.group, !folded(window.module, line.group))
+                    UiSound.click()
+                    return
+                }
+                continue
+            }
             if (line !is Line.Row) continue
             val widget = line.widget
             if (widget.mouseClicked(mx, my, button)) {
@@ -797,6 +881,8 @@ class ClickGuiScreen(
                 focused = widget
                 dragged = widget
                 UiScale.lock()
+                // Turning a setting on by hand switches its module back on.
+                ModuleSwitch.wake(window.module.category)
                 return
             }
         }
@@ -970,6 +1056,8 @@ class ClickGuiScreen(
         private const val LINK_ICON = 11f
         private const val LINK_TEXTURE = 64f
         private const val LINK_GAP = 4f
+        private const val SWITCH_W = 16f
+        private const val SWITCH_H = 9f
         private const val KEY_ESCAPE = 256
         private const val KEY_BACKSPACE = 259
     }

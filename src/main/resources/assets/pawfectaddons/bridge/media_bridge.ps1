@@ -207,6 +207,11 @@ while ($true) {
                 }
             }
 
+            # The position is as of LastUpdatedTime, which a browser can leave many seconds old;
+            # the game works out the live position from it.
+            $updated = 0
+            try { $updated = $timeline.LastUpdatedTime.ToUnixTimeMilliseconds() } catch { }
+
             $controls = $playback.Controls
             $payload = [PSCustomObject]@{
                 state     = 'ok'
@@ -217,6 +222,7 @@ while ($true) {
                 status    = $playback.PlaybackStatus.ToString()
                 position  = [math]::Round($timeline.Position.TotalSeconds, 2)
                 duration  = [math]::Round($timeline.EndTime.TotalSeconds, 2)
+                updated   = $updated
                 thumb     = $thumbChanged
                 thumbPath = $thumbPath
                 thumbState = $thumbState

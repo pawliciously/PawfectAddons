@@ -59,6 +59,8 @@ object MediaBridge {
 
     private var positionBase = 0.0
     private var positionStamp = 0L
+    private var lastReported = Double.NaN
+    private var lastUpdated = Long.MIN_VALUE
 
     // The bridge prints a line about four times a second. If it goes quiet, something on the
     // Windows side is stuck, so it is restarted instead of leaving the card frozen.
@@ -129,7 +131,8 @@ object MediaBridge {
             "-WorkDir",
             directory.toAbsolutePath().toString(),
         )
-        builder.redirectErrorStream(false)
+        // Nothing reads the error stream, and a full pipe would block the bridge mid-write.
+        builder.redirectError(ProcessBuilder.Redirect.DISCARD)
 
         val started = builder.start()
         process = started
@@ -173,14 +176,6 @@ object MediaBridge {
         fun flag(key: String) = json.get(key)?.takeIf { !it.isJsonNull }?.asBoolean ?: false
         fun number(key: String) = json.get(key)?.takeIf { !it.isJsonNull }?.asDouble ?: 0.0
 
-        val reported = number("position")
-        val holding = heldPlaying != null && System.currentTimeMillis() < heldUntil
-        // While a play or pause is held, the old position would pull the bar back.
-        if (!holding && (track == null || reported != positionBase)) {
-            positionBase = reported
-            positionStamp = System.currentTimeMillis()
-        }
-
         thumbState = text("thumbState").ifBlank { thumbState }
         thumbReady = flag("thumbReady")
 
@@ -189,14 +184,35 @@ object MediaBridge {
             artVersion++
         }
 
+        val now = System.currentTimeMillis()
         val reportedPlaying = text("status").equals("Playing", ignoreCase = true)
         val held = heldPlaying
-        val playing = if (held != null && System.currentTimeMillis() < heldUntil && held != reportedPlaying) {
+        val holding = held != null && now < heldUntil
+        val playing = if (holding && held != reportedPlaying) {
             held
         } else {
             heldPlaying = null
             reportedPlaying
         }
+
+        // The player's position is as of when it last updated its timeline, which a browser can
+        // leave many seconds behind, so the time since then is added back on.
+        val reported = number("position")
+        val duration = number("duration")
+        val updated = json.get("updated")?.takeIf { !it.isJsonNull }?.asLong ?: 0L
+        val age = now - updated
+        val live = if (reportedPlaying && updated > SANE_STAMP && age in 0..(duration * 1000.0 + 5_000.0).toLong()) {
+            (reported + age / 1000.0).coerceAtMost(duration.takeIf { it > 0.0 } ?: Double.MAX_VALUE)
+        } else {
+            reported
+        }
+        // While a play or pause is held, the old position would pull the bar back.
+        if (!holding && (track == null || reported != lastReported || updated != lastUpdated)) {
+            positionBase = live
+            positionStamp = now
+        }
+        lastReported = reported
+        lastUpdated = updated
 
         track = Track(
             title = text("title"),
@@ -204,8 +220,8 @@ object MediaBridge {
             album = text("album"),
             app = text("app"),
             playing = playing,
-            position = if (holding) positionBase else reported,
-            duration = number("duration"),
+            position = if (holding) positionBase else live,
+            duration = duration,
             canPlay = flag("canPlay"),
             canPause = flag("canPause"),
             canNext = flag("canNext"),
@@ -248,6 +264,9 @@ object MediaBridge {
     private const val STARTUP_TIMEOUT_MS = 20_000L
     private const val QUIET_TIMEOUT_MS = 8_000L
     private const val HOLD_MS = 1_500L
+
+    /** 2001; a timeline that never updated reports year one. */
+    private const val SANE_STAMP = 978_307_200_000L
 
     fun stop() {
         running = false

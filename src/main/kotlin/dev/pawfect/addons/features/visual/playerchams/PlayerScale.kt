@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.playerchams
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.PlayerChamsConfig.ScaleTarget
 import dev.pawfect.addons.utils.McCompat
@@ -16,7 +17,7 @@ object PlayerScale {
 
     @JvmStatic
     fun apply(entity: Avatar, state: AvatarRenderState) {
-        if (inPreview) return
+        if (inPreview || !ModuleSwitch.enabled("chams")) return
         val scale = config.scale.coerceIn(MIN, MAX)
         if (scale == 1f) return
         config.sanitize()
