@@ -1,5 +1,8 @@
 package dev.pawfect.addons.config.settings
 
+import dev.pawfect.addons.config.features.SecretRoutesConfig
+import dev.pawfect.addons.features.dungeon.routes.RouteData
+import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.ConfigGuiManager
 import dev.pawfect.addons.config.ConfigManager
@@ -84,6 +87,7 @@ object PawfectSettings {
         val discord = config.discord
         val waypoints = config.dungeonWaypoints
         val secrets = config.secretWaypoints
+        val routes = config.secretRoutes
         val menu = config.menu
         val cosmetics = config.cosmetics
         val experiments = config.experiments
@@ -253,6 +257,48 @@ object PawfectSettings {
                         .showIf { secrets.enabled },
                     ToggleSetting("Hide Claimed", "Remove a secret once you have collected it.", secrets::hideClaimed)
                         .showIf { secrets.enabled },
+                ),
+                group(
+                    "Secret Routes",
+                    ToggleSetting("Secret Routes", "Lead you through each room's secrets in order: where to walk, etherwarp, stonk, superboom and pearl, step by step. Uses route files in the routes folder.", routes::enabled),
+                    DropdownSetting("Show", "How much of the route to draw ahead of you.", routes::shown, SecretRoutesConfig.Shown.entries.toList())
+                        .showIf { routes.enabled },
+                    ToggleSetting("Path Line", "Draw a line along where to walk.", routes::pathLine)
+                        .showIf { routes.enabled },
+                    ToggleSetting("Labels", "Name each marker, like Etherwarp or Stonk.", routes::labels)
+                        .showIf { routes.enabled },
+                    ToggleSetting("Routes Through Walls", "Draw the route even when something is in front of it.", routes::throughWalls)
+                        .showIf { routes.enabled },
+                    ToggleSetting("Pearl Routes", "Use pearl routes for rooms that have them.", routes::usePearlRoutes)
+                        .showIf { routes.enabled },
+                    FloatSliderSetting("Route Line Width", "Thickness of lines and boxes.", routes::lineWidth, 0.5f, 6f, 0.1f)
+                        .showIf { routes.enabled },
+                    FloatSliderSetting("Route Opacity", "Opacity of the route.", routes::opacity, 0.1f, 1f, 0.05f)
+                        .showIf { routes.enabled },
+                    ButtonSetting("Community Routes", "Download the Secret Routes Mod's routes from its GitHub into your routes folder. Routes by yourboykyle, zyra and the Secret Routes team (GPL-3.0).", "Download") {
+                        ChatUtils.chat("Downloading routes...")
+                        RouteData.downloadCommunity { message -> McCompat.mc.execute { ChatUtils.chat(message); SecretRoutes.reload() } }
+                    }.showIf { routes.enabled },
+                    ButtonSetting("Routes Folder", "Open the folder route files are read from. Your recordings are saved there as recorded.json.", "Open") {
+                        runCatching {
+                            java.nio.file.Files.createDirectories(RouteData.folder)
+                            net.minecraft.util.Util.getPlatform().openFile(RouteData.folder.toFile())
+                        }.onFailure { ChatUtils.error("Could not open the routes folder.") }
+                    }.showIf { routes.enabled },
+                    ButtonSetting("Reload Routes", "Read the route files again after changing them.", "Reload") {
+                        SecretRoutes.reload()
+                        ChatUtils.chat("Routes: ${RouteData.report}")
+                    }.showIf { routes.enabled },
+                ),
+                group(
+                    "Route Colours",
+                    ColorSetting("Path", "Colour of the walking line.", routes::pathColor, supportsAlpha = false).showIf { routes.enabled },
+                    ColorSetting("Etherwarp", "Colour of etherwarp spots.", routes::etherwarpColor, supportsAlpha = false).showIf { routes.enabled },
+                    ColorSetting("Stonk", "Colour of blocks to mine through.", routes::stonkColor, supportsAlpha = false).showIf { routes.enabled },
+                    ColorSetting("Superboom", "Colour of walls to superboom.", routes::superboomColor, supportsAlpha = false).showIf { routes.enabled },
+                    ColorSetting("Interact", "Colour of levers and buttons on the way.", routes::interactColor, supportsAlpha = false).showIf { routes.enabled },
+                    ColorSetting("Pearl", "Colour of pearl throws and their aim line.", routes::pearlColor, supportsAlpha = false).showIf { routes.enabled },
+                    ColorSetting("Route Secret", "Colour of the step's secret.", routes::secretColor, supportsAlpha = false).showIf { routes.enabled },
                 ),
                 group(
                     "Recovery",

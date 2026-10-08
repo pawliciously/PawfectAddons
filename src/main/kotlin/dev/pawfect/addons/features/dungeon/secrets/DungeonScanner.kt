@@ -241,6 +241,12 @@ object DungeonScanner {
     fun actualToRelative(room: DungeonRoom, pos: BlockPos): BlockPos =
         DungeonMapUtils.actualToRelative(room.facing!!.vanilla(), Vector2i(room.corner!!.first, room.corner!!.second), pos)
 
+    fun relativeToActual(room: DungeonRoom, pos: net.minecraft.world.phys.Vec3): net.minecraft.world.phys.Vec3 =
+        DungeonMapUtils.relativeToActual(room.facing!!.vanilla(), Vector2i(room.corner!!.first, room.corner!!.second), pos)
+
+    fun actualToRelative(room: DungeonRoom, pos: net.minecraft.world.phys.Vec3): net.minecraft.world.phys.Vec3 =
+        DungeonMapUtils.actualToRelative(room.facing!!.vanilla(), Vector2i(room.corner!!.first, room.corner!!.second), pos)
+
     fun describe(): List<String> {
         val room = current
         return listOf(

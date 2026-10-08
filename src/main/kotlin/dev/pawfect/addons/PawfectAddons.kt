@@ -1,5 +1,8 @@
 package dev.pawfect.addons
 
+import dev.pawfect.addons.features.dungeon.routes.RouteRecorder
+import dev.pawfect.addons.features.dungeon.routes.RouteRenderer
+import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
 import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.commands.PawfectCommands
 import dev.pawfect.addons.config.ConfigFileType
@@ -120,6 +123,9 @@ object PawfectAddons : ClientModInitializer {
         Motes.register()
         SecretWaypointRenderer.register()
         SecretTracker.register()
+        SecretRoutes.register()
+        RouteRenderer.register()
+        RouteRecorder.register()
         registerChat()
         DiscordPresence.register()
 

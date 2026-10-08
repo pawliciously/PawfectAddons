@@ -3,6 +3,7 @@ package dev.pawfect.addons.features.dungeon.secrets
 import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.SkyBlockData
+import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.SoundCue
 import net.fabricmc.fabric.api.event.player.UseBlockCallback
@@ -52,6 +53,7 @@ object SecretTracker {
     fun register() {
         UseBlockCallback.EVENT.register { _, _, _, hit ->
             lastInteract = hit.blockPos
+            SecretRoutes.onInteract(hit.blockPos)
             runCatching { onInteract(hit.blockPos) }
             InteractionResult.PASS
         }
@@ -131,24 +133,29 @@ object SecretTracker {
 
     @JvmStatic
     fun onSound(packet: ClientboundSoundPacket) {
-        if (!active()) return
         if (packet.sound.value() != SoundEvents.BAT_DEATH) return
-        claimNearest("bat", BlockPos(packet.x.toInt(), packet.y.toInt(), packet.z.toInt()), BAT_RANGE_SQ)
+        val pos = BlockPos.containing(packet.x, packet.y, packet.z)
+        SecretRoutes.onBatDeath(pos)
+        if (!active()) return
+        claimNearest("bat", pos, BAT_RANGE_SQ)
     }
 
     @JvmStatic
     fun onItemTaken(entityId: Int) {
-        if (!active()) return
+        if (!SkyBlockData.inDungeons) return
         val level = McCompat.mc.level ?: return
         val player = McCompat.player ?: return
         val entity = level.getEntity(entityId) as? ItemEntity ?: return
         if (SECRET_ITEMS.none { entity.item.hoverName.string.contains(it) }) return
         if (player.distanceToSqr(entity) > PICKUP_RANGE_SQ) return
+        SecretRoutes.onItemPicked(entity.blockPosition())
+        if (!active()) return
         claimNearest("item", entity.blockPosition(), ITEM_RANGE_SQ)
     }
 
     @JvmStatic
     fun onChestOpened(pos: BlockPos) {
+        SecretRoutes.onInteract(pos)
         if (!active()) return
         claimAt(pos, setOf("chest", "wither", "key"))
     }

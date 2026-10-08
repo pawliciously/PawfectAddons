@@ -1,0 +1,175 @@
+package dev.pawfect.addons.features.dungeon.routes
+
+import com.mojang.blaze3d.vertex.PoseStack
+import com.mojang.blaze3d.vertex.VertexConsumer
+import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.config.ModuleSwitch
+import dev.pawfect.addons.config.features.SecretRoutesConfig.Shown
+import dev.pawfect.addons.features.dungeon.WaypointRenderTypes
+import dev.pawfect.addons.features.dungeon.secrets.DungeonRoom
+import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
+import dev.pawfect.addons.utils.McCompat
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents
+import net.minecraft.client.renderer.SubmitNodeCollector
+import net.minecraft.client.renderer.state.level.CameraRenderState
+import net.minecraft.core.BlockPos
+import net.minecraft.network.chat.Component
+import net.minecraft.world.phys.Vec3
+import org.joml.Vector3f
+import kotlin.math.roundToInt
+
+/**
+ * Draws the route: a line along where to walk, and a marked box for each etherwarp, stonk,
+ * superboom, lever and pearl on the way, ending at the step's secret. Steps after the current
+ * one are drawn fainter.
+ */
+object RouteRenderer {
+
+    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.secretRoutes)
+
+    private class Label(val text: String, val at: Vec3)
+
+    private val EDGES = arrayOf(
+        intArrayOf(0, 1), intArrayOf(1, 2), intArrayOf(2, 3), intArrayOf(3, 0),
+        intArrayOf(4, 5), intArrayOf(5, 6), intArrayOf(6, 7), intArrayOf(7, 4),
+        intArrayOf(0, 4), intArrayOf(1, 5), intArrayOf(2, 6), intArrayOf(3, 7),
+    )
+
+    private const val FAINT = 0.4f
+    private const val PEARL_LINE = 6.0
+
+    fun register() {
+        LevelRenderEvents.COLLECT_SUBMITS.register { context ->
+            runCatching { draw(context.poseStack(), context.submitNodeCollector(), context.levelState().cameraRenderState) }
+        }
+    }
+
+    private fun shownSteps(state: SecretRoutes.Progress): List<Pair<RouteData.Step, Boolean>> {
+        val from = state.index
+        val until = when (config.shown) {
+            Shown.CURRENT -> from + 1
+            Shown.NEXT_TWO -> from + 2
+            Shown.WHOLE -> state.route.size
+        }.coerceAtMost(state.route.size)
+        return (from until until).map { state.route[it] to (it == from) }
+    }
+
+    private fun draw(poseStack: PoseStack, collector: SubmitNodeCollector, camera: CameraRenderState) {
+        val (room, state) = SecretRoutes.current() ?: return
+        if (state.done) return
+        val steps = shownSteps(state)
+        if (steps.isEmpty()) return
+
+        val eye = McCompat.mc.gameRenderer.mainCamera().position()
+        val opacity = config.opacity.coerceIn(0.1f, 1f)
+        val width = config.lineWidth.coerceIn(0.5f, 6f)
+        val labels = ArrayList<Label>()
+
+        poseStack.pushPose()
+        poseStack.translate(-eye.x, -eye.y, -eye.z)
+        collector.submitCustomGeometry(poseStack, WaypointRenderTypes.forMode(config.throughWalls)) { pose, consumer ->
+            var previousEnd: Vec3? = null
+            steps.forEachIndexed { i, (step, current) ->
+                val alpha = opacity * if (current) 1f else FAINT
+                fun color(rgb: Int) = ((alpha * 255f).roundToInt().coerceIn(0, 255) shl 24) or (rgb and 0xFFFFFF)
+                val stepNumber = state.index + i + 1
+
+                if (config.pathLine) {
+                    val points = step.locations.map { centre(room, it) }
+                    // Steps shown together join up where one ends and the next begins.
+                    val joined = listOfNotNull(previousEnd) + points
+                    joined.zipWithNext { a, b -> line(pose, consumer, a, b, color(config.pathColor), width) }
+                    previousEnd = points.lastOrNull() ?: previousEnd
+                }
+                step.etherwarps.forEach { p ->
+                    val pos = block(room, p)
+                    box(pose, consumer, pos, color(config.etherwarpColor), width)
+                    if (current) labels += Label("Etherwarp", top(pos))
+                }
+                step.mines.forEachIndexed { k, p ->
+                    val pos = block(room, p)
+                    box(pose, consumer, pos, color(config.stonkColor), width)
+                    if (current && k == 0) labels += Label("Stonk", top(pos))
+                }
+                step.tnts.forEach { p ->
+                    val pos = block(room, p)
+                    box(pose, consumer, pos, color(config.superboomColor), width)
+                    if (current) labels += Label("Superboom", top(pos))
+                }
+                step.interacts.forEach { p ->
+                    val pos = block(room, p)
+                    box(pose, consumer, pos, color(config.interactColor), width)
+                    if (current) labels += Label("Interact", top(pos))
+                }
+                step.pearls.forEachIndexed { k, p ->
+                    val at = DungeonScanner.relativeToActual(room, Vec3(p[0], p[1], p[2]))
+                    small(pose, consumer, at, color(config.pearlColor), width)
+                    val angle = step.pearlAngles.getOrNull(k)
+                    if (angle != null) {
+                        val from = at.add(0.0, 1.62, 0.0)
+                        val dir = RouteGeometry.toActual(room, RouteGeometry.direction(angle[0], angle[1])).normalize()
+                        line(pose, consumer, from, from.add(dir.scale(PEARL_LINE)), color(config.pearlColor), width)
+                    }
+                    if (current) labels += Label("Pearl", at.add(0.0, 0.6, 0.0))
+                }
+                val secret = step.secretAt
+                if (secret != null && step.secretType != "dummy") {
+                    val pos = block(room, secret)
+                    box(pose, consumer, pos, color(config.secretColor), width + 0.5f)
+                    labels += Label("$stepNumber. ${describe(step.secretType)}", top(pos))
+                    if (config.pathLine) {
+                        val end = step.locations.lastOrNull()?.let { centre(room, it) }
+                        if (end != null) line(pose, consumer, end, Vec3(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5), color(config.pathColor), width)
+                    }
+                }
+            }
+        }
+        if (config.labels) {
+            labels.forEach { label ->
+                collector.submitNameTag(poseStack, label.at, 0, Component.literal(label.text), config.throughWalls, 0xF000F0, camera)
+            }
+        }
+        poseStack.popPose()
+    }
+
+    private fun describe(type: String?): String = when (type) {
+        "item" -> "Item"
+        "interact" -> "Interact"
+        "bat" -> "Bat"
+        "exit", "exitroute" -> "Exit"
+        null -> "Go here"
+        else -> type.replaceFirstChar { it.uppercase() }
+    }
+
+    private fun block(room: DungeonRoom, p: IntArray): BlockPos = DungeonScanner.relativeToActual(room, p[0], p[1], p[2])
+
+    /** A walking point: the middle of the block you stand in, just above the floor. */
+    private fun centre(room: DungeonRoom, p: IntArray): Vec3 {
+        val pos = block(room, p)
+        return Vec3(pos.x + 0.5, pos.y + 0.1, pos.z + 0.5)
+    }
+
+    private fun top(pos: BlockPos): Vec3 = Vec3(pos.x + 0.5, pos.y + 1.3, pos.z + 0.5)
+
+    private fun line(pose: PoseStack.Pose, consumer: VertexConsumer, a: Vec3, b: Vec3, color: Int, width: Float) {
+        val normal = Vector3f((b.x - a.x).toFloat(), (b.y - a.y).toFloat(), (b.z - a.z).toFloat())
+        if (normal.lengthSquared() < 1.0e-8f) return
+        normal.normalize()
+        consumer.addVertex(pose, a.x.toFloat(), a.y.toFloat(), a.z.toFloat()).setColor(color).setNormal(pose, normal.x, normal.y, normal.z).setLineWidth(width)
+        consumer.addVertex(pose, b.x.toFloat(), b.y.toFloat(), b.z.toFloat()).setColor(color).setNormal(pose, normal.x, normal.y, normal.z).setLineWidth(width)
+    }
+
+    private fun box(pose: PoseStack.Pose, consumer: VertexConsumer, pos: BlockPos, color: Int, width: Float) =
+        cube(pose, consumer, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), 1.0, color, width)
+
+    private fun small(pose: PoseStack.Pose, consumer: VertexConsumer, at: Vec3, color: Int, width: Float) =
+        cube(pose, consumer, at.x - 0.2, at.y, at.z - 0.2, 0.4, color, width)
+
+    private fun cube(pose: PoseStack.Pose, consumer: VertexConsumer, x: Double, y: Double, z: Double, size: Double, color: Int, width: Float) {
+        val corners = arrayOf(
+            Vec3(x, y, z), Vec3(x + size, y, z), Vec3(x + size, y, z + size), Vec3(x, y, z + size),
+            Vec3(x, y + size, z), Vec3(x + size, y + size, z), Vec3(x + size, y + size, z + size), Vec3(x, y + size, z + size),
+        )
+        EDGES.forEach { edge -> line(pose, consumer, corners[edge[0]], corners[edge[1]], color, width) }
+    }
+}

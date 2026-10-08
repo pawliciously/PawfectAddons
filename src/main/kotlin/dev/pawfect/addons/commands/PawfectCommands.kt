@@ -1,5 +1,8 @@
 package dev.pawfect.addons.commands
 
+import dev.pawfect.addons.features.dungeon.routes.RouteData
+import dev.pawfect.addons.features.dungeon.routes.RouteRecorder
+import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.arguments.StringArgumentType
@@ -146,6 +149,26 @@ object PawfectCommands {
                                 SUCCESS
                             },
                         ),
+                )
+                .then(
+                    ClientCommands.literal("route")
+                        .then(ClientCommands.literal("next").executes { ChatUtils.chat(SecretRoutes.next()); SUCCESS })
+                        .then(ClientCommands.literal("back").executes { ChatUtils.chat(SecretRoutes.back()); SUCCESS })
+                        .then(ClientCommands.literal("restart").executes { ChatUtils.chat(SecretRoutes.restart()); SUCCESS })
+                        .then(ClientCommands.literal("reload").executes { SecretRoutes.reload(); ChatUtils.chat("Routes: ${RouteData.report}"); SUCCESS })
+                        .then(ClientCommands.literal("status").executes { ChatUtils.chat(SecretRoutes.status()); SUCCESS })
+                        .then(
+                            ClientCommands.literal("record")
+                                .then(ClientCommands.literal("start").executes { ChatUtils.chat(RouteRecorder.start()); SUCCESS })
+                                .then(ClientCommands.literal("stop").executes { ChatUtils.chat(RouteRecorder.stop()); SUCCESS })
+                                .then(ClientCommands.literal("cancel").executes { ChatUtils.chat(RouteRecorder.stop(save = false)); SUCCESS })
+                                .then(ClientCommands.literal("superboom").executes { ChatUtils.chat(RouteRecorder.markSuperboom()); SUCCESS })
+                                .executes { ChatUtils.chat("/pa route record start | stop | cancel | superboom"); SUCCESS },
+                        )
+                        .executes {
+                            ChatUtils.chat("/pa route next | back | restart | reload | status | record")
+                            SUCCESS
+                        },
                 )
                 .then(
                     ClientCommands.literal("dw")
