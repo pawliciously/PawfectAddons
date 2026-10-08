@@ -229,6 +229,7 @@ object PawfectAddons : ClientModInitializer {
             if (overlay) {
                 runCatching { ActionBarDebug.onActionBar(message) }
                 runCatching { ActionBarStats.onActionBar(message) }
+                runCatching { SecretRoutes.onActionBar(message) }
                 !ModuleSwitch.view("visuals", ConfigManager.features.stats).hideActionBar
             } else {
                 runCatching { Hitsound.onChat(message) }

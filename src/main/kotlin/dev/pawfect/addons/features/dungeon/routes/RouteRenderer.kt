@@ -67,16 +67,20 @@ object RouteRenderer {
         val opacity = config.opacity.coerceIn(0.1f, 1f)
         val width = config.lineWidth.coerceIn(0.5f, 6f)
         val labels = ArrayList<Label>()
-        if (state.index == 0) {
-            startPoint(room, state.route)?.let { at ->
-                labels += Label(Component.literal("START").withStyle { it.withColor(config.pathColor).withBold(true) }, at.add(0.0, 1.0, 0.0))
-            }
+        val start = if (state.index == 0) startPoint(room, state.route) else null
+        if (start != null) {
+            labels += Label(Component.literal("START").withStyle { it.withColor(config.pathColor).withBold(true) }, start.add(0.0, 1.0, 0.0))
         }
 
         poseStack.pushPose()
         poseStack.translate(-eye.x, -eye.y, -eye.z)
         collector.submitCustomGeometry(poseStack, WaypointRenderTypes.forMode(config.throughWalls)) { pose, consumer ->
             var previousEnd: Vec3? = null
+            // The block you start on.
+            if (start != null) {
+                val at = BlockPos.containing(start.x, start.y - 0.5, start.z)
+                box(pose, consumer, at, ((opacity * 255f).roundToInt().coerceIn(0, 255) shl 24) or (config.etherwarpColor and 0xFFFFFF), width)
+            }
             steps.forEachIndexed { i, (step, current) ->
                 val alpha = opacity * if (current) 1f else FAINT
                 fun color(rgb: Int) = ((alpha * 255f).roundToInt().coerceIn(0, 255) shl 24) or (rgb and 0xFFFFFF)
@@ -121,7 +125,8 @@ object RouteRenderer {
                 val secret = step.secretAt
                 if (secret != null && step.secretType != "dummy") {
                     val pos = block(room, secret)
-                    box(pose, consumer, pos, color(config.secretColor), width + 0.5f)
+                    val secretColor = if (step.secretType == "lever") config.interactColor else config.secretColor
+                    box(pose, consumer, pos, color(secretColor), width + 0.5f)
                     val name = "$stepNumber. ${describe(step)}"
                     labels += Label(if (step.extra) "$name (not in route)" else name, top(pos))
                     if (config.pathLine) {

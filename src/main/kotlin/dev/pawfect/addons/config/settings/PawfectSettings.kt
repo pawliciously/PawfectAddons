@@ -273,6 +273,8 @@ object PawfectSettings {
                         .showIf { routes.enabled },
                     ToggleSetting("Fill Missing Secrets", "Add the secrets a route skips, from our own room data, before the route leaves the room. Your own recordings are left as they are.", routes::fillMissing)
                         .showIf { routes.enabled },
+                    ToggleSetting("Open Lever Doors", "For a chest behind a lever door, go and flip the lever first instead of stonking through the door.", routes::useLevers)
+                        .showIf { routes.enabled },
                     FloatSliderSetting("Route Line Width", "Thickness of lines and boxes.", routes::lineWidth, 0.5f, 6f, 0.1f)
                         .showIf { routes.enabled },
                     FloatSliderSetting("Route Opacity", "Opacity of the route.", routes::opacity, 0.1f, 1f, 0.05f)

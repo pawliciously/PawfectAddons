@@ -34,6 +34,9 @@ class SecretRoutesConfig {
     var fillMissing: Boolean = true
 
     @Expose
+    var useLevers: Boolean = true
+
+    @Expose
     var lineWidth: Float = 2f
 
     @Expose

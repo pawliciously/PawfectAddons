@@ -35,13 +35,95 @@ object RouteFit {
 
     private val INDEX = Regex("""^\s*([0-9]+(?:\s*/\s*[0-9]+)*)""")
 
-    fun prepare(room: String, route: List<RouteData.Step>, fill: Boolean): List<RouteData.Step> {
+    fun prepare(room: String, route: List<RouteData.Step>, fill: Boolean, levers: Boolean): List<RouteData.Step> {
         val secrets = SecretRoomData.secretsFor(room)
-        if (secrets.isEmpty() || route.isEmpty()) return route
+        if (route.isEmpty()) return route
+        if (secrets.isEmpty()) return markTeleports(route)
         val turned = turn(room, route, secrets)
         val assigned = assign(turned, secrets)
-        return if (fill) fillMissing(assigned, secrets) else assigned
+        val filled = if (fill) fillMissing(assigned, secrets) else assigned
+        return markTeleports(if (levers) leverFirst(filled, secrets) else filled)
     }
+
+    // ------------------------------------------------------------------ teleports
+
+    /** A jump this far between two walking points, squared, is a teleport. */
+    private const val TELEPORT_SQ = 64
+
+    /**
+     * Routes only list etherwarps; other teleports (Aspect of the Void, a warp you didn't
+     * crouch for) show up as a jump between walking points. Those get a mark where you land.
+     */
+    private fun markTeleports(route: List<RouteData.Step>): List<RouteData.Step> = route.map { step ->
+        val added = ArrayList<IntArray>()
+        step.locations.zipWithNext { from, to ->
+            val dx = to[0] - from[0]
+            val dy = to[1] - from[1]
+            val dz = to[2] - from[2]
+            if (dx * dx + dy * dy + dz * dz <= TELEPORT_SQ) return@zipWithNext
+            // Dropping straight down a hole isn't a teleport.
+            if (dx * dx + dz * dz <= 4 && dy < 0) return@zipWithNext
+            // Nor is landing a pearl thrown from here.
+            if (step.pearls.any { p -> (p[0] - from[0]).let { it * it } + (p[1] - from[1]).let { it * it } + (p[2] - from[2]).let { it * it } <= 9.0 }) return@zipWithNext
+            val below = intArrayOf(to[0], to[1] - 1, to[2])
+            val marked = (step.etherwarps + added).any { e -> near(e, to, 4) || near(e, below, 4) }
+            if (!marked) added += below
+        }
+        if (added.isEmpty()) step else step.copy(etherwarps = step.etherwarps + added)
+    }
+
+    private fun near(a: IntArray, b: IntArray, rangeSq: Int): Boolean {
+        val dx = a[0] - b[0]
+        val dy = a[1] - b[1]
+        val dz = a[2] - b[2]
+        return dx * dx + dy * dy + dz * dz <= rangeSq
+    }
+
+    // ------------------------------------------------------------------ lever doors
+
+    /**
+     * Routes stonk through the door of a chest that a lever opens. Where our data has the lever,
+     * the route goes there first and the door's stonk is left out.
+     */
+    private fun leverFirst(route: List<RouteData.Step>, secrets: List<SecretRoomData.SecretEntry>): List<RouteData.Step> {
+        val out = ArrayList<RouteData.Step>()
+        route.forEach { step ->
+            val ours = step.ours
+            val numbers = if (ours != null && ours.category in LEVER_LOCKED) indices(ours) else emptySet()
+            if (numbers.isEmpty()) {
+                out += step
+                return@forEach
+            }
+            fun related(category: String) = secrets.filter { it.category == category && indices(it).any { n -> n in numbers } }.map { intArrayOf(it.x, it.y, it.z) }
+            val leverEntries = secrets.filter { it.category == "lever" && indices(it).any { n -> n in numbers } }
+            // Levers the route doesn't flip itself, before or on the way to this chest. A step we
+            // added only lists its lever as a hint, so that one still gets its own step.
+            val flippedBy = if (step.extra) out else out + step
+            val pending = leverEntries.filter { lever ->
+                val at = intArrayOf(lever.x, lever.y, lever.z)
+                flippedBy.none { s -> s.interacts.any { near(it, at, 2) } || (s.ours === lever) }
+            }
+            if (pending.isEmpty()) {
+                out += step
+                return@forEach
+            }
+            pending.forEach { lever ->
+                out += RouteData.Step(
+                    emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(),
+                    "lever", intArrayOf(lever.x, lever.y, lever.z), lever, step.extra,
+                )
+            }
+            val stonks = related("stonk")
+            val levers = related("lever")
+            out += step.copy(
+                mines = step.mines.filter { m -> stonks.none { near(m, it, 2) } },
+                interacts = step.interacts.filter { m -> levers.none { near(m, it, 2) } },
+            )
+        }
+        return out
+    }
+
+    private val LEVER_LOCKED = setOf("chest", "wither", "item")
 
     // ------------------------------------------------------------------ turning
 

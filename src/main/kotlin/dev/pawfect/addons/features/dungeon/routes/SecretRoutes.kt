@@ -28,7 +28,11 @@ object SecretRoutes {
     class Progress(val route: List<RouteData.Step>) {
         /** The step being shown. */
         var index = 0
-        val done: Boolean get() = index >= route.size
+
+        /** Every secret in the room is collected, so nothing is left to show. */
+        var complete = false
+
+        val done: Boolean get() = complete || index >= route.size
 
         /** Our secrets collected in this room. */
         val collected: MutableSet<SecretRoomData.SecretEntry> = Collections.newSetFromMap(IdentityHashMap())
@@ -75,7 +79,7 @@ object SecretRoutes {
         val existing = progress[room]
         if (existing != null) return room to existing
         val fill = config.fillMissing && !RouteData.isRecorded(name)
-        val routes = RouteData.routesFor(name, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill) }
+        val routes = RouteData.routesFor(name, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill, config.useLevers) }
         if (routes.isEmpty()) return null
         val here = here(room) ?: return null
         // With more than one route for the room, the one starting nearest to you.
@@ -95,7 +99,15 @@ object SecretRoutes {
             return
         }
         val (room, state) = current() ?: return
+        if (room !== lastRoom) {
+            lastRoom = room
+            enteredAt = System.currentTimeMillis()
+        }
         if (state.done) return
+        if (roomComplete(room, state)) {
+            state.complete = true
+            return
+        }
         val here = here(room) ?: return
 
         // Reaching a walking step's end.
@@ -110,6 +122,36 @@ object SecretRoutes {
         if (!state.hold) advance(state)
     }
 
+    private var lastRoom: DungeonRoom? = null
+    private var enteredAt = 0L
+
+    /** The action bar's "found/total Secrets" for the room you're in, and when it last said so. */
+    private var barFound = -1
+    private var barTotal = -1
+    private var barAt = 0L
+
+    private val SECRETS = Regex("""(\d+)/(\d+) Secrets""")
+
+    fun onActionBar(message: net.minecraft.network.chat.Component) {
+        val match = SECRETS.find(message.string.replace(Regex("§."), "")) ?: return
+        barFound = match.groupValues[1].toInt()
+        barTotal = match.groupValues[2].toInt()
+        barAt = System.currentTimeMillis()
+    }
+
+    /**
+     * Every secret here is collected: the room's checkmark is green, the action bar says all
+     * of them are found, or every step that collects something is done.
+     */
+    private fun roomComplete(room: DungeonRoom, state: Progress): Boolean {
+        if (room.greenChecked) return true
+        val now = System.currentTimeMillis()
+        // The action bar lags a moment behind walking into a room, so it only counts once you've been here a bit.
+        if (barTotal > 0 && barFound >= barTotal && now - barAt < 1_500L && barAt - enteredAt > 2_000L) return true
+        return state.route.indices.all { k -> state.route[k].walkOnly || stepDone(state, k) } &&
+            state.route.any { !it.walkOnly }
+    }
+
     private fun secretDone(state: Progress, step: RouteData.Step): Boolean {
         val ours = step.ours ?: return false
         return ours in state.collected || SecretTracker.isClaimed(ours)
@@ -118,6 +160,12 @@ object SecretRoutes {
     private fun stepDone(state: Progress, k: Int): Boolean {
         if (k in state.passed) return true
         val step = state.route[k]
+        // A lever is done once flipped, or once the chest it opens is collected anyway.
+        if (step.secretType == "lever") {
+            if (secretDone(state, step)) return true
+            val opens = (k + 1 until state.route.size).firstOrNull { state.route[it].secretType != "lever" } ?: return false
+            return stepDone(state, opens)
+        }
         if (!step.walkOnly) return secretDone(state, step)
         // A walk is behind you once anything after it is collected.
         return (k + 1 until state.route.size).any { later ->
