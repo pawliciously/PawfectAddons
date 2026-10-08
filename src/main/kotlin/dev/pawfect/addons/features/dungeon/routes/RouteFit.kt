@@ -2,6 +2,7 @@ package dev.pawfect.addons.features.dungeon.routes
 
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import org.slf4j.LoggerFactory
+import kotlin.math.abs
 import kotlin.math.max
 
 /**
@@ -66,10 +67,10 @@ object RouteFit {
             // Nor is landing a pearl thrown from here.
             if (step.pearls.any { p -> (p[0] - from[0]).let { it * it } + (p[1] - from[1]).let { it * it } + (p[2] - from[2]).let { it * it } <= 9.0 }) return@zipWithNext
             val below = intArrayOf(to[0], to[1] - 1, to[2])
-            val marked = (step.etherwarps + added).any { e -> near(e, to, 4) || near(e, below, 4) }
-            if (!marked) added += below
+            val marked = step.etherwarps.any { e -> near(e, to, 4) || near(e, below, 4) } || added.any { near(it, to, 4) }
+            if (!marked) added += to
         }
-        if (added.isEmpty()) step else step.copy(etherwarps = step.etherwarps + added)
+        if (added.isEmpty()) step else step.copy(teleports = added)
     }
 
     private fun near(a: IntArray, b: IntArray, rangeSq: Int): Boolean {
@@ -129,18 +130,50 @@ object RouteFit {
 
     // ------------------------------------------------------------------ turning
 
+    /** How far a route's frame can sit from ours, in blocks along x or z. */
+    private const val MAX_SHIFT = 16
+
+    /**
+     * Lines the route up with our room: turned (Slime is half a turn out) and shifted (Super
+     * Tall sits 8 blocks off), whichever puts the most of its secrets exactly on ours.
+     */
     private fun turn(room: String, route: List<RouteData.Step>, secrets: List<SecretRoomData.SecretEntry>): List<RouteData.Step> {
         val box = box(room) ?: return route
         val (mx, mz) = box
         val turns = if (mx == mz) Turn.entries else listOf(Turn.NONE, Turn.HALF)
-        val scores = turns.associateWith { turn -> score(route, secrets) { turnBlock(it, turn, mx, mz) } }
-        val none = scores.getValue(Turn.NONE)
-        val (best, bestScore) = scores.entries.maxBy { it.value.first * 2 + it.value.second }
-        // Only turned when it clearly fits better: at least two secrets land exactly on ours.
-        if (best == Turn.NONE || bestScore.first < 2 || bestScore.first <= none.first) return route
-        logger.info("Route for {} is turned {} from our room data, lining it up ({} exact before, {} after)", room, best, none.first, bestScore.first)
-        return route.map { step -> turnStep(step, best, mx, mz) }
+        val none = score(route, secrets) { it }
+        var best = Triple(Turn.NONE, 0, 0)
+        var bestScore = none
+        turns.forEach { turn ->
+            // Shifts worth trying: the ones that put some route secret right on one of ours.
+            val shifts = LinkedHashSet<Pair<Int, Int>>()
+            shifts += 0 to 0
+            route.forEach { step ->
+                val categories = CATEGORIES[step.secretType] ?: return@forEach
+                val at = turnBlock(step.secretAt ?: return@forEach, turn, mx, mz)
+                secrets.filter { it.category in categories && it.y == at[1] }.forEach { secret ->
+                    val tx = secret.x - at[0]
+                    val tz = secret.z - at[2]
+                    if (abs(tx) <= MAX_SHIFT && abs(tz) <= MAX_SHIFT) shifts += tx to tz
+                }
+            }
+            shifts.forEach { (tx, tz) ->
+                val score = score(route, secrets) { shift(turnBlock(it, turn, mx, mz), tx, tz) }
+                if (score.first * 2 + score.second > bestScore.first * 2 + bestScore.second) {
+                    best = Triple(turn, tx, tz)
+                    bestScore = score
+                }
+            }
+        }
+        // Only moved when it clearly fits better: most of its secrets, and at least two, land exactly on ours.
+        val secretSteps = route.count { it.secretType in CATEGORIES && it.secretAt != null }
+        val (turn, tx, tz) = best
+        if (best == Triple(Turn.NONE, 0, 0) || bestScore.first < max(2, (secretSteps + 1) / 2) || bestScore.first <= none.first) return route
+        logger.info("Route for {} is turned {} and shifted ({}, {}) from our room data, lining it up ({} exact before, {} after)", room, turn, tx, tz, none.first, bestScore.first)
+        return route.map { step -> turnStep(step, turn, mx, mz, tx, tz) }
     }
+
+    private fun shift(p: IntArray, tx: Int, tz: Int): IntArray = if (tx == 0 && tz == 0) p else intArrayOf(p[0] + tx, p[1], p[2] + tz)
 
     /** Route secrets landing exactly on one of ours, and within a few blocks of one. */
     private fun score(route: List<RouteData.Step>, secrets: List<SecretRoomData.SecretEntry>, turn: (IntArray) -> IntArray): Pair<Int, Int> {
@@ -191,13 +224,14 @@ object RouteFit {
         Turn.THREE_QUARTERS -> yaw - 90f
     }
 
-    private fun turnStep(step: RouteData.Step, turn: Turn, mx: Int, mz: Int): RouteData.Step {
-        fun blocks(list: List<IntArray>) = list.map { turnBlock(it, turn, mx, mz) }
+    private fun turnStep(step: RouteData.Step, turn: Turn, mx: Int, mz: Int, tx: Int, tz: Int): RouteData.Step {
+        fun block(p: IntArray) = shift(turnBlock(p, turn, mx, mz), tx, tz)
+        fun blocks(list: List<IntArray>) = list.map { block(it) }
         return RouteData.Step(
             blocks(step.locations), blocks(step.etherwarps), blocks(step.mines), blocks(step.interacts), blocks(step.tnts),
-            step.pearls.map { turnPoint(it, turn, mx, mz) },
+            step.pearls.map { turnPoint(it, turn, mx, mz).let { p -> doubleArrayOf(p[0] + tx, p[1], p[2] + tz) } },
             step.pearlAngles.map { floatArrayOf(it[0], turnYaw(it.getOrElse(1) { 0f }, turn)) },
-            step.secretType, step.secretAt?.let { turnBlock(it, turn, mx, mz) }, step.ours, step.extra,
+            step.secretType, step.secretAt?.let { block(it) }, step.ours, step.extra,
         )
     }
 

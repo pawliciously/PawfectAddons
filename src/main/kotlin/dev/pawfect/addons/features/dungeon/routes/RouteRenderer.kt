@@ -102,6 +102,14 @@ object RouteRenderer {
                     box(pose, consumer, pos, color(config.etherwarpColor), width)
                     if (current) labels += Label("Etherwarp", top(pos))
                 }
+                step.teleports.forEach { p ->
+                    // On the block you land on when there is one, otherwise where you end up.
+                    val landing = block(room, p)
+                    val under = landing.below()
+                    val spot = if (McCompat.mc.level?.getBlockState(under)?.isAir == false) under else landing
+                    box(pose, consumer, spot, color(config.etherwarpColor), width)
+                    if (current) labels += Label("Teleport", top(spot))
+                }
                 step.mines.forEach { p -> box(pose, consumer, block(room, p), color(config.stonkColor), width) }
                 // One label for each run of blocks mined together.
                 if (current) clusters(step.mines).forEach { first -> labels += Label("Stonk", top(block(room, first))) }
@@ -126,7 +134,9 @@ object RouteRenderer {
                     }
                     if (current) labels += Label("Pearl", at.add(0.0, 0.6, 0.0))
                 }
-                val secret = step.secretAt
+                // A step tied to one of our secrets is drawn on it: the route's own spot for an item
+                // or bat is only where its author was standing.
+                val secret = step.ours?.let { intArrayOf(it.x, it.y, it.z) } ?: step.secretAt
                 if (secret != null && step.secretType != "dummy") {
                     val pos = block(room, secret)
                     val secretColor = if (step.secretType == "lever" || step.secretType == "plate") config.interactColor else config.secretColor

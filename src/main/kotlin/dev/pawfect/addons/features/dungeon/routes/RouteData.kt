@@ -44,13 +44,16 @@ object RouteData {
         val ours: SecretRoomData.SecretEntry? = null,
         /** Added from our room data because the route skipped it. */
         val extra: Boolean = false,
+        /** Where a teleport the route doesn't list as an etherwarp lands you: the block you end up in. */
+        val teleports: List<IntArray> = emptyList(),
     ) {
         fun copy(
             locations: List<IntArray> = this.locations,
             etherwarps: List<IntArray> = this.etherwarps,
             mines: List<IntArray> = this.mines,
             interacts: List<IntArray> = this.interacts,
-        ) = Step(locations, etherwarps, mines, interacts, tnts, pearls, pearlAngles, secretType, secretAt, ours, extra)
+            teleports: List<IntArray> = this.teleports,
+        ) = Step(locations, etherwarps, mines, interacts, tnts, pearls, pearlAngles, secretType, secretAt, ours, extra, teleports)
 
         /** A step with nothing to collect, done once you get there. */
         val walkOnly: Boolean get() = secretType == null || secretType == "exit" || secretType == "exitroute" || secretType == "dummy" || secretType == "plate"

@@ -112,6 +112,14 @@ function Invoke-Command-File($session) {
     } catch { }
 }
 
+function Test-Background($session) {
+    try {
+        if (-not $session.SourceAppUserModelId.EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase)) { return $false }
+        $props = Await ($session.TryGetMediaPropertiesAsync()) $propsType 1000
+        return ($null -eq $props) -or [string]::IsNullOrWhiteSpace($props.Artist)
+    } catch { return $false }
+}
+
 $chosen = $null
 function Pick-Session {
     $sessions = @($manager.GetSessions())
@@ -120,6 +128,12 @@ function Pick-Session {
     $playing = @($sessions | Where-Object {
         try { $_.GetPlaybackInfo().PlaybackStatus.ToString() -eq 'Playing' } catch { $false }
     })
+    # An app's own video, like a clip preview in a WebView2 window, shows up as a session from a
+    # bare .exe with no artist. Real players come first; those only when nothing else plays.
+    if ($playing.Count -gt 1) {
+        $real = @($playing | Where-Object { -not (Test-Background $_) })
+        if ($real.Count -gt 0) { $playing = $real }
+    }
     $stillThere = $null
     if ($null -ne $script:chosen) {
         $stillThere = $sessions | Where-Object { [object]::ReferenceEquals($_, $script:chosen) } | Select-Object -First 1
