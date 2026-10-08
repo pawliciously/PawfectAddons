@@ -3,7 +3,7 @@ package dev.pawfect.addons.config
 import dev.pawfect.addons.config.settings.PawfectSettings
 import dev.pawfect.addons.config.settings.SettingSection
 import dev.pawfect.addons.ui.ChromaConfigScreen
-import dev.pawfect.addons.ui.PawfectConfigScreen
+import dev.pawfect.addons.ui.ClickGuiScreen
 import dev.pawfect.addons.utils.McCompat
 
 object ConfigGuiManager {
@@ -14,13 +14,14 @@ object ConfigGuiManager {
         sections = PawfectSettings.buildSections()
     }
 
+    /** The click GUI, or Chroma for a dev who switched to the classic menu. */
     fun open(tab: String? = null) {
         build()
-        McCompat.screen = if (ConfigManager.features.theme.classicMenu) PawfectConfigScreen(sections, tab) else ChromaConfigScreen(sections, tab)
+        McCompat.screen = if (ConfigManager.features.theme.classicMenu) ChromaConfigScreen(sections, tab) else ClickGuiScreen(sections, tab)
     }
 
     fun reopen() {
         val screen = McCompat.screen
-        if (screen is PawfectConfigScreen || screen is ChromaConfigScreen) open()
+        if (screen is ClickGuiScreen || screen is ChromaConfigScreen) open()
     }
 }

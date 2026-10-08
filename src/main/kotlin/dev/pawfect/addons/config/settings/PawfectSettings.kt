@@ -1005,7 +1005,6 @@ object PawfectSettings {
                     DropdownSetting("Font", "Typeface used across the mod.", theme::font, UiFontChoice.entries.toList()),
                     ToggleSetting("Font Shadow", "Draw a drop shadow behind all text.", theme::fontShadow),
                     FloatSliderSetting("Text Offset", "Nudge text up or down if the font sits off centre.", theme::textOffset, -4f, 4f, 0.5f),
-                    ToggleSetting("Player Card", "Show the player card above the menu.", theme::showPlayerIsland),
                     ToggleSetting("Animations", "Animate hovers, toggles and scrolling.", theme::animations),
                     ToggleSetting("Click Sounds", "Play a click when you change a setting.", theme::clickSounds),
                 ),
@@ -1045,7 +1044,7 @@ object PawfectSettings {
             "Menu",
             ToggleSetting(
                 "Classic Menu",
-                "Open the original settings menu instead of Chroma. Turn it off to go back to Chroma.",
+                "Open the Chroma menu instead of the click GUI. Turn it off to go back to the click GUI.",
                 ConfigManager.features.theme::classicMenu,
             ).onChange { PawfectAddons.queueScreen { ConfigGuiManager.open("dev") } },
         ),

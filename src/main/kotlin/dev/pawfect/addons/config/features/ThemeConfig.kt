@@ -55,20 +55,22 @@ class ThemeConfig {
     var windowY: Float = -1f
 
     @Expose
-    var showPlayerIsland: Boolean = true
-
-    @Expose
     val collapsedSections: MutableList<String> = mutableListOf()
-
-    @Expose
-    var lastCategory: String = ""
 
     @Expose
     val collapsedGroups: MutableList<String> = mutableListOf()
 
-    /** Dev only: open the original settings menu instead of Chroma. */
+    /** Dev only: open the Chroma menu instead of the click GUI. */
     @Expose
     var classicMenu: Boolean = false
+
+    /** Where each click GUI panel sits and whether it's folded, by category id. */
+    @Expose
+    val clickPanels: MutableMap<String, ClickPanel> = mutableMapOf()
+
+    /** Click GUI panels from back to front, so the last one moved stays on top. */
+    @Expose
+    val clickOrder: MutableList<String> = mutableListOf()
 
     @Expose
     var chromaTab: String = ""
@@ -105,6 +107,17 @@ class ThemeConfig {
 
     @Expose
     var hudGridSize: Int = 10
+
+    class ClickPanel {
+        @Expose
+        var x: Float = 0f
+
+        @Expose
+        var y: Float = 0f
+
+        @Expose
+        var collapsed: Boolean = false
+    }
 
     enum class UiFontChoice(private val label: String) {
         INTER("Inter"),

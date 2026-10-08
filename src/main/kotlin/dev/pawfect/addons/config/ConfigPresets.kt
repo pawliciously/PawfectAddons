@@ -34,7 +34,8 @@ object ConfigPresets {
     private val LOCAL = listOf(
         "theme" to "windowX",
         "theme" to "windowY",
-        "theme" to "lastCategory",
+        "theme" to "clickPanels",
+        "theme" to "clickOrder",
         "theme" to "collapsedSections",
         "theme" to "collapsedGroups",
         "cosmetics" to "enrolledAt",

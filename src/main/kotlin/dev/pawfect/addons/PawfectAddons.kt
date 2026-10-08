@@ -38,7 +38,6 @@ import dev.pawfect.addons.features.visual.LavaChanger
 import dev.pawfect.addons.features.visual.handchams.ChamsPipelines
 import dev.pawfect.addons.features.discord.DiscordPresence
 import dev.pawfect.addons.features.media.MediaBridge
-import dev.pawfect.addons.utils.SessionTracker
 import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
 import dev.pawfect.addons.features.visual.menu.hub.HubCapture
 import dev.pawfect.addons.features.visual.menu.hub.HubPipelines
@@ -263,7 +262,6 @@ object PawfectAddons : ClientModInitializer {
 
         MediaBridge.tick()
         runCatching { DiscordPresence.onTick() }
-        SessionTracker.tick()
         runCatching { Hitsound.onTick() }
         runCatching { PacketLog.tick() }
         runCatching { Cosmetics.onTick() }

@@ -30,8 +30,8 @@ import net.minecraft.network.chat.Component
 /**
  * The Chroma settings menu: an icon column of tabs, a moving gradient along the top edge, and
  * two columns of group boxes split by labelled dividers that can be folded away. Everything is
- * drawn in the theme's colours, and the widgets are the same ones the classic menu uses. Any
- * setting can be starred into Favourites.
+ * drawn in the theme's colours. Any setting can be starred into Favourites. It's now the classic
+ * menu, kept for devs behind the Classic Menu switch; the click GUI is what everyone else opens.
  */
 class ChromaConfigScreen(
     sections: List<SettingSection>,
@@ -349,10 +349,10 @@ class ChromaConfigScreen(
 
     private fun headerButtons(): List<Button> {
         if (!isDev()) return emptyList()
-        val label = "Classic menu"
+        val label = "New menu"
         val w = Draw.width(label) + 16f
         val y = windowY + EDGE + (HEADER_HEIGHT - BUTTON_HEIGHT) / 2f
-        return listOf(Button("classic", label, windowX + WINDOW_WIDTH - 10f - w, y, w))
+        return listOf(Button("new", label, windowX + WINDOW_WIDTH - 10f - w, y, w))
     }
 
     private fun searchBounds(): FloatArray {
@@ -556,10 +556,10 @@ class ChromaConfigScreen(
         headerButtons().forEach { b ->
             if (Draw.inside(mx, my, b.x, b.y, b.width, BUTTON_HEIGHT)) {
                 UiSound.click()
-                if (b.id == "classic") {
-                    ConfigManager.features.theme.classicMenu = true
+                if (b.id == "new") {
+                    ConfigManager.features.theme.classicMenu = false
                     ConfigManager.features.theme.chromaTab = tabId
-                    ConfigManager.save(ConfigFileType.FEATURES, "switched to the classic menu")
+                    ConfigManager.save(ConfigFileType.FEATURES, "switched to the click GUI")
                     PawfectAddons.queueScreen { ConfigGuiManager.open(tab.categories.firstOrNull()?.id) }
                 }
                 return true
