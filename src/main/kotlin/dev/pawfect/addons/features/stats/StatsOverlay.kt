@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.stats
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.core.Position
 import dev.pawfect.addons.data.SkyBlockData
@@ -9,7 +10,7 @@ import dev.pawfect.addons.utils.renderables.TextRenderable
 
 object StatsOverlay {
 
-    private val config get() = ConfigManager.features.stats
+    private val config get() = ModuleSwitch.view("visuals", ConfigManager.features.stats)
 
     fun render() {
         if (!SkyBlockData.onSkyBlock || !ActionBarStats.hasData) return

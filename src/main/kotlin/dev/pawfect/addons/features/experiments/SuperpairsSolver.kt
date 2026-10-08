@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.experiments
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import net.minecraft.world.Container
 import net.minecraft.world.item.DyeColor
@@ -8,7 +9,7 @@ import net.minecraft.world.item.Items
 
 object SuperpairsSolver : ExperimentSolver(Regex("^Superpairs \\(\\w+\\)$")) {
 
-    private val config get() = ConfigManager.features.experiments
+    private val config get() = ModuleSwitch.view("experiments", ConfigManager.features.experiments)
 
     private var prevClickedSlot = 0
     private var currentStack: ItemStack = ItemStack.EMPTY

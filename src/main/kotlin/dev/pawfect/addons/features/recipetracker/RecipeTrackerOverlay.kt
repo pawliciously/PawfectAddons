@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.recipetracker
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.NeuRepo
 import dev.pawfect.addons.data.SkyBlockData
@@ -20,7 +21,7 @@ object RecipeTrackerOverlay {
 
     private const val COMPLETE_MARK = "§a§l✔"
 
-    private val config get() = ConfigManager.features.recipeTracker
+    private val config get() = ModuleSwitch.view("recipetracker", ConfigManager.features.recipeTracker)
 
     private var display: Renderable? = null
     private var tickCounter = 0

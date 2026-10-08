@@ -1,5 +1,6 @@
 package dev.pawfect.addons
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.commands.PawfectCommands
 import dev.pawfect.addons.config.ConfigFileType
 import dev.pawfect.addons.config.ConfigGuiManager
@@ -196,7 +197,7 @@ object PawfectAddons : ClientModInitializer {
     }
 
     private fun hiddenStatIcons(): Set<Char> {
-        val stats = ConfigManager.features.stats
+        val stats = ModuleSwitch.view("visuals", ConfigManager.features.stats)
         if (!stats.hideReplacedStats) return emptySet()
         val icons = HashSet<Char>()
         if (stats.healthEnabled) icons.add(ActionBarStats.ICON_HEALTH)
@@ -222,7 +223,7 @@ object PawfectAddons : ClientModInitializer {
             if (overlay) {
                 runCatching { ActionBarDebug.onActionBar(message) }
                 runCatching { ActionBarStats.onActionBar(message) }
-                !ConfigManager.features.stats.hideActionBar
+                !ModuleSwitch.view("visuals", ConfigManager.features.stats).hideActionBar
             } else {
                 runCatching { Hitsound.onChat(message) }
                 runCatching { SackApi.handleChatMessage(message) }
@@ -242,7 +243,7 @@ object PawfectAddons : ClientModInitializer {
     }
 
     private fun checkVisualSettings() {
-        val visuals = ConfigManager.features.visuals
+        val visuals = ModuleSwitch.view("visuals", ConfigManager.features.visuals)
         val signature = listOf(
             visuals.lavaChanger,
             visuals.hideLavaFog,
@@ -289,9 +290,9 @@ object PawfectAddons : ClientModInitializer {
             NukekubiGlow.onTick()
             ExperimentManager.onTick()
 
-            val needsRooms = ConfigManager.features.secretWaypoints.enabled ||
-                ConfigManager.features.dungeonWaypoints.enabled ||
-                ConfigManager.features.visuals.starGlow
+            val needsRooms = ModuleSwitch.view("dungeon", ConfigManager.features.secretWaypoints).enabled ||
+                ModuleSwitch.view("dungeon", ConfigManager.features.dungeonWaypoints).enabled ||
+                ModuleSwitch.view("dungeon", ConfigManager.features.visuals).starGlow
             if (needsRooms) {
                 SecretRoomData.load()
                 DungeonScanner.onTick()

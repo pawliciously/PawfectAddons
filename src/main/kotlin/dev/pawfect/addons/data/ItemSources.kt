@@ -1,5 +1,6 @@
 package dev.pawfect.addons.data
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigFileType
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.StorageData
@@ -38,7 +39,7 @@ object ItemSources {
     private var dirtySince = 0L
 
     fun owned(itemId: String): OwnedAmount {
-        val general = ConfigManager.features.general
+        val general = ModuleSwitch.view("recipetracker", ConfigManager.features.general)
         return OwnedAmount(
             sacks = if (general.trackSacks) SackApi.amountInSacks(itemId) else null,
             inventory = if (general.countInventory) inventoryCount(itemId) else 0,
@@ -73,7 +74,7 @@ object ItemSources {
 
     fun onTick() {
         flushIfDirty()
-        if (!ConfigManager.features.general.countStorage) return
+        if (!ModuleSwitch.view("recipetracker", ConfigManager.features.general).countStorage) return
         if (++tickCounter < PARSE_INTERVAL_TICKS) return
         tickCounter = 0
 

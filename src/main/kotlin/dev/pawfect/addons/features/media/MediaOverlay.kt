@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.media
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.core.GuiEditManager
 import dev.pawfect.addons.mixin.GuiGraphicsAccessor
@@ -24,7 +25,7 @@ import kotlin.math.sin
 
 object MediaOverlay {
 
-    private val config get() = ConfigManager.features.media
+    private val config get() = ModuleSwitch.view("media", ConfigManager.features.media)
 
     private const val PAD = 9f
     private const val ART = MediaArt.SIZE.toFloat()

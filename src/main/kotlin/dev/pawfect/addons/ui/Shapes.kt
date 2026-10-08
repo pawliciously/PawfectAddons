@@ -27,7 +27,9 @@ object Shapes {
         graphics.enableScissor(left, top, right, bottom)
         val rect = ScreenRectangle(left, top, right - left, bottom - top)
             .transformAxisAligned(graphics.pose())
-        scissor = scissor?.intersection(rect) ?: rect
+        // No overlap clips everything, rather than falling back to the new area alone.
+        val outer = scissor
+        scissor = if (outer == null) rect else outer.intersection(rect) ?: ScreenRectangle.empty()
     }
 
     val currentScissor: ScreenRectangle? get() = scissor
@@ -53,6 +55,8 @@ object Shapes {
         horizontal: Boolean = false,
     ) {
         if (width <= 0f || height <= 0f) return
+        val clip = scissor
+        if (clip != null && (clip.width() <= 0 || clip.height() <= 0)) return
 
         val halfWidth = width / 2f
         val halfHeight = height / 2f

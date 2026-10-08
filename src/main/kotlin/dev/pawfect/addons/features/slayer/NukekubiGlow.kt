@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.slayer
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.core.component.DataComponents
@@ -20,7 +21,7 @@ import java.util.WeakHashMap
  */
 object NukekubiGlow {
 
-    private val config get() = ConfigManager.features.slayers
+    private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
 
     private const val SKIN_HASH = "eb07594e2df273921a77c101d0bfdfa1115abed5b9b2029eb496ceba9bdbb4b3"
     private const val MAX_RANGE = 64.0

@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.discord
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import dev.pawfect.addons.PawfectAddons
@@ -23,7 +24,7 @@ object DiscordPresence {
     private const val RESEND_MS = 60_000L
     private const val RETRY_MS = 15_000L
 
-    private val config get() = ConfigManager.features.discord
+    private val config get() = ModuleSwitch.view("discord", ConfigManager.features.discord)
 
     private data class Presence(
         val details: String,

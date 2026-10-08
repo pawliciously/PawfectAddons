@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.chat
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.chat.ChatGraphicsHolder
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.PanelBackground
@@ -20,7 +21,7 @@ import kotlin.math.min
 
 object ChatStyle {
 
-    private val config get() = ConfigManager.features.chat
+    private val config get() = ModuleSwitch.view("chat", ConfigManager.features.chat)
 
     private class Row(val line: GuiMessage.Line, val left: Int, val top: Int, val right: Int, val bottom: Int, val alpha: Float)
 

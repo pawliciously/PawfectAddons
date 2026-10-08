@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.combat
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.utils.McCompat
@@ -13,7 +14,7 @@ object Hitmarker {
 
     private var flashAt = 0L
 
-    private val config get() = ConfigManager.features.hitsounds
+    private val config get() = ModuleSwitch.view("hitsounds", ConfigManager.features.hitsounds)
 
     fun flash() {
         flashAt = System.currentTimeMillis()

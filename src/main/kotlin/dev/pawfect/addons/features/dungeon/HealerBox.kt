@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.dungeon
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.utils.McCompat
@@ -15,7 +16,7 @@ object HealerBox {
     private const val Y = 64.02f
     private const val THICKNESS = 2f
 
-    private val config get() = ConfigManager.features.visuals
+    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.visuals)
 
     private val CORNERS = arrayOf(
         Vector3f(MIN_X, Y, MIN_Z),

@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.PanelBackground
 import dev.pawfect.addons.config.features.ScoreboardConfig.Placement
@@ -24,7 +25,7 @@ import java.util.Optional
 
 object ScoreboardRenderer {
 
-    private val config get() = ConfigManager.features.scoreboard
+    private val config get() = ModuleSwitch.view("scoreboard", ConfigManager.features.scoreboard)
 
     private val panelRgb: Int get() = if (config.customColors) config.panelColor else Theme.palette.panel
     private val backgroundRgb: Int get() = if (config.customColors) config.backgroundColor else Theme.palette.background

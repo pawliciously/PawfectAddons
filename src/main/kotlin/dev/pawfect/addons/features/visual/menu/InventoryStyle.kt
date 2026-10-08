@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.menu
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.mixin.ContainerScreenAccessor
 import dev.pawfect.addons.mixin.GuiGraphicsAccessor
@@ -18,7 +19,7 @@ import org.joml.Matrix3x2f
 
 object InventoryStyle {
 
-    private val config get() = ConfigManager.features.inventory
+    private val config get() = ModuleSwitch.view("inventory", ConfigManager.features.inventory)
 
     private val startedAt = System.currentTimeMillis()
 

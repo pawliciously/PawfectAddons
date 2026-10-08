@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.chat
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.features.cosmetics.Cosmetics
@@ -20,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 object ChatCosmetics {
 
-    private val config get() = ConfigManager.features.chat
+    private val config get() = ModuleSwitch.view("chat", ConfigManager.features.chat)
 
     private val CHAT_TAG = FontDescription.Resource(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "name_chat"))
     private val TAB_TAG = FontDescription.Resource(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "name_tab"))

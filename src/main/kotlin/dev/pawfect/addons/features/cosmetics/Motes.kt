@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.cosmetics
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import dev.pawfect.addons.config.ConfigManager
@@ -23,7 +24,7 @@ object Motes {
     private const val BUDGET = 480
     private const val TAU = 6.2831855f
 
-    private val config get() = ConfigManager.features.cosmetics
+    private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
     fun register() {
         LevelRenderEvents.COLLECT_SUBMITS.register { context ->

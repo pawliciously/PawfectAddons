@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.experiments
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import net.minecraft.core.component.DataComponents
 import net.minecraft.world.item.DyeColor
@@ -27,7 +28,7 @@ object ChronomatronSolver : ExperimentSolver(Regex("^Chronomatron \\(\\w+\\)$"))
 
     private val PANES: Set<Item> = TERRACOTTA_TO_GLASS.keys + TERRACOTTA_TO_GLASS.values
 
-    private val config get() = ConfigManager.features.experiments
+    private val config get() = ModuleSwitch.view("experiments", ConfigManager.features.experiments)
 
     private val sequence = ArrayList<Item>()
     private var chainLengthCount = 0

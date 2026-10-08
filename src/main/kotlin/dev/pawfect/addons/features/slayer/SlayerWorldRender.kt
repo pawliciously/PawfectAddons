@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.slayer
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.SlayersConfig.SlayerDisplay
 import dev.pawfect.addons.data.SkyBlockData
@@ -15,7 +16,7 @@ object SlayerWorldRender {
     private const val LINE_HEIGHT = 10f
     private const val WHITE = 0xFFFFFFFF.toInt()
 
-    private val config get() = ConfigManager.features.slayers
+    private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
 
     fun register() {
         LevelRenderEvents.COLLECT_SUBMITS.register { context ->

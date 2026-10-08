@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.cosmetics
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import dev.pawfect.addons.config.ConfigManager
@@ -28,7 +29,7 @@ object Ripples {
     private val fallers = HashMap<UUID, Faller>()
     private val live = ArrayDeque<Ring>()
 
-    private val config get() = ConfigManager.features.cosmetics
+    private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
     private class Faller {
         var lastY = Double.NaN

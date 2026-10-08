@@ -4,7 +4,7 @@ import com.google.gson.annotations.Expose
 
 class ModulesConfig {
 
-    /** Modules switched off, each with the toggles that were on so switching back restores them. */
+    /** Modules switched off in the click GUI. Their settings are left exactly as they are. */
     @Expose
-    val off: MutableMap<String, MutableList<String>> = mutableMapOf()
+    val disabled: MutableList<String> = mutableListOf()
 }

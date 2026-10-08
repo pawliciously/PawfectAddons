@@ -69,6 +69,10 @@ class ThemeConfig {
     @Expose
     val clickOrder: MutableList<String> = mutableListOf()
 
+    /** Groups opened in click GUI config windows. Every group starts folded. */
+    @Expose
+    val clickExpanded: MutableList<String> = mutableListOf()
+
     @Expose
     var chromaTab: String = ""
 

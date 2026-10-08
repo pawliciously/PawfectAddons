@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.utils.McCompat
@@ -8,7 +9,7 @@ import net.minecraft.world.entity.ambient.Bat
 
 object DungeonBats {
 
-    private val config get() = ConfigManager.features.visuals
+    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.visuals)
 
     @JvmStatic
     fun shouldHighlight(entity: Entity): Boolean {

@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.dungeon.secrets
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import dev.pawfect.addons.config.ConfigManager
@@ -14,7 +15,7 @@ import kotlin.math.roundToInt
 
 object SecretWaypointRenderer {
 
-    private val config get() = ConfigManager.features.secretWaypoints
+    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.secretWaypoints)
 
     private val EDGES = arrayOf(
         intArrayOf(0, 1), intArrayOf(1, 2), intArrayOf(2, 3), intArrayOf(3, 0),

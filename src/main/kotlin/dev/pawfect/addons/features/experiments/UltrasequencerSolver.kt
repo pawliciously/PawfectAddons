@@ -1,12 +1,13 @@
 package dev.pawfect.addons.features.experiments
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import net.minecraft.world.Container
 import net.minecraft.world.item.ItemStack
 
 object UltrasequencerSolver : ExperimentSolver(Regex("^Ultrasequencer \\(\\w+\\)$")) {
 
-    private val config get() = ConfigManager.features.experiments
+    private val config get() = ModuleSwitch.view("experiments", ConfigManager.features.experiments)
 
     private val NUMERIC = Regex("^\\d+$")
 

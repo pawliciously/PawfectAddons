@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.slayer
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.SlayersConfig.SlayerDisplay
 import dev.pawfect.addons.data.SkyBlockData
@@ -9,7 +10,7 @@ import dev.pawfect.addons.utils.renderables.TextRenderable
 
 object SlayerOverlay {
 
-    private val config get() = ConfigManager.features.slayers
+    private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
 
     fun render() {
         if (!config.enabled) return

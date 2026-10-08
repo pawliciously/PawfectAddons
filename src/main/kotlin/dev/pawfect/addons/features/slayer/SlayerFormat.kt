@@ -1,12 +1,13 @@
 package dev.pawfect.addons.features.slayer
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.features.slayer.SlayerManager.Boss
 import dev.pawfect.addons.utils.NumberUtil.shortFormat
 
 object SlayerFormat {
 
-    private val config get() = ConfigManager.features.slayers
+    private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
 
     fun nameLine(boss: Boss): String {
         val suffix = if (boss.owned) "" else " §8(other)"

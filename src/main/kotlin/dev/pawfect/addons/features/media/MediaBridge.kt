@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.media
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.google.gson.JsonParser
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.ConfigManager
@@ -29,7 +30,7 @@ object MediaBridge {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Media")
 
-    private val config get() = ConfigManager.features.media
+    private val config get() = ModuleSwitch.view("media", ConfigManager.features.media)
 
     @Volatile
     var track: Track? = null

@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.chat
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.ChatFormatting
@@ -16,7 +17,7 @@ object LevelPrestige {
 
     enum class Where { CHAT, TAB, NAMETAG }
 
-    private val enabled get() = ConfigManager.features.chat.levelPrestige
+    private val enabled get() = ModuleSwitch.view("chat", ConfigManager.features.chat).levelPrestige
 
     private const val DARK_RED = 0xAA0000
     private const val RED = 0xFF5555

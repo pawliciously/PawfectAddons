@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.experiments
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.utils.McCompat
@@ -9,7 +10,7 @@ import net.minecraft.world.item.ItemStack
 
 object ExperimentManager {
 
-    private val config get() = ConfigManager.features.experiments
+    private val config get() = ModuleSwitch.view("experiments", ConfigManager.features.experiments)
 
     private val solvers = listOf(ChronomatronSolver, UltrasequencerSolver, SuperpairsSolver)
 

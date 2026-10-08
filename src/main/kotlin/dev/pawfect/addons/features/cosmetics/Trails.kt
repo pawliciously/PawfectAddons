@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.cosmetics
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import dev.pawfect.addons.config.ConfigManager
@@ -30,7 +31,7 @@ object Trails {
     private val tracks = HashMap<UUID, Track>()
     private val showcase = HashMap<UUID, Track>()
 
-    private val config get() = ConfigManager.features.cosmetics
+    private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
     private class Point(val x: Double, val y: Double, val z: Double, val at: Long, val strength: Float)
 

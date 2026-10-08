@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.motionblur
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.GpuFormat
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.CommandEncoder
@@ -24,7 +25,7 @@ object MotionBlur {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/MotionBlur")
 
-    private val config get() = ConfigManager.features.motionBlur
+    private val config get() = ModuleSwitch.view("visuals", ConfigManager.features.motionBlur)
 
     private var uniformBuffer: GpuBuffer? = null
     private var failed = false

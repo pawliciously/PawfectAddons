@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.features.dungeon.rooms.DungeonMapUtils
@@ -21,7 +22,7 @@ import java.util.Optional
 
 object StarMobGlow {
 
-    private val config get() = ConfigManager.features.visuals
+    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.visuals)
 
     private const val HEART = "❤"
     private const val STAR = "✯"

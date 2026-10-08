@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.tooltip
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.TooltipConfig.BorderSource
 import dev.pawfect.addons.config.features.TooltipConfig.Frame
@@ -18,7 +19,7 @@ import net.minecraft.world.item.ItemStack
 
 object TooltipStyle {
 
-    private val config get() = ConfigManager.features.tooltip
+    private val config get() = ModuleSwitch.view("inventory", ConfigManager.features.tooltip)
 
     private var item: ItemStack = ItemStack.EMPTY
 

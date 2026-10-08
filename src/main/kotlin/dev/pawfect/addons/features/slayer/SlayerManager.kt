@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.slayer
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.SlayersConfig.SlayerTarget
 import dev.pawfect.addons.data.SkyBlockData
@@ -131,7 +132,7 @@ object SlayerManager {
             get() = stand.isAlive && ((currentHealth ?: 0) > 0 || hits != null)
     }
 
-    private val config get() = ConfigManager.features.slayers
+    private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
 
     var boss: Boss? = null
         private set

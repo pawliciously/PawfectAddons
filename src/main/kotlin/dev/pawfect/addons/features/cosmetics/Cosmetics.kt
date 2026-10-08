@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.cosmetics
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
@@ -35,7 +36,7 @@ object Cosmetics {
     private const val RETRY_MAX_DOUBLINGS = 6
     private val REFRESH_INTERVAL = Duration.ofMinutes(30)
 
-    private val config get() = ConfigManager.features.cosmetics
+    private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
     private val gson: Gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
 

@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.dungeon
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.annotations.Expose
@@ -38,7 +39,7 @@ object DungeonWaypoints {
     private val waypoints = ArrayList<Waypoint>()
     private var loaded = false
 
-    private val config get() = ConfigManager.features.dungeonWaypoints
+    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.dungeonWaypoints)
 
     fun path(): Path = FabricLoader.getInstance().configDir.resolve("pawfectaddons").resolve(FILE_NAME)
 

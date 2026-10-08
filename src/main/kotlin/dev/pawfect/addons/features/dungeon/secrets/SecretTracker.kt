@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.dungeon.secrets
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.utils.McCompat
@@ -31,7 +32,7 @@ object SecretTracker {
     private const val BAT_RANGE_SQ = 144.0
     private const val PICKUP_RANGE_SQ = 36.0
 
-    private val config get() = ConfigManager.features.secretWaypoints
+    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.secretWaypoints)
 
     private var lastInteract: BlockPos? = null
 

@@ -1,5 +1,6 @@
 package dev.pawfect.addons.data
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigFileType
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.SackEntry
@@ -74,7 +75,7 @@ object SackApi {
 
     fun onTick() {
         flushIfDirty()
-        if (!ConfigManager.features.general.trackSacks) return
+        if (!ModuleSwitch.view("recipetracker", ConfigManager.features.general).trackSacks) return
         if (++tickCounter < PARSE_INTERVAL_TICKS) return
         tickCounter = 0
 
@@ -155,7 +156,7 @@ object SackApi {
         stack.skyblockId() ?: NeuRepo.resolve(stack.plainName())?.internalName
 
     fun handleChatMessage(message: Component): Boolean {
-        if (!ConfigManager.features.general.trackSacks) return true
+        if (!ModuleSwitch.view("recipetracker", ConfigManager.features.general).trackSacks) return true
         if (!message.string.contains("[Sacks]")) return true
 
         val hoverTexts = collectHoverTexts(message)
@@ -164,7 +165,7 @@ object SackApi {
         val signature = hoverTexts.joinToString("\u0000")
         val now = System.currentTimeMillis()
         if (signature == lastDeltas && now - lastDeltasAt < REPEAT_WINDOW_MS) {
-            return !ConfigManager.features.general.hideSackMessages
+            return !ModuleSwitch.view("recipetracker", ConfigManager.features.general).hideSackMessages
         }
         lastDeltas = signature
         lastDeltasAt = now
@@ -208,7 +209,7 @@ object SackApi {
 
         if (changed) markDirty()
 
-        return !ConfigManager.features.general.hideSackMessages
+        return !ModuleSwitch.view("recipetracker", ConfigManager.features.general).hideSackMessages
     }
 
     private fun collectHoverTexts(message: Component): List<String> {

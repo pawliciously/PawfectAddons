@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Player
 
 object PlayerScale {
 
-    private val config get() = ConfigManager.features.playerChams
+    private val config get() = ModuleSwitch.view("chams", ConfigManager.features.playerChams)
 
     @JvmStatic
     var inPreview = false

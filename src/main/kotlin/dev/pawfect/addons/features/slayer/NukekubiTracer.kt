@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.slayer
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.features.dungeon.WaypointRenderTypes
 import dev.pawfect.addons.utils.McCompat
@@ -14,7 +15,7 @@ import org.joml.Vector3f
  */
 object NukekubiTracer {
 
-    private val config get() = ConfigManager.features.slayers
+    private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
 
     // The skull sits on the stand's head, about this far above its feet.
     private const val HEAD_HEIGHT = 1.75

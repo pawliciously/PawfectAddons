@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.skybox
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.GpuFormat
 import com.mojang.blaze3d.buffers.GpuBuffer
 import com.mojang.blaze3d.systems.CommandEncoder
@@ -39,7 +40,7 @@ object Skybox {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Skybox")
 
-    private val config get() = ConfigManager.features.skybox
+    private val config get() = ModuleSwitch.view("skybox", ConfigManager.features.skybox)
 
     private var uniformBuffer: GpuBuffer? = null
     private var failed = false

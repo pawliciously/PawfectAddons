@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.cosmetics
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.platform.NativeImage
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.textures.AddressMode
@@ -57,7 +58,7 @@ object Capes {
     private const val SHEET_W = 64
     private const val SHEET_H = 32
 
-    private val config get() = ConfigManager.features.cosmetics
+    private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
     private val client: HttpClient by lazy {
         HttpClient.newBuilder()

@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.renderer.block.FluidModel
@@ -9,7 +10,7 @@ import net.minecraft.world.level.material.Fluids
 
 object LavaChanger {
 
-    private val config get() = ConfigManager.features.visuals
+    private val config get() = ModuleSwitch.view("visuals", ConfigManager.features.visuals)
 
     @JvmStatic
     val isEnabled: Boolean get() = config.lavaChanger

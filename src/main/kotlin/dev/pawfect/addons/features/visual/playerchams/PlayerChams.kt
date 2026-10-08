@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.visual.playerchams
 
+import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.PrimitiveTopology
 import com.mojang.blaze3d.pipeline.BlendFunction
 import com.mojang.blaze3d.pipeline.ColorTargetState
@@ -33,7 +34,7 @@ import java.util.IdentityHashMap
 
 object PlayerChams {
 
-    private val config get() = ConfigManager.features.playerChams
+    private val config get() = ModuleSwitch.view("chams", ConfigManager.features.playerChams)
 
     private val END_SKY = Identifier.withDefaultNamespace("textures/environment/end_sky.png")
     private val END_PORTAL = Identifier.withDefaultNamespace("textures/entity/end_portal/end_portal.png")

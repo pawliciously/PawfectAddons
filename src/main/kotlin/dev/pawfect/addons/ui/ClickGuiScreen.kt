@@ -185,17 +185,17 @@ class ClickGuiScreen(
     private inline fun drawAround(graphics: GuiGraphicsExtractor, window: Config?, draw: () -> Unit) {
         if (window == null) { draw(); return }
         val screenW = UiScale.width
-        val screenH = UiScale.height + 16f
+        val screenH = UiScale.height
         val inset = 1.5f
         val left = window.x + inset
         val top = window.y + inset
         val right = window.x + window.width - inset
         val bottom = window.y + window.height - inset
         val strips = arrayOf(
-            floatArrayOf(-16f, -16f, screenW + 32f, top + 16f),
-            floatArrayOf(-16f, bottom, screenW + 32f, screenH - bottom + 16f),
-            floatArrayOf(-16f, top, left + 16f, bottom - top),
-            floatArrayOf(right, top, screenW - right + 16f, bottom - top),
+            floatArrayOf(0f, 0f, screenW, top),
+            floatArrayOf(0f, bottom, screenW, screenH - bottom),
+            floatArrayOf(0f, top, left, bottom - top),
+            floatArrayOf(right, top, screenW - right, bottom - top),
         )
         for (strip in strips) {
             if (strip[2] <= 0f || strip[3] <= 0f) continue
@@ -299,7 +299,7 @@ class ClickGuiScreen(
         if (draggingBar && window != null) scrollFromBar(window, mouseY)
         if (draggingConfig && window != null) {
             window.x = floor((mouseX - grabX).coerceIn(0f, (UiScale.width - window.width).coerceAtLeast(0f)))
-            window.y = floor((mouseY - grabY).coerceIn(0f, (UiScale.height - HEADER).coerceAtLeast(0f)))
+            window.y = floor((mouseY - grabY).coerceIn(MARGIN, (UiScale.height - BOTTOM_ROOM - window.height).coerceAtLeast(MARGIN)))
             return
         }
         val panel = pressedPanel ?: return
@@ -534,17 +534,19 @@ class ClickGuiScreen(
             window.x = floor(window.x.coerceIn(MARGIN, (UiScale.width - window.width - MARGIN).coerceAtLeast(MARGIN)))
             window.y = floor(panel.y.coerceIn(TOP, (UiScale.height - BOTTOM_ROOM - window.height).coerceAtLeast(TOP)))
         }
-        window.y = window.y.coerceIn(0f, (UiScale.height - HEADER).coerceAtLeast(0f))
+        window.y = window.y.coerceIn(MARGIN, (UiScale.height - BOTTOM_ROOM - window.height).coerceAtLeast(MARGIN))
+        window.x = window.x.coerceIn(0f, (UiScale.width - window.width).coerceAtLeast(0f))
     }
 
-    private fun foldKey(module: Module, group: SettingGroup): String = "click/${module.key}/${group.title}"
+    private fun foldKey(module: Module, group: SettingGroup): String = "${module.key}/${group.title}"
 
-    private fun folded(module: Module, group: SettingGroup): Boolean = foldKey(module, group) in theme.collapsedGroups
+    /** Groups start folded; the ones you open are saved, so they stay how you left them. */
+    private fun folded(module: Module, group: SettingGroup): Boolean = foldKey(module, group) !in theme.clickExpanded
 
     private fun setFolded(module: Module, group: SettingGroup, fold: Boolean) {
-        val list = theme.collapsedGroups
+        val list = theme.clickExpanded
         val key = foldKey(module, group)
-        if (fold) { if (key !in list) list.add(key) } else list.remove(key)
+        if (fold) list.remove(key) else if (key !in list) list.add(key)
     }
 
     private fun maxScroll(window: Config): Float = (window.contentHeight - window.bodyHeight).coerceAtLeast(0f)
@@ -881,8 +883,6 @@ class ClickGuiScreen(
                 focused = widget
                 dragged = widget
                 UiScale.lock()
-                // Turning a setting on by hand switches its module back on.
-                ModuleSwitch.wake(window.module.category)
                 return
             }
         }
@@ -997,6 +997,7 @@ class ClickGuiScreen(
         dropFocus()
         panels.filter { theme.clickPanels.containsKey(it.id) }.forEach { it.saved().x = it.x; it.saved().y = it.y }
         theme.clickPanels.keys.retainAll(byId.keys + DEV_PANELS)
+        theme.collapsedGroups.removeAll { it.startsWith("click/") }
         ConfigManager.save(ConfigFileType.FEATURES, "config screen closed")
         super.onClose()
         rememberedModule = null

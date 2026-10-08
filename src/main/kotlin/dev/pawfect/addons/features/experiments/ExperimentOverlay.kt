@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.experiments
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.ui.Draw
 import dev.pawfect.addons.ui.Draw.stringCentered
@@ -19,7 +20,7 @@ object ExperimentPalette {
 
 object ExperimentOverlay {
 
-    private val config get() = ConfigManager.features.experiments
+    private val config get() = ModuleSwitch.view("experiments", ConfigManager.features.experiments)
 
     private val startedAt = System.currentTimeMillis()
 

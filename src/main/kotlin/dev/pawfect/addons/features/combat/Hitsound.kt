@@ -1,5 +1,6 @@
 package dev.pawfect.addons.features.combat
 
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.StringUtil.removeColor
@@ -45,7 +46,7 @@ object Hitsound {
     private var levelKey = 0
     private var lastAbilityTick = NEVER
 
-    private val config get() = ConfigManager.features.hitsounds
+    private val config get() = ModuleSwitch.view("hitsounds", ConfigManager.features.hitsounds)
 
     fun reset() {
         arrows.clear()
@@ -129,13 +130,13 @@ object Hitsound {
 
     @JvmStatic
     fun muteExplosion(packet: ClientboundSoundPacket): Boolean {
-        if (!ConfigManager.features.hitsounds.muteExplosions) return false
+        if (!ModuleSwitch.view("hitsounds", ConfigManager.features.hitsounds).muteExplosions) return false
         return packet.sound.value() === SoundEvents.GENERIC_EXPLODE.value()
     }
 
     @JvmStatic
     fun suppressVanillaArrowPing(): Boolean {
-        val settings = ConfigManager.features.hitsounds
+        val settings = ModuleSwitch.view("hitsounds", ConfigManager.features.hitsounds)
         if (!settings.enabled || !settings.arrows || !settings.suppressVanilla) return false
         return gameTick - lastSuppressTick <= VANILLA_PING_TICKS
     }

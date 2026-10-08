@@ -32,7 +32,7 @@ object HandChams {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/HandChams")
 
-    private val config get() = ConfigManager.features.handChams
+    private val config get() = ModuleSwitch.view("chams", ConfigManager.features.handChams)
 
     private var uniformBuffer: GpuBuffer? = null
     private var sliceCursor = 0
@@ -57,7 +57,7 @@ object HandChams {
 
     @JvmStatic
     fun hideEnchantGlint(): Boolean =
-        runCatching { ConfigManager.features.handChams.hideEnchantGlint }.getOrDefault(false)
+        runCatching { ModuleSwitch.view("chams", ConfigManager.features.handChams).hideEnchantGlint }.getOrDefault(false)
 
     fun invalidate() {
         failed = false

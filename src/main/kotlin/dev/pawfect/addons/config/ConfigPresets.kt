@@ -36,6 +36,7 @@ object ConfigPresets {
         "theme" to "windowY",
         "theme" to "clickPanels",
         "theme" to "clickOrder",
+        "theme" to "clickExpanded",
         "theme" to "collapsedSections",
         "theme" to "collapsedGroups",
         "cosmetics" to "enrolledAt",
