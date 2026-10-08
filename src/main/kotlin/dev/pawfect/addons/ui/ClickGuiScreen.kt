@@ -12,6 +12,7 @@ import dev.pawfect.addons.config.settings.SettingSection
 import dev.pawfect.addons.ui.Draw.circle
 import dev.pawfect.addons.ui.Draw.dropShadow
 import dev.pawfect.addons.ui.Draw.icon
+import dev.pawfect.addons.ui.Draw.iconCentered
 import dev.pawfect.addons.ui.Draw.pill
 import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Draw.roundPanel
@@ -409,7 +410,7 @@ class ClickGuiScreen(
         graphics.string(shown, textX, textY, color)
         if (module.switchable) {
             val sx = x + w - 6f - SWITCH_W
-            drawSwitch(graphics, "row/undefined", sx, y + (MODULE_HEIGHT - SWITCH_H) / 2f, module.enabled)
+            drawSwitch(graphics, "row/${module.key}", sx, y + (MODULE_HEIGHT - SWITCH_H) / 2f, module.enabled)
         } else {
             val caret = Icons.CARET_RIGHT
             val caretColor = if (open) Theme.opaque(Theme.accent) else Theme.lerp(Theme.withAlpha(Theme.textDim, 150), Theme.opaque(Theme.text), h)
@@ -554,8 +555,10 @@ class ClickGuiScreen(
     private fun configBody(window: Config): Float = window.y + HEADER + CONFIG_PAD
 
     private fun closeBounds(window: Config): FloatArray {
-        val size = HEADER - 6f
-        return floatArrayOf(window.x + window.width - size - 3f, window.y + 3f, size, size)
+        // Centred on the header above its accent line, with the same gap above, below and right.
+        val size = 14f
+        val gap = (HEADER - ACCENT_LINE - size) / 2f
+        return floatArrayOf(window.x + window.width - size - gap - 1f, window.y + gap, size, size)
     }
 
     private fun drawConfig(graphics: GuiGraphicsExtractor, window: Config, mouseX: Float, mouseY: Float) {
@@ -590,7 +593,8 @@ class ClickGuiScreen(
         val closeHovered = Draw.inside(mouseX, mouseY, c[0], c[1], c[2], c[3])
         val ch = hover.getOrPut("config/close") { Anim(120L) }.update(if (closeHovered) 1f else 0f)
         if (ch > 0.01f) graphics.roundRect(c[0], c[1], c[2], c[3], 3f, Theme.withAlpha(Theme.text, (20 * ch).toInt()))
-        graphics.icon(Icons.CLOSE, c[0] + (c[2] - UiFont.iconWidth(Icons.CLOSE)) / 2f, c[1] + (c[3] - Draw.LINE_HEIGHT) / 2f,
+        // Centred on its ink, since the glyph sits off centre in its own advance.
+        graphics.iconCentered(Icons.CLOSE, c[0] + c[2] / 2f, c[1] + c[3] / 2f, CLOSE_SCALE,
             Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), ch))
 
         drawConfigBody(graphics, window, mouseX, mouseY)
@@ -1058,6 +1062,7 @@ class ClickGuiScreen(
         private const val LINK_TEXTURE = 64f
         private const val LINK_GAP = 4f
         private const val SWITCH_W = 16f
+        private const val CLOSE_SCALE = 1f
         private const val SWITCH_H = 9f
         private const val KEY_ESCAPE = 256
         private const val KEY_BACKSPACE = 259
