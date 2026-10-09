@@ -246,6 +246,10 @@ object PawfectSettings {
                         .showIf { visuals.batHighlighter },
                 ),
                 group(
+                    "Spirit Leap",
+                    ToggleSetting("Leap Menu", "Show Spirit Leap as four corners and a middle. Every class keeps its own spot and key: Archer 1 top left, Berserker 2 top right, Mage 3 middle, Tank 4 bottom left, Healer 5 bottom right. A leap is one normal click on that teammate's head.", visuals::leapMenu),
+                ),
+                group(
                     "Room Info",
                     ToggleSetting("Room Info", "Show the dungeon room you're in on screen: its name, secrets found and whether it's cleared.", dungeonHud::roomName),
                     ToggleSetting("Room Name", "Include the room's name.", dungeonHud::roomNameShowName)

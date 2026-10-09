@@ -29,6 +29,9 @@ class VisualsConfig {
     var healerBoxColor: Int = 0x55FF55
 
     @Expose
+    var leapMenu: Boolean = false
+
+    @Expose
     var starGlow: Boolean = false
 
     @Expose

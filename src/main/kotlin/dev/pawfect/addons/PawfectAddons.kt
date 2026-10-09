@@ -47,6 +47,7 @@ import dev.pawfect.addons.features.dungeon.DungeonWaypointRenderer
 import dev.pawfect.addons.features.visual.menu.hub.HubCapture
 import dev.pawfect.addons.features.visual.menu.hub.HubPipelines
 import dev.pawfect.addons.features.visual.menu.hub.HubSceneRenderer
+import dev.pawfect.addons.features.dungeon.DungeonParty
 import dev.pawfect.addons.features.dungeon.HealerBox
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker
@@ -119,6 +120,7 @@ object PawfectAddons : ClientModInitializer {
         registerScreenInput()
         DungeonWaypointRenderer.register()
         HealerBox.register()
+        DungeonParty.register()
         Trails.register()
         Ripples.register()
         Motes.register()
