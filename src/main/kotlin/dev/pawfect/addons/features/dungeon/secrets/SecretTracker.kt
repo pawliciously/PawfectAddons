@@ -174,8 +174,8 @@ object SecretTracker {
         hit?.let { claim(it) }
     }
 
-    fun markAllClaimed() {
-        val match = DungeonScanner.matchedRoom() ?: return
+    fun markAllClaimed(room: DungeonRoom? = DungeonScanner.matchedRoom()) {
+        val match = room?.takeIf { it.matched } ?: return
         SecretRoomData.secretsFor(match.name!!).forEach {
             match.claimedSecrets.add(key(it))
             match.claimedIndices.addAll(indicesOf(it))

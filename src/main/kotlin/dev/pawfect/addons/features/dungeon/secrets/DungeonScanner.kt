@@ -32,6 +32,11 @@ object DungeonScanner {
     private var physicalEntrance: Pair<Int, Int>? = null
     private var levelKey = 0
     private var absentTicks = 0
+    private var ticks = 0
+
+    /** How often the map is looked over for newly opened rooms, and how long each far room gets a turn. */
+    private const val DISCOVER_EVERY = 10
+    private const val PROBE_TURN = 4
 
     var current: DungeonRoom? = null
         private set
@@ -47,7 +52,7 @@ object DungeonScanner {
             ((x - physicalX) / 32.0 * (roomSize + 4) + mapX) to ((z - physicalZ) / 32.0 * (roomSize + 4) + mapZ)
     }
 
-    /** Every room you've been in this run, once each. */
+    /** Every room this run that you've been in or the map shows opened, once each. */
     fun knownRooms(): Collection<DungeonRoom> = rooms.values.distinct()
 
     fun anchor(): MapAnchor? {
@@ -168,6 +173,9 @@ object DungeonScanner {
 
         val physical = physicalEntrance ?: return
 
+        if (ticks++ % DISCOVER_EVERY == 0) discover(map, entrance, physical)
+        probeOne(level)
+
         val physicalRaw = DungeonMapUtils.getPhysicalRoomPos(player.x, player.z)
         val physicalPos = physicalRaw.x() to physicalRaw.y()
         val mapPos = DungeonMapUtils.getMapPosFromPhysical(
@@ -185,35 +193,15 @@ object DungeonScanner {
                 status = "unknown room type at map ${mapPos.x()}, ${mapPos.y()}"
                 return
             }
-            val type = typeOf(vanillaType)
-            val segments = if (vanillaType == Room.Type.ROOM) {
-                DungeonMapUtils.getPhysicalPosFromMap(
-                    Vector2i(entrance.first, entrance.second),
-                    mapRoomSize,
-                    Vector2i(physical.first, physical.second),
-                    *DungeonMapUtils.getRoomSegments(map, mapPos, mapRoomSize, vanillaType.color),
-                ).map { it.x() to it.y() }.toSet()
-            } else {
-                setOf(physicalPos)
-            }
-            if (segments.isEmpty()) {
+            room = createRoom(map, entrance, physical, mapPos, vanillaType, physicalPos)
+            if (room == null) {
                 status = "no segments"
                 return
             }
-            room = DungeonRoom(type, segments)
-            segments.forEach { rooms[it] = room }
-            logger.info("Entered {} room, shape {}, segments {}", type, room.shape, segments)
+            logger.info("Entered {} room, shape {}, segments {}", room.type, room.shape, room.segments)
         }
 
-        if (!room.greenChecked) {
-            val colour = checkmarkColour(map, room)
-            if (colour == WHITE_COLOR || colour == GREEN_COLOR) room.mapCleared = true
-            if (room.matched && colour == GREEN_COLOR) {
-                room.greenChecked = true
-                SecretTracker.markAllClaimed()
-                logger.info("Room {} is green checked, clearing its secrets", room.name)
-            }
-        }
+        checkmarks(map, room)
 
         current = room
         room.tick(level, BlockPos.containing(player.x, player.y, player.z))
@@ -222,6 +210,72 @@ object DungeonScanner {
             DungeonRoom.MatchState.FAILED -> "no match for ${room.shape} room"
             else -> "matching ${room.shape} room"
         }
+    }
+
+    /** Builds the room at [mapPos] from the map's shape for it, and files it under each of its segments. */
+    private fun createRoom(
+        map: MapItemSavedData,
+        entrance: Pair<Int, Int>,
+        physical: Pair<Int, Int>,
+        mapPos: org.joml.Vector2ic,
+        vanillaType: Room.Type,
+        physicalPos: Pair<Int, Int>,
+    ): DungeonRoom? {
+        val segments = if (vanillaType == Room.Type.ROOM) {
+            DungeonMapUtils.getPhysicalPosFromMap(
+                Vector2i(entrance.first, entrance.second),
+                mapRoomSize,
+                Vector2i(physical.first, physical.second),
+                *DungeonMapUtils.getRoomSegments(map, mapPos, mapRoomSize, vanillaType.color),
+            ).map { it.x() to it.y() }.toSet()
+        } else {
+            setOf(physicalPos)
+        }
+        if (segments.isEmpty()) return null
+        val room = DungeonRoom(typeOf(vanillaType), segments)
+        segments.forEach { rooms[it] = room }
+        return room
+    }
+
+    /**
+     * Picks up every room the map shows opened, so they can be matched without walking in.
+     * Rooms the map only shows grey (seen, not opened) are left alone.
+     */
+    private fun discover(map: MapItemSavedData, entrance: Pair<Int, Int>, physical: Pair<Int, Int>) {
+        val step = mapRoomSize + 4
+        val nw = DungeonMapUtils.getMapPosForNWMostRoom(Vector2i(entrance.first, entrance.second), mapRoomSize)
+        for (cx in 0 until 6) for (cz in 0 until 6) {
+            val mapPos = Vector2i(nw.x() + cx * step, nw.y() + cz * step)
+            if (mapPos.x() !in 0..127 || mapPos.y() !in 0..127) continue
+            val vanillaType = DungeonMapUtils.getRoomType(map, mapPos) ?: continue
+            if (vanillaType == Room.Type.UNKNOWN) continue
+            val at = DungeonMapUtils.getPhysicalPosFromMap(Vector2i(entrance.first, entrance.second), mapRoomSize, Vector2i(physical.first, physical.second), mapPos)
+            val physicalPos = at.x() to at.y()
+            if (physicalPos.first !in -200..-40 || physicalPos.second !in -200..-40) continue
+            if (rooms.containsKey(physicalPos)) continue
+            val room = createRoom(map, entrance, physical, mapPos, vanillaType, physicalPos) ?: continue
+            logger.info("Found {} room on the map, shape {}, segments {}", room.type, room.shape, room.segments)
+        }
+        rooms.values.distinct().forEach { if (it !== current) checkmarks(map, it) }
+    }
+
+    /** Reads the room's checkmark off the map: white or green is cleared, green on a matched room is every secret found. */
+    private fun checkmarks(map: MapItemSavedData, room: DungeonRoom) {
+        if (room.greenChecked) return
+        val colour = checkmarkColour(map, room)
+        if (colour == WHITE_COLOR || colour == GREEN_COLOR) room.mapCleared = true
+        if (room.matched && colour == GREEN_COLOR) {
+            room.greenChecked = true
+            SecretTracker.markAllClaimed(room)
+            logger.info("Room {} is green checked, clearing its secrets", room.name)
+        }
+    }
+
+    /** Matches one far-off room a little, taking turns between them. */
+    private fun probeOne(level: net.minecraft.client.multiplayer.ClientLevel) {
+        val waiting = rooms.values.distinct().filter { it !== current && it.type.scan && !it.matched && it.matchState == DungeonRoom.MatchState.MATCHING }
+        if (waiting.isEmpty()) return
+        waiting[(ticks / PROBE_TURN) % waiting.size].probe(level)
     }
 
     private fun deriveEntrance(

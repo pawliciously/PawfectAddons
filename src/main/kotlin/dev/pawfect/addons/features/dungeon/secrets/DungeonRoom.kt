@@ -127,18 +127,43 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
             if (--retryIn > 0) return
             matchState = MatchState.MATCHING
             checked.clear()
+            probed = 0
             candidates = buildCandidates()
             doubleChecked = 0
             logger.info("Retrying room match, attempt {}", attempts + 1)
         }
         if (matchState != MatchState.MATCHING && matchState != MatchState.DOUBLE_CHECKING) return
         if (!SecretRoomData.loaded) return
+        scan(level, player)
+    }
 
-        for (pos in BlockPos.betweenClosed(player.offset(-5, -5, -5), player.offset(5, 5, 5))) {
+    /** Spots spread over the room to match it from, when you aren't in it to match it around you. */
+    private val probes: List<BlockPos> = segments.flatMap { (x, z) ->
+        PROBE_OFFSETS.flatMap { dx -> PROBE_OFFSETS.flatMap { dz -> PROBE_HEIGHTS.map { y -> BlockPos(x + dx, y, z + dz) } } }
+    }
+    private var probed = 0
+
+    /**
+     * Matches the room from afar, one spot per call, while the world has it loaded. Only for a
+     * room the map shows opened; a failed match waits for you to walk in and retry.
+     */
+    fun probe(level: ClientLevel) {
+        if (matchState != MatchState.MATCHING && matchState != MatchState.DOUBLE_CHECKING) return
+        if (!SecretRoomData.loaded) return
+        val at = probes.getOrNull(probed % probes.size.coerceAtLeast(1)) ?: return
+        if (!level.hasChunkAt(at)) return
+        probed++
+        scan(level, at)
+    }
+
+    private fun scan(level: ClientLevel, center: BlockPos) {
+        for (pos in BlockPos.betweenClosed(center.offset(-5, -5, -5), center.offset(5, 5, 5))) {
             val immutable = pos.immutable()
             val physical = DungeonMapUtils.getPhysicalRoomPos(immutable)
             if (!segments.contains(physical.x() to physical.y())) continue
             if (!notInDoorway(immutable)) continue
+            // Unloaded blocks read as air; leave them to be checked once they've loaded.
+            if (!level.hasChunkAt(immutable)) continue
             if (!checked.add(immutable)) continue
             if (checkBlock(level, immutable)) break
         }
@@ -192,5 +217,9 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
 
     companion object {
         private val logger = LoggerFactory.getLogger("PawfectAddons/Secrets")
+
+        /** Where in each 31 block segment, and how high, the far-off probes look. */
+        private val PROBE_OFFSETS = intArrayOf(5, 15, 25)
+        private val PROBE_HEIGHTS = intArrayOf(69, 79)
     }
 }

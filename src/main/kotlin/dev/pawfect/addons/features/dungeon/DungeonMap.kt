@@ -37,7 +37,7 @@ import kotlin.math.exp
 /**
  * The dungeon map, drawn from the vanilla map in your hotbar and nothing else: the rooms it has
  * revealed, its checkmarks, and its player markers. On top of that, the names and secret counts
- * of rooms you've been in, and your teammates' heads turned the way they face. A head is only
+ * of the rooms it shows opened, and your teammates' heads turned the way they face. A head is only
  * named when it's certain who it is: a teammate close enough to be loaded, or a map marker whose
  * number matches its teammate's place in the tab list.
  */
@@ -119,7 +119,7 @@ object DungeonMap {
         // Always the whole map, so it never zooms as rooms are revealed.
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, f.ox.toInt(), f.oy.toInt(), 0f, 0f, (MAP * k).toInt(), (MAP * k).toInt(), MAP, MAP, MAP, MAP, -1)
 
-        // Names and secret counts of rooms you've been in, over the middle of the room.
+        // Names and secret counts of the rooms the map shows opened, over the middle of the room.
         if (config.mapRoomNames || config.mapSecrets) DungeonScanner.knownRooms().forEach { room ->
             val name = room.name?.takeIf { room.matched } ?: return@forEach
             val corners = room.segments.map { anchor.toMap(it.first.toDouble(), it.second.toDouble()) }
