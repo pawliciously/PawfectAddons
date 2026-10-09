@@ -39,7 +39,8 @@ object DungeonParty {
     private val TAB_LINE = Regex("""^\[\d+] (?:\[[^\]]+] |[^\w\[\s]+ )*(\w{1,16})(?: [^(]*)?\((\w+)(?: ([IVXLCDM]+))?\)$""")
 
     private val members = LinkedHashMap<String, Member>()
-    private var wasInDungeon = false
+    /** The world the party was read in; a new run is a new world. */
+    private var level: Any? = null
     private var tick = 0
 
     fun register() {
@@ -52,12 +53,13 @@ object DungeonParty {
     fun member(name: String): Member? = members[name.lowercase()]
 
     private fun update() {
-        val inDungeon = SkyBlockData.inDungeons
-        if (inDungeon != wasInDungeon) {
-            wasInDungeon = inDungeon
+        // Cleared per world, not when the scoreboard blinks, so nobody's class is forgotten mid-run.
+        val current = McCompat.mc.level
+        if (current !== level) {
+            level = current
             members.clear()
         }
-        if (!inDungeon || tick++ % 10 != 0) return
+        if (!SkyBlockData.inDungeons || tick++ % 10 != 0) return
         val connection = McCompat.mc.connection ?: return
         for (info in connection.listedOnlinePlayers) {
             val text = info.tabListDisplayName?.string?.removeColor()?.trim() ?: continue

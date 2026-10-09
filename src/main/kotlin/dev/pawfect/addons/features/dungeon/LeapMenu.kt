@@ -13,6 +13,7 @@ import dev.pawfect.addons.ui.Draw.stringCentered
 import dev.pawfect.addons.ui.Draw.stringScaled
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.StringUtil.removeColor
+import com.mojang.blaze3d.platform.InputConstants
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.client.gui.screens.inventory.ContainerScreen
@@ -61,6 +62,9 @@ object LeapMenu {
     private var openedAt = 0L
     private var lastLeapAt = 0L
     private var failed = false
+
+    /** A leap key that has leaped and hasn't been let go yet; holding it doesn't leap again. */
+    private var heldKey = -1
     private var message: String? = null
     private var messageAt = 0L
 
@@ -79,6 +83,7 @@ object LeapMenu {
             lastLeapAt = 0L
             message = null
         }
+        if (heldKey != -1 && !InputConstants.isKeyDown(McCompat.mc.window, heldKey)) heldKey = -1
         return true
     }
 
@@ -141,6 +146,9 @@ object LeapMenu {
             in KEYPAD_1..KEYPAD_5 -> key - KEYPAD_1 + 1
             else -> return false
         }
+        // Minecraft sends a held key again and again; only the press itself leaps.
+        if (key == heldKey) return true
+        heldKey = key
         Zone.entries.firstOrNull { it.key == digit }?.let { leap(screen, it) }
         return true
     }
