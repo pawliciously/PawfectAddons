@@ -165,25 +165,31 @@ object RouteFit {
                 }
             }
         }
-        // Only moved when it clearly fits better: most of its secrets, and at least two, land exactly on ours.
-        val secretSteps = route.count { it.secretType in CATEGORIES && it.secretAt != null }
+        // Only moved when it clearly fits better: most of its secrets and levers, and at least two, land exactly on ours.
+        val anchors = route.count { it.secretType in CATEGORIES && it.secretAt != null } + route.sumOf { it.interacts.size }
         val (turn, tx, tz) = best
-        if (best == Triple(Turn.NONE, 0, 0) || bestScore.first < max(2, (secretSteps + 1) / 2) || bestScore.first <= none.first) return route
+        if (best == Triple(Turn.NONE, 0, 0) || bestScore.first < max(2, (anchors + 1) / 2) || bestScore.first <= none.first) return route
         logger.info("Route for {} is turned {} and shifted ({}, {}) from our room data, lining it up ({} exact before, {} after)", room, turn, tx, tz, none.first, bestScore.first)
         return route.map { step -> turnStep(step, turn, mx, mz, tx, tz) }
     }
 
     private fun shift(p: IntArray, tx: Int, tz: Int): IntArray = if (tx == 0 && tz == 0) p else intArrayOf(p[0] + tx, p[1], p[2] + tz)
 
-    /** Route secrets landing exactly on one of ours, and within a few blocks of one. */
+    /**
+     * Route secrets landing exactly on one of ours, and within a few blocks of one. Levers the
+     * route flips count too, so a room with one chest behind a lever (Crypts) can still be lined up.
+     */
     private fun score(route: List<RouteData.Step>, secrets: List<SecretRoomData.SecretEntry>, turn: (IntArray) -> IntArray): Pair<Int, Int> {
         var exact = 0
         var near = 0
-        route.forEach { step ->
-            val categories = CATEGORIES[step.secretType] ?: return@forEach
-            val at = turn(step.secretAt ?: return@forEach)
-            val best = secrets.filter { it.category in categories }.minOfOrNull { distanceSq(it, at) } ?: return@forEach
+        fun count(at: IntArray, categories: Set<String>) {
+            val best = secrets.filter { it.category in categories }.minOfOrNull { distanceSq(it, at) } ?: return
             if (best <= 1) exact++ else if (best <= 64) near++
+        }
+        val levers = setOf("lever")
+        route.forEach { step ->
+            CATEGORIES[step.secretType]?.let { categories -> step.secretAt?.let { count(turn(it), categories) } }
+            step.interacts.forEach { count(turn(it), levers) }
         }
         return exact to near
     }

@@ -21,6 +21,9 @@ object DungeonScanner {
     private const val WHITE_COLOR: Byte = 34
     private const val RED_COLOR: Byte = 18
 
+    private const val GRID_MIN = -201.0
+    private const val GRID_MAX = -8.0
+
     private const val ABSENT_GRACE = 60
     private const val EDGE_MARGIN = 6
 
@@ -130,6 +133,13 @@ object DungeonScanner {
         }
 
         val physical = physicalEntrance ?: return
+
+        // The rooms sit in a 6 by 6 grid of 32 block cells from -200; the boss is somewhere else.
+        if (player.x !in GRID_MIN..GRID_MAX || player.z !in GRID_MIN..GRID_MAX) {
+            current = null
+            status = "outside the room grid, in the boss"
+            return
+        }
 
         val physicalRaw = DungeonMapUtils.getPhysicalRoomPos(player.x, player.z)
         val physicalPos = physicalRaw.x() to physicalRaw.y()
