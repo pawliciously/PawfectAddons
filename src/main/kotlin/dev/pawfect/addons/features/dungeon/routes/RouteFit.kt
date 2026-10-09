@@ -42,7 +42,7 @@ object RouteFit {
         if (secrets.isEmpty()) return markTeleports(route)
         val turned = turn(room, route, secrets)
         val assigned = assign(turned, secrets)
-        val filled = if (fill) fillMissing(assigned, secrets) else assigned
+        val filled = if (fill) fillMissing(pickUpOnTheWay(assigned, secrets), secrets) else assigned
         return markTeleports(if (levers) leverFirst(filled, secrets) else filled)
     }
 
@@ -286,21 +286,96 @@ object RouteFit {
         if (missing.isEmpty()) return route
 
         // Walking steps at the very end leave the room; the missing secrets go before them.
-        var split = route.size
-        while (split > 0 && route[split - 1].walkOnly) split--
-        var from = route.subList(0, split).lastOrNull { it.target != null }?.target ?: route.firstOrNull()?.start ?: intArrayOf(0, 0, 0)
-
-        val added = ArrayList<RouteData.Step>()
+        var trailing = 0
+        while (trailing < route.size && route[route.size - 1 - trailing].walkOnly) trailing++
+        val out = ArrayList(route)
+        var added = 0
+        val origin = route.firstOrNull()?.start ?: intArrayOf(0, 0, 0)
         while (missing.isNotEmpty()) {
-            val here = from
-            val next = missing.minBy { distanceSq(it, here) }
-            missing.remove(next)
-            added += hintedStep(next, secrets, here)
-            from = intArrayOf(next.x, next.y, next.z)
+            // Whichever secret and place in the route costs the least extra walking.
+            var best: Triple<SecretRoomData.SecretEntry, Int, Double>? = null
+            missing.forEach { secret ->
+                for (at in 1..out.size - trailing) {
+                    val before = out.subList(0, at).lastOrNull { it.target != null }?.target ?: origin
+                    val after = out.getOrNull(at)?.start
+                    val detour = distance(secret, before) + (after?.let { distance(secret, it) - length(before, it) } ?: 0.0)
+                    if (best == null || detour < best!!.third) best = Triple(secret, at, detour)
+                }
+            }
+            val (secret, at, _) = best ?: break
+            missing.remove(secret)
+            val before = out.subList(0, at).lastOrNull { it.target != null }?.target ?: origin
+            out.add(at, hintedStep(secret, secrets, before))
+            added++
         }
-        logger.info("Route skips {} secret(s), added from our room data", added.size)
-        return route.subList(0, split) + added + route.subList(split, route.size)
+        logger.info("Route skips {} secret(s), added from our room data", added)
+        return out
     }
+
+    // ------------------------------------------------------------------ secrets picked up on the way
+
+    /** How close, squared, a walking point has to pass a secret for the route to be taking it. */
+    private const val PASSING_SQ = 9
+
+    /** How close, squared, a mined block has to be to a secret for the route to be digging it out. */
+    private const val DIGGING_SQ = 2
+
+    /**
+     * Some routes grab a secret partway through a step without marking it, recording an item
+     * as a block to mine on the way (Stella's Archway does). A walking step that passes right
+     * by a secret nothing else collects is split there, the first half collecting it.
+     */
+    private fun pickUpOnTheWay(route: List<RouteData.Step>, secrets: List<SecretRoomData.SecretEntry>): List<RouteData.Step> {
+        val covered = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<SecretRoomData.SecretEntry, Boolean>())
+        route.forEach { step -> step.ours?.let { covered += it } }
+        val out = ArrayList<RouteData.Step>()
+        val pending = ArrayDeque(route)
+        while (pending.isNotEmpty()) {
+            val step = pending.removeFirst()
+            if (!step.walkOnly || step.secretType == "plate" || step.locations.size < 2) {
+                out += step
+                continue
+            }
+            // The earliest point on the step that passes an uncollected secret.
+            var hit: Pair<Int, SecretRoomData.SecretEntry>? = null
+            secrets.filter { it.category in COLLECTABLE && it !in covered && it.category != "bat" }.forEach { secret ->
+                val byWalk = step.locations.indices.filter { distanceSq(secret, step.locations[it]) <= PASSING_SQ }.minOrNull()
+                val byDig = step.mines.firstOrNull { distanceSq(secret, it) <= DIGGING_SQ }?.let { nearestIndex(step.locations, it) }
+                val index = listOfNotNull(byWalk, byDig).minOrNull() ?: return@forEach
+                if (hit == null || index < hit!!.first) hit = index to secret
+            }
+            val found = hit
+            if (found == null) {
+                out += step
+                continue
+            }
+            val (index, secret) = found
+            covered += secret
+            val first = step.locations.subList(0, index + 1)
+            val rest = step.locations.subList(index, step.locations.size)
+            fun firstHalf(list: List<IntArray>) = list.filter { nearestIndex(step.locations, it) <= index }
+            fun secondHalf(list: List<IntArray>) = list.filter { nearestIndex(step.locations, it) > index }
+            out += RouteData.Step(
+                first, firstHalf(step.etherwarps), firstHalf(step.mines), firstHalf(step.interacts), firstHalf(step.tnts),
+                step.pearls, step.pearlAngles, COLLECTABLE.getValue(secret.category), intArrayOf(secret.x, secret.y, secret.z), secret,
+            )
+            logger.info("Route passes {} on the way, collecting it there", secret.secretName)
+            // What's left of the step goes on, and may pass another one.
+            if (rest.size > 1) pending.addFirst(
+                RouteData.Step(rest, secondHalf(step.etherwarps), secondHalf(step.mines), secondHalf(step.interacts), secondHalf(step.tnts),
+                    emptyList(), emptyList(), step.secretType, step.secretAt)
+            )
+        }
+        return out
+    }
+
+    private fun nearestIndex(points: List<IntArray>, p: IntArray): Int =
+        points.indices.minBy { i -> points[i].let { (it[0] - p[0]) * (it[0] - p[0]) + (it[1] - p[1]) * (it[1] - p[1]) + (it[2] - p[2]) * (it[2] - p[2]) } }
+
+    private fun distance(secret: SecretRoomData.SecretEntry, p: IntArray): Double = kotlin.math.sqrt(distanceSq(secret, p).toDouble())
+
+    private fun length(a: IntArray, b: IntArray): Double =
+        kotlin.math.sqrt(((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2])).toDouble())
 
     private fun indices(secret: SecretRoomData.SecretEntry): Set<Int> =
         INDEX.find(secret.secretName)?.groupValues?.get(1)?.split('/')?.mapNotNull { it.trim().toIntOrNull() }?.toSet().orEmpty()
