@@ -14,6 +14,7 @@ object HudDefaults {
     const val SCOREBOARD = "Scoreboard"
     const val WATERMARK = "Watermark"
     const val ROOM_NAME = "Room Name"
+    const val DUNGEON_MAP = "Dungeon Map"
 
     class Default(val x: Int, val y: Int, val scale: Float = Position.DEFAULT_SCALE)
 
@@ -30,6 +31,7 @@ object HudDefaults {
         SCOREBOARD to Default(-4, 80),
         WATERMARK to Default(6, 6),
         ROOM_NAME to Default(6, 30),
+        DUNGEON_MAP to Default(-6, 6),
     )
 
     fun position(label: String): Position {

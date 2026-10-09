@@ -36,6 +36,27 @@ object DungeonScanner {
     var current: DungeonRoom? = null
         private set
 
+    /** You're in the dungeon but outside the room grid: the boss. */
+    var inBoss = false
+        private set
+
+    /** Lines the dungeon map up with the world: the entrance room's corner in each, and the map's room size. */
+    class MapAnchor(val physicalX: Int, val physicalZ: Int, val mapX: Int, val mapZ: Int, val roomSize: Int) {
+        /** Where a world position falls on the map, in map pixels. */
+        fun toMap(x: Double, z: Double): Pair<Double, Double> =
+            ((x - physicalX) / 32.0 * (roomSize + 4) + mapX) to ((z - physicalZ) / 32.0 * (roomSize + 4) + mapZ)
+    }
+
+    /** Every room you've been in this run, once each. */
+    fun knownRooms(): Collection<DungeonRoom> = rooms.values.distinct()
+
+    fun anchor(): MapAnchor? {
+        val physical = physicalEntrance ?: return null
+        val map = mapEntrance ?: return null
+        if (mapRoomSize <= 0) return null
+        return MapAnchor(physical.first, physical.second, map.first, map.second, mapRoomSize)
+    }
+
     var status: String = "idle"
         private set(value) {
             // Logged when it changes, so a log shows why rooms weren't picked up.
@@ -50,6 +71,7 @@ object DungeonScanner {
         mapRoomSize = 0
         physicalEntrance = null
         current = null
+        inBoss = false
         status = "reset"
     }
 
@@ -64,7 +86,8 @@ object DungeonScanner {
         return null
     }
 
-    private fun mapData(): MapItemSavedData? {
+    /** The dungeon map in slot 9, while you have it. */
+    fun mapData(): MapItemSavedData? {
         val player = McCompat.player ?: return null
         val level = McCompat.mc.level ?: return null
         val stack = player.inventory.getItem(8)
@@ -92,6 +115,16 @@ object DungeonScanner {
 
         val player = McCompat.player ?: return
         if (level == null) return
+
+        // The rooms sit in a 6 by 6 grid of 32 block cells from -200; the boss is somewhere else.
+        // Checked first: the map leaves your hotbar in the boss, and nothing below runs without it.
+        inBoss = player.x !in GRID_MIN..GRID_MAX || player.z !in GRID_MIN..GRID_MAX
+        if (inBoss) {
+            current = null
+            status = "outside the room grid, in the boss"
+            return
+        }
+
         if (!SecretRoomData.loaded) {
             status = "room data not loaded"
             return
@@ -99,6 +132,7 @@ object DungeonScanner {
 
         val map = mapData()
         if (map == null) {
+            current = null
             status = "no dungeon map in slot 9"
             return
         }
@@ -133,13 +167,6 @@ object DungeonScanner {
         }
 
         val physical = physicalEntrance ?: return
-
-        // The rooms sit in a 6 by 6 grid of 32 block cells from -200; the boss is somewhere else.
-        if (player.x !in GRID_MIN..GRID_MAX || player.z !in GRID_MIN..GRID_MAX) {
-            current = null
-            status = "outside the room grid, in the boss"
-            return
-        }
 
         val physicalRaw = DungeonMapUtils.getPhysicalRoomPos(player.x, player.z)
         val physicalPos = physicalRaw.x() to physicalRaw.y()

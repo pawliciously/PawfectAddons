@@ -21,8 +21,9 @@ import net.minecraft.world.item.Items
 import org.slf4j.LoggerFactory
 
 /**
- * Spirit Leap as four boxes around the middle of the screen, one per quarter: click anywhere in
- * a quarter, or press its key, to leap to whoever is there. Each class has a fixed corner, so
+ * Spirit Leap as four boxes, one per quarter of the screen: click anywhere in a quarter, or
+ * press its key, to leap to whoever is there. Out of the boss the dungeon map sits in the middle,
+ * and clicking a teammate's head on it leaps to them too. Each class has a fixed corner, so
  * the layout is the same every run you play the same class, and Healer is always bottom right.
  *
  * Hypixel's own menu stays open underneath. A leap is one left click on that teammate's head
@@ -156,8 +157,29 @@ object LeapMenu {
     @JvmStatic
     fun mouseClicked(screen: AbstractContainerScreen<*>, mouseX: Double, mouseY: Double, button: Int) {
         if (button != 0) return
-        leap(screen, cornerAt(screen, mouseX, mouseY))
+        val map = mapSquare(screen)
+        if (map != null && inside(map, mouseX, mouseY)) {
+            // On the map only a teammate's head leaps; the rest of the map does nothing.
+            val layout = layout(screen)
+            val name = DungeonMap.headAt(map[0], map[1], map[2], mouseX, mouseY) { canLeapTo(layout, it) } ?: return
+            leapTo(screen, layout.values.firstOrNull { it.name.equals(name, ignoreCase = true) })
+            return
+        }
+        leapTo(screen, layout(screen)[cornerAt(screen, mouseX, mouseY)])
     }
+
+    /** The map's square in the middle of the screen (x, y, size), or null in the boss or without a map. */
+    private fun mapSquare(screen: AbstractContainerScreen<*>): FloatArray? {
+        if (!DungeonMap.available()) return null
+        val size = minOf(screen.height * 0.62f, screen.width * 0.40f)
+        return floatArrayOf((screen.width - size) / 2f, (screen.height - size) / 2f, size)
+    }
+
+    private fun inside(square: FloatArray, x: Double, y: Double): Boolean =
+        x >= square[0] && x < square[0] + square[2] && y >= square[1] && y < square[1] + square[2]
+
+    private fun canLeapTo(layout: Map<Corner, Target>, name: String): Boolean =
+        layout.values.any { it.name.equals(name, ignoreCase = true) && !it.dead && it.slot != null }
 
     /** True when the key was one of the leap keys. */
     @JvmStatic
@@ -170,7 +192,7 @@ object LeapMenu {
         // Minecraft sends a held key again and again; only the press itself leaps.
         if (key == heldKey) return true
         heldKey = key
-        Corner.entries.firstOrNull { it.key == digit }?.let { leap(screen, it) }
+        Corner.entries.firstOrNull { it.key == digit }?.let { leapTo(screen, layout(screen)[it]) }
         return true
     }
 
@@ -179,7 +201,8 @@ object LeapMenu {
     fun closesMenu(event: KeyEvent): Boolean =
         event.key() == KEY_ESCAPE || McCompat.mc.options.keyInventory.matches(event)
 
-    private fun leap(screen: AbstractContainerScreen<*>, corner: Corner) {
+    /** Every leap, from a box, a key or the map, comes through here. */
+    private fun leapTo(screen: AbstractContainerScreen<*>, chosen: Target?) {
         val player = McCompat.player ?: return
         val gameMode = McCompat.mc.gameMode ?: return
         val menu = screen.menu
@@ -188,7 +211,7 @@ object LeapMenu {
         if (player.containerMenu !== menu || menu.containerId != trackedContainer) return
         if (now - openedAt < OPEN_GUARD_MS || now - lastLeapAt < REPEAT_GUARD_MS) return
 
-        val target = layout(screen)[corner] ?: return
+        val target = chosen ?: return
         if (target.dead) return say("${target.name} is dead")
         val slot = target.slot ?: return say("${target.name} isn't in the menu")
         // Checked again right before clicking: still in the chest part, still that player's head.
@@ -232,10 +255,14 @@ object LeapMenu {
         lastFrame = now
 
         val layout = layout(screen)
-        if (layout.isEmpty()) centered(graphics, "Waiting for the menu...", halfW, halfH - 4f, 1f, MUTED)
-        val hovered = cornerAt(screen, mouseX.toDouble(), mouseY.toDouble())
-        // Boxes shrink to fit small windows or a big GUI scale.
-        val scale = minOf(1f, (halfW - GAP - 6f) / BOX_W, (halfH - GAP - 6f) / BOX_H)
+        val map = mapSquare(screen)
+        if (layout.isEmpty() && map == null) centered(graphics, "Waiting for the menu...", halfW, halfH - 4f, 1f, MUTED)
+        val onMap = map != null && inside(map, mouseX.toDouble(), mouseY.toDouble())
+        val hovered = if (onMap) null else cornerAt(screen, mouseX.toDouble(), mouseY.toDouble())
+        // With the map up, the boxes sit out in the screen corners around it; without it they huddle in the middle.
+        val scale = if (map != null) minOf(1f, ((w - map[2]) / 2f - EDGE * 2f) / BOX_W, (halfH - EDGE * 2f) / BOX_H)
+        else minOf(1f, (halfW - GAP - 6f) / BOX_W, (halfH - GAP - 6f) / BOX_H)
+        if (map != null) DungeonMap.draw(graphics, map[0], map[1], map[2], mouseX.toDouble(), mouseY.toDouble()) { canLeapTo(layout, it) }
 
         Corner.entries.forEachIndexed { i, corner ->
             val target = layout[corner] ?: return@forEachIndexed
@@ -245,10 +272,14 @@ object LeapMenu {
 
             val pose = graphics.pose()
             pose.pushMatrix()
-            pose.translate(if (corner.left) halfW - GAP else halfW + GAP, if (corner.top) halfH - GAP else halfH + GAP)
+            if (map != null) pose.translate(if (corner.left) EDGE else w - EDGE, if (corner.top) EDGE else h - EDGE)
+            else pose.translate(if (corner.left) halfW - GAP else halfW + GAP, if (corner.top) halfH - GAP else halfH + GAP)
             val g = 1f + grow[i] * GROW
             pose.scale(scale * g, scale * g)
-            box(screen, graphics, if (corner.left) -BOX_W else 0f, if (corner.top) -BOX_H else 0f, corner, target, usable)
+            // Anchored on the corner nearest the map in the middle, or nearest the screen edge with the map up.
+            val localX = if (map != null) (if (corner.left) 0f else -BOX_W) else (if (corner.left) -BOX_W else 0f)
+            val localY = if (map != null) (if (corner.top) 0f else -BOX_H) else (if (corner.top) -BOX_H else 0f)
+            box(screen, graphics, localX, localY, corner, target, usable)
             pose.popMatrix()
         }
 
@@ -306,6 +337,7 @@ object LeapMenu {
     private const val BOX_W = 200f
     private const val BOX_H = 75f
     private const val GAP = 24f
+    private const val EDGE = 12f
     private const val GROW = 0.05f
 
     private const val KEY_1 = 49

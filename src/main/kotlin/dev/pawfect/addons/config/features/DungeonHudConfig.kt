@@ -17,4 +17,13 @@ class DungeonHudConfig {
 
     @Expose
     val roomNamePosition: Position = HudDefaults.position(HudDefaults.ROOM_NAME)
+
+    @Expose
+    var map: Boolean = false
+
+    @Expose
+    var mapRoomNames: Boolean = true
+
+    @Expose
+    val mapPosition: Position = HudDefaults.position(HudDefaults.DUNGEON_MAP)
 }

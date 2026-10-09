@@ -246,6 +246,15 @@ object PawfectSettings {
                         .showIf { visuals.batHighlighter },
                 ),
                 group(
+                    "Dungeon Map",
+                    ToggleSetting("Dungeon Map", "Show the dungeon map on screen, drawn from the map in your hotbar: only the rooms it has revealed, with your teammates' heads where it marks them.", dungeonHud::map),
+                    ToggleSetting("Room Names", "Name the rooms you've been in on the map.", dungeonHud::mapRoomNames)
+                        .showIf { dungeonHud.map },
+                    PositionSetting("Map Position", "Drag the map to reposition it.", dungeonHud.mapPosition) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { dungeonHud.map },
+                ),
+                group(
                     "Spirit Leap",
                     ToggleSetting("Leap Menu", "Show Spirit Leap as four boxes, one per quarter of the screen. Click anywhere in a quarter or press 1 to 4. Classes keep fixed corners, Healer always bottom right. A leap is one normal click on that teammate's head.", visuals::leapMenu),
                 ),
