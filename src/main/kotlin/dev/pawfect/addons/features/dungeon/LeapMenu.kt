@@ -61,6 +61,7 @@ object LeapMenu {
     private val HEAD_NAME = Regex("""^(?:\[.+?] )?(\w{1,16})$""")
 
     private var trackedContainer = -1
+    private var trackedScreen = java.lang.ref.WeakReference<AbstractContainerScreen<*>>(null)
     private var openedAt = 0L
     private var lastLeapAt = 0L
     private var failed = false
@@ -83,8 +84,10 @@ object LeapMenu {
         if (screen !is ContainerScreen) return false
         if (screen.title.string.removeColor().trim() !in TITLES) return false
         val menu = screen.menu
-        if (menu.containerId != trackedContainer) {
+        // A new screen is a new menu even if Hypixel happens to reuse the container number.
+        if (menu.containerId != trackedContainer || trackedScreen.get() !== screen) {
             trackedContainer = menu.containerId
+            trackedScreen = java.lang.ref.WeakReference(screen)
             openedAt = System.currentTimeMillis()
             lastLeapAt = 0L
             message = null
@@ -208,7 +211,7 @@ object LeapMenu {
         val menu = screen.menu
         val now = System.currentTimeMillis()
         // The screen has to be showing the menu you actually have open.
-        if (player.containerMenu !== menu || menu.containerId != trackedContainer) return
+        if (player.containerMenu !== menu || menu.containerId != trackedContainer || trackedScreen.get() !== screen) return
         if (now - openedAt < OPEN_GUARD_MS || now - lastLeapAt < REPEAT_GUARD_MS) return
 
         val target = chosen ?: return
