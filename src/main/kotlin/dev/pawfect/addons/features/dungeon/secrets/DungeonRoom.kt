@@ -51,6 +51,9 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
 
     var greenChecked = false
 
+    /** The map shows the room with a white or green checkmark: its mobs are cleared. */
+    var mapCleared = false
+
     private var retryIn = 0
     private var attempts = 0
 

@@ -10,5 +10,11 @@ class DungeonHudConfig {
     var roomName: Boolean = false
 
     @Expose
+    var roomNameShowName: Boolean = true
+
+    @Expose
+    var roomNameSimple: Boolean = false
+
+    @Expose
     val roomNamePosition: Position = HudDefaults.position(HudDefaults.ROOM_NAME)
 }

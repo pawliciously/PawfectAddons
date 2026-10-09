@@ -101,11 +101,16 @@ object RouteData {
         val stella = SecretRoomData.displayKey(key)?.let { routes[Kind.STELLA]?.get(it) }
         val secretRoutes = (if (pearls) routes[Kind.PEARL]?.get(key) else null)
             ?: routes[Kind.STANDARD]?.get(key) ?: routes[Kind.PEARL]?.get(key)
-        return when (source) {
-            SecretRoutesConfig.Source.STELLA -> stella ?: secretRoutes
-            SecretRoutesConfig.Source.SECRET_ROUTES -> secretRoutes ?: stella
-        }.orEmpty()
+        val preferStella = source == SecretRoutesConfig.Source.STELLA && key !in STELLA_BROKEN
+        return (if (preferStella) stella ?: secretRoutes else secretRoutes ?: stella).orEmpty()
     }
+
+    /**
+     * Rooms whose Stella route doesn't work, by our room id; the Secret Routes Mod's is used
+     * there instead. Grass Ruin's warps up through slabs from the lower chest and mines through
+     * the upper one instead of opening it.
+     */
+    private val STELLA_BROKEN = setOf("grass-ruin-3")
 
     fun isRecorded(room: String): Boolean = routes[Kind.RECORDED]?.containsKey(room.lowercase()) == true
 

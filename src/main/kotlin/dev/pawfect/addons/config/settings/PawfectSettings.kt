@@ -246,9 +246,13 @@ object PawfectSettings {
                         .showIf { visuals.batHighlighter },
                 ),
                 group(
-                    "Room Name",
-                    ToggleSetting("Room Name", "Show the name of the dungeon room you're in on screen.", dungeonHud::roomName),
-                    PositionSetting("Room Name Position", "Drag the room name to reposition it.", dungeonHud.roomNamePosition) {
+                    "Room Info",
+                    ToggleSetting("Room Info", "Show the dungeon room you're in on screen: its name, secrets found and whether it's cleared.", dungeonHud::roomName),
+                    ToggleSetting("Room Name", "Include the room's name.", dungeonHud::roomNameShowName)
+                        .showIf { dungeonHud.roomName },
+                    ToggleSetting("Simplify", "Show a check or a cross instead of Cleared and Not Cleared.", dungeonHud::roomNameSimple)
+                        .showIf { dungeonHud.roomName },
+                    PositionSetting("Room Info Position", "Drag the room info to reposition it.", dungeonHud.roomNamePosition) {
                         PawfectAddons.queueScreen { GuiEditManager.openEditor() }
                     }.showIf { dungeonHud.roomName },
                 ),

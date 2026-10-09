@@ -168,9 +168,10 @@ object DungeonScanner {
             logger.info("Entered {} room, shape {}, segments {}", type, room.shape, segments)
         }
 
-        if (room.matched && !room.greenChecked) {
+        if (!room.greenChecked) {
             val colour = checkmarkColour(map, room)
-            if (colour == GREEN_COLOR) {
+            if (colour == WHITE_COLOR || colour == GREEN_COLOR) room.mapCleared = true
+            if (room.matched && colour == GREEN_COLOR) {
                 room.greenChecked = true
                 SecretTracker.markAllClaimed()
                 logger.info("Room {} is green checked, clearing its secrets", room.name)
