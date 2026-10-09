@@ -60,6 +60,9 @@ object SecretRoomData {
     private val skeletons = HashMap<String, HashMap<String, IntArray>>()
     private val secrets = HashMap<String, List<SecretEntry>>()
 
+    /** Our room ids to their display names ("Super Tall"), squashed by [nameKey]. */
+    private val names = HashMap<String, String>()
+
     @Volatile
     var loaded = false
         private set
@@ -74,6 +77,12 @@ object SecretRoomData {
     fun secretsFor(room: String): List<SecretEntry> = secrets[room] ?: emptyList()
 
     fun roomCount(): Int = skeletons.values.sumOf { it.size }
+
+    /** A room's display name as a [nameKey], for matching files that name rooms that way. */
+    fun displayKey(room: String): String? = names[room]
+
+    /** A name in lower case with only its letters and digits, so "Lots Of Floors" and "Lots of Floors" match. */
+    fun nameKey(name: String): String = name.lowercase().filter { it.isLetterOrDigit() }
 
     fun load() {
         if (loaded) return
@@ -98,6 +107,7 @@ object SecretRoomData {
                     val room = file.removeSuffix(".json")
                     val parsed = resource.openAsReader().use { gson.fromJson(it, RoomFile::class.java) }
                     parsed?.secrets?.let { secrets[room] = it }
+                    parsed?.info?.name?.takeIf { it.isNotBlank() }?.let { names[room] = nameKey(it) }
                 }
             }.onFailure { logger.error("Could not read dungeon room data {}", id, it) }
         }

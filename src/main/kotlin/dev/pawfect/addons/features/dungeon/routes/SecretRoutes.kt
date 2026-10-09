@@ -2,6 +2,7 @@ package dev.pawfect.addons.features.dungeon.routes
 
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ModuleSwitch
+import dev.pawfect.addons.config.features.SecretRoutesConfig
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.features.dungeon.secrets.DungeonRoom
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
@@ -60,6 +61,9 @@ object SecretRoutes {
 
     private var fetched = false
 
+    /** The route source rooms were last set up from, so switching it takes effect straight away. */
+    private var lastSource: SecretRoutesConfig.Source? = null
+
     /** Our own ranges for telling which secret an event was, matching the secret tracker's. */
     private const val ITEM_RANGE_SQ = 25
     private const val BAT_RANGE_SQ = 144
@@ -84,7 +88,7 @@ object SecretRoutes {
         val existing = progress[room]
         if (existing != null) return room to existing
         val fill = config.fillMissing && !RouteData.isRecorded(name)
-        val routes = RouteData.routesFor(name, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill, config.useLevers) }
+        val routes = RouteData.routesFor(name, config.source, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill, config.useLevers) }
         if (routes.isEmpty()) return null
         val here = here(room) ?: return null
         // With more than one route for the room, the one starting nearest to you.
@@ -102,6 +106,10 @@ object SecretRoutes {
             RouteData.load()
         }
         fetchIfEmpty()
+        if (config.source != lastSource) {
+            lastSource = config.source
+            progress.clear()
+        }
         RouteRecorder.tick()
         if (!SkyBlockData.inDungeons) {
             if (progress.isNotEmpty()) progress.clear()
@@ -234,10 +242,10 @@ object SecretRoutes {
     }
 
     private fun fetchIfEmpty() {
-        if (fetched || !config.enabled || RouteData.roomCount() > 0) return
+        if (fetched || !config.enabled || !RouteData.communityMissing()) return
         if (McCompat.player == null) return
         fetched = true
-        logger.info("No secret routes yet, downloading the Secret Routes Mod's routes")
+        logger.info("Some community route files are missing, downloading them")
         RouteData.downloadCommunity { message ->
             logger.info(message)
             McCompat.mc.execute { progress.clear() }

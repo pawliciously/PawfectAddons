@@ -20,8 +20,18 @@ class SecretRoutesConfig {
         override fun toString(): String = label
     }
 
+    enum class Source(private val label: String) {
+        STELLA("Stella"),
+        SECRET_ROUTES("Secret Routes Mod");
+
+        override fun toString(): String = label
+    }
+
     @Expose
     var enabled: Boolean = false
+
+    @Expose
+    var source: Source = Source.STELLA
 
     @Expose
     var style: Style = Style.BOTH
