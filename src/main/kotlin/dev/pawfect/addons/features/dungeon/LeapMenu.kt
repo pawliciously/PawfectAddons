@@ -1,30 +1,29 @@
 package dev.pawfect.addons.features.dungeon
 
+import com.mojang.blaze3d.platform.InputConstants
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.features.dungeon.DungeonParty.DungeonClass
-import dev.pawfect.addons.ui.Draw
 import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Draw.roundPanel
-import dev.pawfect.addons.ui.Draw.roundRect
-import dev.pawfect.addons.ui.Draw.string
-import dev.pawfect.addons.ui.Draw.stringCentered
-import dev.pawfect.addons.ui.Draw.stringScaled
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.StringUtil.removeColor
-import com.mojang.blaze3d.platform.InputConstants
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.components.PlayerFaceExtractor
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.client.gui.screens.inventory.ContainerScreen
 import net.minecraft.client.input.KeyEvent
+import net.minecraft.core.component.DataComponents
+import net.minecraft.network.chat.Component
 import net.minecraft.world.inventory.ContainerInput
 import net.minecraft.world.item.Items
 import org.slf4j.LoggerFactory
 
 /**
- * Spirit Leap drawn as four corners and a middle: each class always has the same spot and the
- * same key, and Healer is always bottom right. Your own class's spot is left empty.
+ * Spirit Leap as four boxes around the middle of the screen, one per quarter: click anywhere in
+ * a quarter, or press its key, to leap to whoever is there. Each class has a fixed corner, so
+ * the layout is the same every run you play the same class, and Healer is always bottom right.
  *
  * Hypixel's own menu stays open underneath. A leap is one left click on that teammate's head
  * in it, sent through vanilla's own container click, exactly as clicking the head yourself
@@ -39,16 +38,18 @@ object LeapMenu {
 
     private val TITLES = setOf("Spirit Leap", "Teleport to Player")
 
-    /** Where each class sits, and its key. Reading order, so key 5 is the bottom-right corner. */
-    enum class Zone(val home: DungeonClass, val key: Int) {
-        TOP_LEFT(DungeonClass.ARCHER, 1),
-        TOP_RIGHT(DungeonClass.BERSERKER, 2),
-        MIDDLE(DungeonClass.MAGE, 3),
-        BOTTOM_LEFT(DungeonClass.TANK, 4),
-        BOTTOM_RIGHT(DungeonClass.HEALER, 5),
+    /** The four quarters of the screen, with their keys. */
+    enum class Corner(val key: Int, val left: Boolean, val top: Boolean) {
+        TOP_LEFT(1, true, true),
+        TOP_RIGHT(2, false, true),
+        BOTTOM_LEFT(3, true, false),
+        BOTTOM_RIGHT(4, false, false),
     }
 
     class Target(val name: String, val dungeonClass: DungeonClass?, val dead: Boolean, val slot: Int?)
+
+    /** The order classes take the corners in, skipping yours. Healer is kept for bottom right. */
+    private val CORNER_ORDER = listOf(DungeonClass.ARCHER, DungeonClass.BERSERKER, DungeonClass.MAGE, DungeonClass.TANK)
 
     /** Clicks this soon after the menu opens are ignored, so nothing lands before Hypixel has filled it in. */
     private const val OPEN_GUARD_MS = 150L
@@ -62,11 +63,15 @@ object LeapMenu {
     private var openedAt = 0L
     private var lastLeapAt = 0L
     private var failed = false
+    private var message: String? = null
+    private var messageAt = 0L
 
     /** A leap key that has leaped and hasn't been let go yet; holding it doesn't leap again. */
     private var heldKey = -1
-    private var message: String? = null
-    private var messageAt = 0L
+
+    /** How far each box has grown toward its hovered size, for a short ease. */
+    private val grow = FloatArray(Corner.entries.size)
+    private var lastFrame = 0L
 
     // ------------------------------------------------------------------ when it takes over
 
@@ -82,6 +87,7 @@ object LeapMenu {
             openedAt = System.currentTimeMillis()
             lastLeapAt = 0L
             message = null
+            grow.fill(0f)
         }
         if (heldKey != -1 && !InputConstants.isKeyDown(McCompat.mc.window, heldKey)) heldKey = -1
         return true
@@ -89,15 +95,23 @@ object LeapMenu {
 
     // ------------------------------------------------------------------ who goes where
 
-    /** Teammates by spot. Fixed: same classes, same spots, every time. */
-    fun layout(screen: AbstractContainerScreen<*>): Map<Zone, Target> {
+    /** Each class's corner, given yours: the same every time for the same class. */
+    private fun homes(own: DungeonClass?): Map<DungeonClass, Corner> {
+        val out = HashMap<DungeonClass, Corner>()
+        val order = CORNER_ORDER.filter { it != own }
+        val corners = if (own == DungeonClass.HEALER) Corner.entries else Corner.entries - Corner.BOTTOM_RIGHT
+        if (own != DungeonClass.HEALER) out[DungeonClass.HEALER] = Corner.BOTTOM_RIGHT
+        order.zip(corners).forEach { (dungeonClass, corner) -> out[dungeonClass] = corner }
+        return out
+    }
+
+    /** Teammates by corner. Fixed: same classes, same corners, every time. */
+    fun layout(screen: AbstractContainerScreen<*>): Map<Corner, Target> {
         val self = McCompat.player?.name?.string ?: ""
         val heads = HashMap<String, Int>()
         val menu = screen.menu
         for (i in 0 until containerSize(screen)) {
-            val stack = menu.slots[i].item
-            if (stack.isEmpty || !stack.`is`(Items.PLAYER_HEAD)) continue
-            val name = HEAD_NAME.find(stack.hoverName.string.removeColor().trim())?.groupValues?.get(1) ?: continue
+            val name = headName(screen, i) ?: continue
             heads[name.lowercase()] = i
         }
         // Everyone the tab list or the menu knows about, minus you, in name order so it never shuffles.
@@ -109,47 +123,54 @@ object LeapMenu {
             Target(member?.name ?: name, member?.dungeonClass, member?.dead == true, heads[name.lowercase()])
         }
 
-        val out = LinkedHashMap<Zone, Target>()
+        val homes = homes(DungeonParty.member(self)?.dungeonClass)
+        val out = LinkedHashMap<Corner, Target>()
         val extra = ArrayList<Target>()
         targets.forEach { target ->
-            val home = Zone.entries.firstOrNull { it.home == target.dungeonClass }
+            val home = target.dungeonClass?.let { homes[it] }
             if (home != null && home !in out) out[home] = target else extra += target
         }
-        // Two of one class, or a class we don't know yet: the free spots, in key order.
-        extra.forEach { target -> Zone.entries.firstOrNull { it !in out }?.let { out[it] = target } }
+        // Two of one class, or a class we don't know yet: the free corners, in key order.
+        extra.forEach { target -> Corner.entries.firstOrNull { it !in out }?.let { out[it] = target } }
         return out
     }
 
     private fun containerSize(screen: AbstractContainerScreen<*>): Int = (screen.menu.slots.size - 36).coerceAtLeast(0)
 
+    /** The player a slot's head belongs to, or null when it isn't a player head. */
+    private fun headName(screen: AbstractContainerScreen<*>, slot: Int): String? {
+        val stack = screen.menu.slots[slot].item
+        if (stack.isEmpty || !stack.`is`(Items.PLAYER_HEAD)) return null
+        return HEAD_NAME.find(stack.hoverName.string.removeColor().trim())?.groupValues?.get(1)
+    }
+
     // ------------------------------------------------------------------ input
 
-    /** The spot under the mouse: the middle oval, or whichever quarter of the screen it's in. */
-    fun zoneAt(screen: AbstractContainerScreen<*>, mouseX: Double, mouseY: Double): Zone {
-        val x = mouseX / screen.width - 0.5
-        val y = mouseY / screen.height - 0.5
-        if ((x / MIDDLE_RX) * (x / MIDDLE_RX) + (y / MIDDLE_RY) * (y / MIDDLE_RY) <= 1.0) return Zone.MIDDLE
-        return if (y < 0) (if (x < 0) Zone.TOP_LEFT else Zone.TOP_RIGHT) else (if (x < 0) Zone.BOTTOM_LEFT else Zone.BOTTOM_RIGHT)
+    /** The quarter of the screen the mouse is in. */
+    fun cornerAt(screen: AbstractContainerScreen<*>, mouseX: Double, mouseY: Double): Corner {
+        val left = mouseX < screen.width / 2.0
+        val top = mouseY < screen.height / 2.0
+        return Corner.entries.first { it.left == left && it.top == top }
     }
 
     @JvmStatic
     fun mouseClicked(screen: AbstractContainerScreen<*>, mouseX: Double, mouseY: Double, button: Int) {
         if (button != 0) return
-        leap(screen, zoneAt(screen, mouseX, mouseY))
+        leap(screen, cornerAt(screen, mouseX, mouseY))
     }
 
     /** True when the key was one of the leap keys. */
     @JvmStatic
     fun keyPressed(screen: AbstractContainerScreen<*>, key: Int): Boolean {
         val digit = when (key) {
-            in KEY_1..KEY_5 -> key - KEY_1 + 1
-            in KEYPAD_1..KEYPAD_5 -> key - KEYPAD_1 + 1
+            in KEY_1..KEY_4 -> key - KEY_1 + 1
+            in KEYPAD_1..KEYPAD_4 -> key - KEYPAD_1 + 1
             else -> return false
         }
         // Minecraft sends a held key again and again; only the press itself leaps.
         if (key == heldKey) return true
         heldKey = key
-        Zone.entries.firstOrNull { it.key == digit }?.let { leap(screen, it) }
+        Corner.entries.firstOrNull { it.key == digit }?.let { leap(screen, it) }
         return true
     }
 
@@ -158,7 +179,7 @@ object LeapMenu {
     fun closesMenu(event: KeyEvent): Boolean =
         event.key() == KEY_ESCAPE || McCompat.mc.options.keyInventory.matches(event)
 
-    private fun leap(screen: AbstractContainerScreen<*>, zone: Zone) {
+    private fun leap(screen: AbstractContainerScreen<*>, corner: Corner) {
         val player = McCompat.player ?: return
         val gameMode = McCompat.mc.gameMode ?: return
         val menu = screen.menu
@@ -167,15 +188,12 @@ object LeapMenu {
         if (player.containerMenu !== menu || menu.containerId != trackedContainer) return
         if (now - openedAt < OPEN_GUARD_MS || now - lastLeapAt < REPEAT_GUARD_MS) return
 
-        val target = layout(screen)[zone] ?: return
+        val target = layout(screen)[corner] ?: return
         if (target.dead) return say("${target.name} is dead")
         val slot = target.slot ?: return say("${target.name} isn't in the menu")
         // Checked again right before clicking: still in the chest part, still that player's head.
         if (slot !in 0 until containerSize(screen)) return
-        val stack = menu.slots[slot].item
-        if (!stack.`is`(Items.PLAYER_HEAD)) return
-        val headName = HEAD_NAME.find(stack.hoverName.string.removeColor().trim())?.groupValues?.get(1)
-        if (!target.name.equals(headName, ignoreCase = true)) return
+        if (!target.name.equals(headName(screen, slot), ignoreCase = true)) return
 
         lastLeapAt = now
         logger.info("Leaping to {} (slot {}, container {})", target.name, slot, menu.containerId)
@@ -205,91 +223,105 @@ object LeapMenu {
     private fun draw(screen: AbstractContainerScreen<*>, graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val w = screen.width.toFloat()
         val h = screen.height.toFloat()
+        val halfW = w / 2f
+        val halfH = h / 2f
         graphics.rect(0f, 0f, w, h, DIM)
-        graphics.rect(w / 2f, 0f, 1f, h, LINE)
-        graphics.rect(0f, h / 2f, w, 1f, LINE)
-        graphics.stringCentered("Spirit Leap", w / 2f, 10f, MUTED)
+
+        val now = System.currentTimeMillis()
+        val dt = if (lastFrame == 0L) 0f else ((now - lastFrame) / 1000f).coerceAtMost(0.1f)
+        lastFrame = now
 
         val layout = layout(screen)
-        if (layout.isEmpty()) graphics.stringCentered("Waiting for the menu...", w / 2f, h / 2f - 4f, MUTED)
-        val hovered = zoneAt(screen, mouseX.toDouble(), mouseY.toDouble())
-        val cardW = (w * 0.28f).coerceIn(150f, 230f)
-        val cardH = 44f
-        val pad = (w * 0.05f).coerceAtLeast(12f)
-        Zone.entries.forEach { zone ->
-            val target = layout[zone] ?: return@forEach
-            val (x, y) = when (zone) {
-                Zone.TOP_LEFT -> pad to pad + 12f
-                Zone.TOP_RIGHT -> w - pad - cardW to pad + 12f
-                Zone.MIDDLE -> (w - cardW) / 2f to (h - cardH) / 2f
-                Zone.BOTTOM_LEFT -> pad to h - pad - cardH
-                Zone.BOTTOM_RIGHT -> w - pad - cardW to h - pad - cardH
-            }
-            card(graphics, x, y, cardW, cardH, zone, target, hovered == zone)
+        if (layout.isEmpty()) centered(graphics, "Waiting for the menu...", halfW, halfH - 4f, 1f, MUTED)
+        val hovered = cornerAt(screen, mouseX.toDouble(), mouseY.toDouble())
+        // Boxes shrink to fit small windows or a big GUI scale.
+        val scale = minOf(1f, (halfW - GAP - 6f) / BOX_W, (halfH - GAP - 6f) / BOX_H)
+
+        Corner.entries.forEachIndexed { i, corner ->
+            val target = layout[corner] ?: return@forEachIndexed
+            val usable = !target.dead && target.slot != null
+            val goal = if (corner == hovered && usable) 1f else 0f
+            grow[i] += (goal - grow[i]) * (dt * 14f).coerceAtMost(1f)
+
+            val pose = graphics.pose()
+            pose.pushMatrix()
+            pose.translate(if (corner.left) halfW - GAP else halfW + GAP, if (corner.top) halfH - GAP else halfH + GAP)
+            val g = 1f + grow[i] * GROW
+            pose.scale(scale * g, scale * g)
+            box(screen, graphics, if (corner.left) -BOX_W else 0f, if (corner.top) -BOX_H else 0f, corner, target, usable)
+            pose.popMatrix()
         }
 
         val text = message
-        if (text != null && System.currentTimeMillis() - messageAt < 1_500L) {
-            val tw = Draw.width(text) + 16f
-            graphics.roundPanel((w - tw) / 2f, h / 2f + cardH / 2f + 14f, tw, 18f, 4f, CARD, LINE)
-            graphics.stringCentered(text, w / 2f, h / 2f + cardH / 2f + 19f, TEXT)
+        if (text != null && now - messageAt < 1_500L) {
+            val tw = McCompat.font.width(text) + 16f
+            graphics.roundPanel(halfW - tw / 2f, h - 34f, tw, 18f, 4f, BOX, LINE)
+            centered(graphics, text, halfW, h - 29f, 1f, TEXT)
         }
     }
 
-    private fun card(graphics: GuiGraphicsExtractor, x: Float, y: Float, cardW: Float, cardH: Float, zone: Zone, target: Target, hot: Boolean) {
-        val usable = !target.dead && target.slot != null
-        val color = target.dungeonClass?.color ?: 0xAAAAAA
-        val accent = 0xFF000000.toInt() or color
-        val fill = if (hot && usable) mixWithCard(color) else CARD
-        val border = if (hot && usable) accent else (0x59000000 or color)
-        graphics.roundPanel(x, y, cardW, cardH, 6f, fill, border)
+    private fun box(screen: AbstractContainerScreen<*>, graphics: GuiGraphicsExtractor, x: Float, y: Float, corner: Corner, target: Target, usable: Boolean) {
+        val classColor = 0xFF000000.toInt() or (target.dungeonClass?.color ?: 0xAAAAAA)
+        graphics.roundPanel(x, y, BOX_W, BOX_H, 9f, BOX, if (usable) (0x66000000 or (classColor and 0xFFFFFF)) else LINE)
 
-        val badge = cardH - 16f
-        graphics.roundRect(x + 8f, y + 8f, badge, badge, 4f, if (usable) accent else GREY)
-        val letter = target.dungeonClass?.letter ?: "?"
-        graphics.stringScaled(letter, x + 8f + (badge - Draw.width(letter) * 2f) / 2f, y + 8f + (badge - Draw.LINE_HEIGHT * 2f) / 2f + 1f, 2f, BADGE_TEXT)
+        // The face from the head in Hypixel's menu, so it's the right skin.
+        val face = (BOX_H * 0.76f).toInt()
+        val profile = target.slot?.let { screen.menu.slots[it].item.get(DataComponents.PROFILE) }
+        val faceX = (x + 9f).toInt()
+        val faceY = (y + (BOX_H - face) / 2f).toInt()
+        if (profile != null) PlayerFaceExtractor.extractRenderState(graphics, profile, faceX, faceY, face)
+        else graphics.rect(faceX.toFloat(), faceY.toFloat(), face.toFloat(), face.toFloat(), FACE_EMPTY)
+        if (!usable) graphics.rect(faceX.toFloat(), faceY.toFloat(), face.toFloat(), face.toFloat(), FACE_DIM)
 
-        val textX = x + 16f + badge
-        graphics.string(target.dungeonClass?.label?.uppercase() ?: "UNKNOWN", textX, y + 9f, if (usable) accent else MUTED)
-        val name = Draw.truncate(target.name, cardW - badge - 52f)
-        graphics.stringScaled(name, textX, y + 21f, 1.25f, if (usable) TEXT else MUTED)
-        when {
-            target.dead -> graphics.string("DEAD", x + cardW - 8f - Draw.width("DEAD"), y + 9f, RED)
-            target.slot == null -> graphics.string("NOT IN MENU", x + cardW - 8f - Draw.width("NOT IN MENU"), y + 9f, MUTED)
+        val textX = x + 18f + face
+        val room = BOX_W - (textX - x) - 10f
+        val className = target.dungeonClass?.label ?: "Unknown"
+        text(graphics, className, textX, y + 19f, fit(className, room, 1.3f), if (usable) classColor else MUTED)
+        val (line, color) = when {
+            target.dead -> "Dead" to RED
+            target.slot == null -> "${target.name} (not in menu)" to MUTED
+            else -> target.name to GRAY
         }
+        text(graphics, line, textX, y + 37f, fit(line, room, 1.6f), color)
 
-        val key = zone.key.toString()
-        val kx = x + cardW - 22f
-        val ky = y + cardH - 20f
-        graphics.roundPanel(kx, ky, 14f, 13f, 3f, KEY_FILL, KEY_LINE)
-        graphics.stringCentered(key, kx + 7f, ky + 2.5f, TEXT)
+        text(graphics, corner.key.toString(), x + BOX_W - 14f, y + BOX_H - 15f, 1f, KEY)
     }
 
-    /** The class colour washed into the card, for the spot under the mouse. */
-    private fun mixWithCard(color: Int): Int {
-        val r = ((color shr 16 and 0xFF) * 0.18f + 0x0F * 0.82f).toInt()
-        val g = ((color shr 8 and 0xFF) * 0.18f + 0x0C * 0.82f).toInt()
-        val b = ((color and 0xFF) * 0.18f + 0x1D * 0.82f).toInt()
-        return (0xF0 shl 24) or (r shl 16) or (g shl 8) or b
+    /** The largest scale up to [max] that fits [text] in [room]. */
+    private fun fit(text: String, room: Float, max: Float): Float =
+        minOf(max, room / McCompat.font.width(text).coerceAtLeast(1))
+
+    private fun text(graphics: GuiGraphicsExtractor, text: String, x: Float, y: Float, scale: Float, color: Int) {
+        val pose = graphics.pose()
+        pose.pushMatrix()
+        pose.translate(x, y)
+        if (scale != 1f) pose.scale(scale, scale)
+        graphics.text(McCompat.font, Component.literal(text), 0, 0, color, true)
+        pose.popMatrix()
     }
 
-    private const val MIDDLE_RX = 0.15
-    private const val MIDDLE_RY = 0.135
+    private fun centered(graphics: GuiGraphicsExtractor, text: String, centerX: Float, y: Float, scale: Float, color: Int) =
+        text(graphics, text, centerX - McCompat.font.width(text) * scale / 2f, y, scale, color)
+
+    private const val BOX_W = 200f
+    private const val BOX_H = 75f
+    private const val GAP = 24f
+    private const val GROW = 0.05f
 
     private const val KEY_1 = 49
-    private const val KEY_5 = 53
+    private const val KEY_4 = 52
     private const val KEYPAD_1 = 321
-    private const val KEYPAD_5 = 325
+    private const val KEYPAD_4 = 324
     private const val KEY_ESCAPE = 256
 
-    private const val DIM = 0xB80B0A12.toInt()
-    private const val LINE = 0x14ECE9F7
-    private const val CARD = 0xDC0F0C1D.toInt()
+    private const val DIM = 0x99000000.toInt()
+    private const val BOX = 0xE6141221.toInt()
+    private const val LINE = 0x30ECE9F7
     private const val TEXT = 0xFFECE9F7.toInt()
-    private const val MUTED = 0xFF8F89AA.toInt()
-    private const val GREY = 0xFF4A4660.toInt()
+    private const val GRAY = 0xFFAAAAAA.toInt()
+    private const val MUTED = 0xFF6E6A85.toInt()
     private const val RED = 0xFFFF5555.toInt()
-    private const val BADGE_TEXT = 0xFF12101B.toInt()
-    private const val KEY_FILL = 0x14FFFFFF
-    private const val KEY_LINE = 0x40ECE9F7
+    private const val KEY = 0x80ECE9F7.toInt()
+    private const val FACE_EMPTY = 0xFF2A2640.toInt()
+    private const val FACE_DIM = 0xA0141221.toInt()
 }

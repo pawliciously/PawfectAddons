@@ -247,7 +247,7 @@ object PawfectSettings {
                 ),
                 group(
                     "Spirit Leap",
-                    ToggleSetting("Leap Menu", "Show Spirit Leap as four corners and a middle. Every class keeps its own spot and key: Archer 1 top left, Berserker 2 top right, Mage 3 middle, Tank 4 bottom left, Healer 5 bottom right. A leap is one normal click on that teammate's head.", visuals::leapMenu),
+                    ToggleSetting("Leap Menu", "Show Spirit Leap as four boxes, one per quarter of the screen. Click anywhere in a quarter or press 1 to 4. Classes keep fixed corners, Healer always bottom right. A leap is one normal click on that teammate's head.", visuals::leapMenu),
                 ),
                 group(
                     "Room Info",
