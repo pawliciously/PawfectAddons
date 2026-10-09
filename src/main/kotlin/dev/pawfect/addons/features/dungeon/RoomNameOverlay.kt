@@ -67,6 +67,7 @@ object RoomNameOverlay {
     fun onActionBar(message: Component) {
         val match = SECRETS.find(message.string.replace(Regex("§."), "")) ?: return
         val current = DungeonScanner.current ?: return
+        track(current)
         // The bar lags a moment behind walking in, still counting the room you came from.
         if (current !== room || System.currentTimeMillis() - enteredAt < ENTER_LAG_MS) return
         found[current] = match.groupValues[1].toInt()
@@ -76,11 +77,7 @@ object RoomNameOverlay {
         if (GuiEditManager.isEditorOpen() && !SkyBlockData.inDungeons) return preview()
         if (!SkyBlockData.inDungeons) return null
         val current = DungeonScanner.current ?: return null
-        if (current !== room) {
-            room = current
-            enteredAt = System.currentTimeMillis()
-            starredAt = 0L
-        }
+        track(current)
         val name = current.name?.takeIf { current.matched }
         val title = when {
             name != null -> name.substringBeforeLast('-').split('-').joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
@@ -94,9 +91,24 @@ object RoomNameOverlay {
                 else -> "Unknown Room"
             }
         }
-        val total = name?.substringAfterLast('-')?.toIntOrNull() ?: 0
-        val secrets = if (current.greenChecked) total else (found[current] ?: 0).coerceAtMost(total)
+        val (secrets, total) = secretsIn(current) ?: (0 to 0)
         return compose(title, secrets, total, cleared(current))
+    }
+
+    /** Notes walking into a new room, so the action bar isn't read as the old one's for a moment. */
+    private fun track(current: DungeonRoom) {
+        if (current === room) return
+        room = current
+        enteredAt = System.currentTimeMillis()
+        starredAt = 0L
+    }
+
+    /** Secrets found and the room's total, for a room you've been in that has secrets; else null. */
+    fun secretsIn(room: DungeonRoom): Pair<Int, Int>? {
+        val total = room.name?.takeIf { room.matched }?.substringAfterLast('-')?.toIntOrNull() ?: return null
+        if (total <= 0) return null
+        val secrets = if (room.greenChecked) total else (found[room] ?: 0).coerceAtMost(total)
+        return secrets to total
     }
 
     private fun preview(): Component = compose("Room Name", 2, 5, false)

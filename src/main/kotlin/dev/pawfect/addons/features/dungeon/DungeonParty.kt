@@ -4,6 +4,7 @@ import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.StringUtil.removeColor
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.minecraft.world.level.GameType
 
 /**
  * Who's in your dungeon run and what class each of them plays, read from the tab list
@@ -34,6 +35,8 @@ object DungeonParty {
     class Member(val name: String) {
         var dungeonClass: DungeonClass? = null
         var dead = false
+        /** Where the tab list sorts this player's line, the order Hypixel numbers map markers in. */
+        var order = ""
     }
 
     private val TAB_LINE = Regex("""^\[\d+] (?:\[[^\]]+] |[^\w\[\s]+ )*(\w{1,16})(?: [^(]*)?\((\w+)(?: ([IVXLCDM]+))?\)$""")
@@ -52,6 +55,9 @@ object DungeonParty {
 
     fun member(name: String): Member? = members[name.lowercase()]
 
+    /** Everyone in the run in tab list order. */
+    fun ordered(): List<Member> = members.values.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.order })
+
     private fun update() {
         // Cleared per world, not when the scoreboard blinks, so nobody's class is forgotten mid-run.
         val current = McCompat.mc.level
@@ -68,6 +74,9 @@ object DungeonParty {
             val status = match.groupValues[2]
             if (status.equals("EMPTY", ignoreCase = true)) continue
             val member = members.getOrPut(name.lowercase()) { Member(name) }
+            // The tab list's own sort: spectators last, then by team, then by profile name.
+            val spectator = if (info.gameMode == GameType.SPECTATOR) "1" else "0"
+            member.order = spectator + "\u0000" + (info.team?.name ?: "") + "\u0000" + info.profile.name
             if (status.equals("DEAD", ignoreCase = true)) {
                 member.dead = true
             } else {

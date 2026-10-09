@@ -250,6 +250,18 @@ object PawfectSettings {
                     ToggleSetting("Dungeon Map", "Show the dungeon map on screen, drawn from the map in your hotbar: only the rooms it has revealed, with your teammates' heads where it marks them.", dungeonHud::map),
                     ToggleSetting("Room Names", "Name the rooms you've been in on the map.", dungeonHud::mapRoomNames)
                         .showIf { dungeonHud.map },
+                    ToggleSetting("Secret Counts", "Show found / total secrets on the rooms you've been in, white once checked and green once green checked.", dungeonHud::mapSecrets)
+                        .showIf { dungeonHud.map },
+                    DropdownSetting("Background", "Glass is a flat panel; the others are the inventory's animated styles.", dungeonHud::mapBackground, PanelBackground.entries.toList())
+                        .showIf { dungeonHud.map },
+                    FloatSliderSetting("Effect Strength", "How strongly the animated background shows.", dungeonHud::mapStrength, 0.1f, 1f, 0.05f)
+                        .showIf { dungeonHud.map && dungeonHud.mapBackground != PanelBackground.GLASS },
+                    FloatSliderSetting("Background Opacity", "How solid the panel is.", dungeonHud::mapOpacity, 0f, 1f, 0.05f)
+                        .showIf { dungeonHud.map },
+                    IntSliderSetting("Corner Radius", "Roundness of the panel corners.", dungeonHud::mapRadius, 0, 12)
+                        .showIf { dungeonHud.map },
+                    ToggleSetting("Outline", "A thin accent edge around the panel.", dungeonHud::mapOutline)
+                        .showIf { dungeonHud.map },
                     PositionSetting("Map Position", "Drag the map to reposition it.", dungeonHud.mapPosition) {
                         PawfectAddons.queueScreen { GuiEditManager.openEditor() }
                     }.showIf { dungeonHud.map },
