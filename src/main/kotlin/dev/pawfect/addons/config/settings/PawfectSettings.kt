@@ -603,6 +603,10 @@ object PawfectSettings {
                     DropdownSetting("Scale Applies To", "Whose size changes.", players::scaleTarget, PlayerChamsConfig.ScaleTarget.entries.toList())
                         .showIf { players.scale != 1f },
                 ),
+                group(
+                    "Armor",
+                    DropdownSetting("Hide Armor", "Stop armour, helmets, hat skulls and elytra drawing so skins and cosmetics show. Only you see it.", players::hideArmor, PlayerChamsConfig.ArmorTarget.entries.toList()),
+                ),
             ),
             category(
                 "cosmetics",
@@ -640,6 +644,8 @@ object PawfectSettings {
                     DropdownSetting("Motes", "Whose drifting motes to render.", cosmetics::motes, Visibility.entries.toList())
                         .showIf { cosmetics.enabled },
                     DropdownSetting("Badges", "Whose status badges to show beside their name.", cosmetics::badges, Visibility.entries.toList())
+                        .showIf { cosmetics.enabled },
+                    DropdownSetting("Celestial", "Whose wings, halos and horns to render.", cosmetics::celestial, Visibility.entries.toList())
                         .showIf { cosmetics.enabled },
                     ToggleSetting("First Person", "Draw your own trail and motes while you are in first person.", cosmetics::firstPerson)
                         .showIf { cosmetics.enabled && (cosmetics.trails != Visibility.NONE || cosmetics.motes != Visibility.NONE) },

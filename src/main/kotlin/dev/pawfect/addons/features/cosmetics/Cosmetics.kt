@@ -7,6 +7,7 @@ import com.google.gson.JsonParser
 import dev.pawfect.addons.PawfectAddons
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.features.CosmeticsConfig.Visibility
+import dev.pawfect.addons.features.cosmetics.celestial.Pick
 import dev.pawfect.addons.utils.McCompat
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
@@ -203,6 +204,17 @@ object Cosmetics {
     fun motesFor(uuid: UUID): ResolvedMotes? {
         if (!config.enabled) return null
         return lookup(uuid)?.motes
+    }
+
+    /** Wings, halo and horns [uuid] wears, if their owner shows them to you. */
+    fun celestialFor(uuid: UUID): List<Pick>? {
+        if (!config.enabled) return null
+        val visible = when (config.celestial) {
+            Visibility.ALL -> true
+            Visibility.SELF -> uuid == McCompat.mc.player?.uuid || uuid == McCompat.mc.user?.profileId
+            Visibility.NONE -> false
+        }
+        return if (visible) lookup(uuid)?.celestial else null
     }
 
     private fun lookup(uuid: UUID): ResolvedCosmetic? {

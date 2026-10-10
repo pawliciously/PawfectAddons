@@ -49,10 +49,14 @@ class PlayerChamsConfig {
     @Expose
     var scaleTarget: ScaleTarget = ScaleTarget.EVERYONE
 
+    @Expose
+    var hideArmor: ArmorTarget = ArmorTarget.OFF
+
     @Suppress("SENSELESS_COMPARISON")
     fun sanitize() {
         if (style == null) style = Style.GHOST
         if (scaleTarget == null) scaleTarget = ScaleTarget.EVERYONE
+        if (hideArmor == null) hideArmor = ArmorTarget.OFF
     }
 
     enum class Style(private val label: String, val id: Int) {
@@ -61,6 +65,15 @@ class PlayerChamsConfig {
         NEON("Neon Pixels", 4),
         STARS("Stars", 2),
         END_PORTAL("End Portal", 3),
+        ;
+
+        override fun toString(): String = label
+    }
+
+    enum class ArmorTarget(private val label: String) {
+        OFF("Off"),
+        SELF("Just you"),
+        EVERYONE("Everyone"),
         ;
 
         override fun toString(): String = label

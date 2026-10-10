@@ -26,6 +26,9 @@ class CosmeticsConfig {
     var badges: Visibility = Visibility.ALL
 
     @Expose
+    var celestial: Visibility = Visibility.ALL
+
+    @Expose
     var firstPerson: Boolean = true
 
     @Expose

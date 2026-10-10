@@ -2,6 +2,8 @@ package dev.pawfect.addons.features.cosmetics
 
 import com.google.gson.annotations.Expose
 import dev.pawfect.addons.features.chat.Emojis
+import dev.pawfect.addons.features.cosmetics.celestial.CelestialCosmetic
+import dev.pawfect.addons.features.cosmetics.celestial.Pick
 import net.minecraft.network.chat.Component
 import kotlin.math.abs
 import kotlin.math.floor
@@ -223,11 +225,15 @@ class CosmeticEntry {
     @Expose
     var motes: MotesCosmetic? = null
 
+    @Expose
+    var celestial: CelestialCosmetic? = null
+
     fun resolve(): ResolvedCosmetic? {
         val resolvedName = name?.resolve()
         val resolvedCape = cape?.resolve()
         val resolvedTrail = trail?.resolve()
         val resolvedMotes = motes?.resolve()
+        val resolvedCelestial = celestial?.resolve()
         val resolvedBadges = Badge.ordered(badges.orEmpty() + if (og) listOf(Badge.FOUNDER.id) else emptyList())
         val emojiCodes = name?.emoji?.take(MAX_NAME_EMOJI).orEmpty()
         val resolvedEmoji = emojiCodes.takeIf { it.isNotEmpty() }?.let(Emojis::glyphs)
@@ -236,12 +242,13 @@ class CosmeticEntry {
             resolvedCape == null &&
             resolvedTrail == null &&
             resolvedMotes == null &&
+            resolvedCelestial == null &&
             resolvedBadges.isEmpty() &&
             resolvedEmoji == null
         ) {
             return null
         }
-        return ResolvedCosmetic(resolvedName, resolvedCape, resolvedTrail, resolvedMotes, resolvedBadges, resolvedEmoji, emojiParts)
+        return ResolvedCosmetic(resolvedName, resolvedCape, resolvedTrail, resolvedMotes, resolvedBadges, resolvedEmoji, emojiParts, resolvedCelestial)
     }
 
     private companion object {
@@ -257,6 +264,7 @@ class ResolvedCosmetic(
     val badges: List<Badge>,
     val emoji: Component?,
     val emojiParts: List<Component>,
+    val celestial: List<Pick>?,
 )
 
 class ResolvedTrail(

@@ -23,6 +23,7 @@ import dev.pawfect.addons.features.chat.ChatStyle
 import dev.pawfect.addons.features.chat.LevelPrestige
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.cosmetics.Capes
+import dev.pawfect.addons.features.cosmetics.celestial.Celestial
 import dev.pawfect.addons.features.cosmetics.CosmeticEnroll
 import dev.pawfect.addons.features.cosmetics.Motes
 import dev.pawfect.addons.features.cosmetics.Ripples
@@ -125,6 +126,7 @@ object PawfectAddons : ClientModInitializer {
         Trails.register()
         Ripples.register()
         Motes.register()
+        Celestial.register()
         SecretWaypointRenderer.register()
         SecretTracker.register()
         SecretRoutes.register()
