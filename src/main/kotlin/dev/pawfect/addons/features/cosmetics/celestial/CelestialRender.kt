@@ -47,7 +47,45 @@ class Rig(
     val lag: Float,
     val scale: Float,
     val tilt: Float = 12f,
+    val wrap: Wrap? = Wrap.FEATHERED,
+    val fold: Fold = Fold.TUCKED,
 )
+
+/** How a crouch changes the resting angles, added on top of the rig's. [back] moves the root further off you. */
+class Fold(
+    val sweep: Float,
+    val lift: Float,
+    val elbowSweep: Float,
+    val elbowLift: Float,
+    val wristSweep: Float,
+    val wristLift: Float,
+    val tilt: Float,
+    val back: Float,
+) {
+    companion object {
+        val TUCKED = Fold(-10f, -22f, 10f, -14f, 12f, -10f, -12f, 0.06f)
+    }
+}
+
+/**
+ * Where the wings settle when you crouch and hold still: around you like a cloak. The root slides
+ * out to [rootX] and back by [rootZ] so the bones clear your arms. Angles work like [Rig]'s.
+ */
+class Wrap(
+    val rootX: Float,
+    val rootZ: Float,
+    val sweep: Float,
+    val lift: Float,
+    val tilt: Float,
+    val elbowSweep: Float,
+    val elbowLift: Float,
+    val wristSweep: Float,
+    val wristLift: Float,
+) {
+    companion object {
+        val FEATHERED = Wrap(0.46f, 0.04f, -10f, 10f, 0f, -90f, 8f, -50f, 10f)
+    }
+}
 
 enum class Anchor { BODY, HEAD }
 
@@ -90,7 +128,13 @@ abstract class WingStyle(id: String, val rig: Rig) : Piece(id, Anchor.BODY, 2) {
     }
 
     override fun matrices(state: AvatarRenderState, motion: Motion, t: Float, size: Float) =
-        motion.matrices(rig, if (state.showCape) 0.2f else 0.15f, size)
+        motion.matrices(rig, if (state.showCape) BACK_CAPE else BACK, size)
+
+    companion object {
+        /** How far behind the spine the wings attach: clear of a chestplate, or of a cape. */
+        const val BACK = 0.21f
+        const val BACK_CAPE = 0.25f
+    }
 }
 
 object WingRenderType {
@@ -120,6 +164,17 @@ class Motion {
     private var move = 0f
     private var fold = 0f
     private var glide = 0f
+    private var wrap = 0f
+    private var still = 0f
+
+    /** Sets the pose directly, for checking poses without a player to drive them. */
+    fun force(move: Float, fold: Float, glide: Float, wrap: Float, phase: Float) {
+        this.move = move
+        this.fold = fold
+        this.glide = glide
+        this.wrap = wrap
+        this.phase = phase
+    }
 
     fun update(state: AvatarRenderState, rig: Rig) {
         val now = System.nanoTime()
@@ -129,29 +184,54 @@ class Motion {
         move += (state.walkAnimationSpeed.coerceIn(0f, 1f) - move) * k
         fold += ((if (state.isCrouching || state.isVisuallySwimming) 1f else 0f) - fold) * k
         glide += ((if (state.isFallFlying) 1f else 0f) - glide) * k
+        val resting = state.isCrouching && !state.isFallFlying && state.walkAnimationSpeed < 0.05f && state.attackTime == 0f && !state.isUsingItem
+        still = if (resting) still + dt else 0f
+        val wrapping = still > WRAP_AFTER
+        wrap += ((if (wrapping) 1f else 0f) - wrap) * (1f - exp(-dt * if (wrapping) 4f else 9f))
         val speed = (1f + 0.6f * move) * (1f - 0.5f * glide)
         phase = (phase + dt * TAU / rig.period * speed) % TAU
     }
 
     /** Three segment transforms per wing, right wing first, relative to the body. */
     fun matrices(rig: Rig, back: Float, size: Float = 1f): Array<Matrix4f> {
-        val amp = rig.amp * (1f + 0.5f * move) * (1f - 0.75f * glide) * (1f - 0.5f * fold)
+        val pose = rig.wrap
+        // Small wings cannot reach round you, so they just fold on your back.
+        val reach = ((size - 0.4f) / 0.5f).coerceIn(0f, 1f)
+        val e = if (pose == null) 0f else wrap * wrap * (3f - 2f * wrap) * reach
+        val amp = rig.amp * (1f + 0.5f * move) * (1f - 0.75f * glide) * (1f - 0.5f * fold) * (1f - 0.85f * e)
         val f0 = sin(phase)
         val f1 = sin(phase - rig.lag)
         val f2 = sin(phase - rig.lag * 2f)
-        val lift = mix(rig.lift + amp * f0, 6f + 2f * f0, glide) - 22f * fold
-        val sweep = mix(rig.sweep - amp * 0.3f * f0 + 10f * move, 6f, glide) + 30f * fold
-        val elbowLift = mix(rig.elbowLift + amp * 0.6f * f1, 0f, glide) - 14f * fold
-        val wristLift = mix(rig.wristLift + amp * 0.8f * f2, -4f, glide) - 10f * fold
-        val elbowSweep = rig.elbowSweep + 10f * fold
-        val wristSweep = rig.wristSweep + 12f * fold
+        val tuck = rig.fold
+        var lift = mix(rig.lift + amp * f0, 6f + 2f * f0, glide) + tuck.lift * fold
+        var sweep = mix(rig.sweep - amp * 0.3f * f0 + 10f * move, 6f, glide) + tuck.sweep * fold
+        var elbowLift = mix(rig.elbowLift + amp * 0.6f * f1, 0f, glide) + tuck.elbowLift * fold
+        var wristLift = mix(rig.wristLift + amp * 0.8f * f2, -4f, glide) + tuck.wristLift * fold
+        var elbowSweep = rig.elbowSweep + tuck.elbowSweep * fold
+        var wristSweep = rig.wristSweep + tuck.wristSweep * fold
+        var tilt = rig.tilt + tuck.tilt * fold
+        var rootX = 0.09f
+        // Bigger wings reach further down and in, so they sit a little further off your back.
+        val off = back + 0.06f * (size - 1f).coerceAtLeast(0f)
+        var rootZ = off + tuck.back * fold * size
+        if (pose != null && e > 0f) {
+            lift = mix(lift, pose.lift + amp * f0, e)
+            sweep = mix(sweep, pose.sweep, e)
+            elbowLift = mix(elbowLift, pose.elbowLift + amp * 0.6f * f1, e)
+            wristLift = mix(wristLift, pose.wristLift + amp * 0.8f * f2, e)
+            elbowSweep = mix(elbowSweep, pose.elbowSweep, e)
+            wristSweep = mix(wristSweep, pose.wristSweep, e)
+            tilt = mix(tilt, pose.tilt, e)
+            rootX = mix(rootX, pose.rootX, e)
+            rootZ = mix(rootZ, off + pose.rootZ, e)
+        }
 
         return mirrored { side ->
             val m0 = Matrix4f()
-                .translate(side * 0.09f, 0.22f, back)
+                .translate(side * rootX, 0.22f, rootZ)
                 .scale(side * rig.scale * size, -rig.scale * size, rig.scale * size)
                 .rotateY(-sweep * DEG)
-                .rotateX(rig.tilt * DEG)
+                .rotateX(tilt * DEG)
                 .rotateZ(lift * DEG)
             val m1 = Matrix4f(m0).translate(rig.l0, 0f, 0f).rotateY(-elbowSweep * DEG).rotateZ(elbowLift * DEG)
             val m2 = Matrix4f(m1).translate(rig.l1, 0f, 0f).rotateY(-wristSweep * DEG).rotateZ(wristLift * DEG)
@@ -163,6 +243,9 @@ class Motion {
 
     companion object {
         const val TAU = (PI * 2.0).toFloat()
+
+        /** Seconds of standing still while crouched before the wings fold round you. */
+        const val WRAP_AFTER = 0.8f
 
         /** Runs [segments] for the right side then the left, flattening into one array. */
         fun mirrored(segments: (side: Float) -> Triple<Matrix4f, Matrix4f, Matrix4f>): Array<Matrix4f> {
@@ -202,6 +285,7 @@ class CelestialLayer(parent: RenderLayerParent<AvatarRenderState, PlayerModel>) 
         val block = (light shr 4) and 15
         val sky = (light shr 20) and 15
         val shade = 0.45f + 0.55f * max(block, sky) / 15f
+        val body = if (picks.any { it.piece is WingStyle }) Collider.of(parentModel) else null
 
         for (pick in picks) {
             val piece = pick.piece
@@ -211,9 +295,10 @@ class CelestialLayer(parent: RenderLayerParent<AvatarRenderState, PlayerModel>) 
             (if (piece.anchor == Anchor.HEAD) parentModel.head else parentModel.body).translateAndRotate(poseStack)
             collector.submitCustomGeometry(poseStack, WingRenderType.type) { pose, consumer ->
                 val mats = Array(local.size) { Matrix4f(pose.pose()).mul(local[it]) }
+                val collider = if (piece is WingStyle) body else null
                 Paint.active = paint
-                draw(piece.fill, piece, mats, consumer, t, shade)
-                draw(piece.glow, piece, mats, consumer, t, shade)
+                draw(piece.fill, piece, mats, consumer, t, shade, collider, local, pose.pose())
+                draw(piece.glow, piece, mats, consumer, t, shade, collider, local, pose.pose())
                 sparks(piece, mats, consumer, t)
                 Paint.active = null
             }
@@ -222,9 +307,11 @@ class CelestialLayer(parent: RenderLayerParent<AvatarRenderState, PlayerModel>) 
     }
 
     private val p = Vector3f()
+    private val q = Vector3f()
     private val spark = SparkOut()
 
-    private fun draw(mesh: Mesh, piece: Piece, mats: Array<Matrix4f>, consumer: VertexConsumer, t: Float, shade: Float) {
+    /** With a [collider], vertices go through body space ([local] then [pose]) so they can be kept out of the player. */
+    private fun draw(mesh: Mesh, piece: Piece, mats: Array<Matrix4f>, consumer: VertexConsumer, t: Float, shade: Float, collider: Collider?, local: Array<Matrix4f>, pose: Matrix4f) {
         for (i in 0 until mesh.size) {
             p.set(mesh.x[i], mesh.y[i], mesh.z[i])
             val kind = mesh.kind[i].toInt()
@@ -236,7 +323,13 @@ class CelestialLayer(parent: RenderLayerParent<AvatarRenderState, PlayerModel>) 
         }
         for (side in 0 until piece.sides) {
             for (i in 0 until mesh.size) {
-                consumer.addVertex(mats[side * 3 + mesh.seg[i]], mesh.px[i], mesh.py[i], mesh.pz[i]).setColor(mesh.out[i])
+                if (collider == null) {
+                    consumer.addVertex(mats[side * 3 + mesh.seg[i]], mesh.px[i], mesh.py[i], mesh.pz[i]).setColor(mesh.out[i])
+                } else {
+                    local[side * 3 + mesh.seg[i]].transformPosition(mesh.px[i], mesh.py[i], mesh.pz[i], q)
+                    collider.push(q)
+                    consumer.addVertex(pose, q.x, q.y, q.z).setColor(mesh.out[i])
+                }
             }
         }
     }

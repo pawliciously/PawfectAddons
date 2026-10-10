@@ -101,3 +101,13 @@ tasks.named<ShadowJar>("shadowJar") {
 tasks.jar {
     archiveClassifier.set("")
 }
+
+dependencies {
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging { showStandardStreams = true }
+    systemProperty("search", System.getProperty("search") ?: "")
+}

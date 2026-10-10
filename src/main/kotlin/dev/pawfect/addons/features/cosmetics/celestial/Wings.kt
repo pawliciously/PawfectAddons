@@ -427,7 +427,9 @@ object CelestialWings : WingStyle(
 /** Fairy wings: two thin iridescent lobes and a streamer each side, fluttering fast and shedding glitter. */
 object Sylph : WingStyle(
     "sylph",
-    Rig(0f, 0f, 0f, sweep = 16f, lift = 8f, elbowSweep = 6f, elbowLift = -10f, wristSweep = 0f, wristLift = 0f, amp = 14f, period = 1.1f, lag = 0.35f, scale = 0.9f, tilt = 8f),
+    Rig(0f, 0f, 0f, sweep = 16f, lift = 8f, elbowSweep = 6f, elbowLift = -10f, wristSweep = 0f, wristLift = 0f, amp = 14f, period = 1.1f, lag = 0.35f, scale = 0.9f, tilt = 8f,
+        // One sheet with no bones to bend, so it folds back rather than round you.
+        wrap = null, fold = Fold(10f, -22f, 10f, -14f, 12f, -10f, 0f, 0.06f)),
 ) {
     private const val STEPS = 14
 
