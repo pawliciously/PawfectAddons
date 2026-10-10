@@ -110,9 +110,9 @@ object RouteData {
     /**
      * Rooms whose Stella route doesn't work, by our room id; the Secret Routes Mod's is used
      * there instead. Grass Ruin's warps up through slabs from the lower chest and mines through
-     * the upper one instead of opening it.
+     * the upper one instead of opening it; Sewer's runs better as the Secret Routes Mod has it.
      */
-    private val STELLA_BROKEN = setOf("grass-ruin-3")
+    private val STELLA_BROKEN = setOf("grass-ruin-3", "sewer-7")
 
     fun isRecorded(room: String): Boolean = routes[Kind.RECORDED]?.containsKey(room.lowercase()) == true
 
