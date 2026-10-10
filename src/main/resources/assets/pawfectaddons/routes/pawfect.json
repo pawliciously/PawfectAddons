@@ -1,0 +1,1656 @@
+{
+  "#": "Pawfect Addons' own routes for rooms the community routes get wrong. Knight, Gravel and Market are built on Stella's routes (Luckkytigger, Eclipse, LGPL-3.0); Mithril Cave and the new parts of Gravel and Market are from in-game waypoints.",
+  "Knight-3": [
+    {
+      "locations": [
+        [
+          8,
+          69,
+          23
+        ]
+      ],
+      "etherwarps": [],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "bat",
+        "location": [
+          7,
+          70,
+          25
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          8,
+          69,
+          23
+        ],
+        [
+          7,
+          69,
+          19
+        ],
+        [
+          6,
+          69,
+          15
+        ]
+      ],
+      "etherwarps": [],
+      "mines": [
+        [
+          5,
+          70,
+          11
+        ],
+        [
+          4,
+          70,
+          11
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "lever",
+        "location": [
+          3,
+          70,
+          9
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          6,
+          69,
+          15
+        ],
+        [
+          10,
+          69,
+          16
+        ],
+        [
+          14,
+          69,
+          19
+        ],
+        [
+          14,
+          69,
+          24
+        ],
+        [
+          18,
+          69,
+          26
+        ],
+        [
+          24,
+          69,
+          26
+        ]
+      ],
+      "etherwarps": [
+        [
+          24,
+          68,
+          26
+        ]
+      ],
+      "mines": [
+        [
+          19,
+          70,
+          26
+        ],
+        [
+          20,
+          70,
+          26
+        ],
+        [
+          19,
+          69,
+          26
+        ],
+        [
+          20,
+          69,
+          26
+        ],
+        [
+          21,
+          69,
+          26
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          24,
+          69,
+          29
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          24,
+          69,
+          26
+        ]
+      ],
+      "etherwarps": [],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          25,
+          69,
+          29
+        ]
+      }
+    }
+  ],
+  "Gravel-6": [
+    {
+      "locations": [
+        [
+          73,
+          69,
+          7
+        ],
+        [
+          82,
+          73,
+          4
+        ],
+        [
+          86,
+          73,
+          4
+        ],
+        [
+          91,
+          69,
+          5
+        ]
+      ],
+      "etherwarps": [
+        [
+          82,
+          72,
+          4
+        ],
+        [
+          91,
+          68,
+          5
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          92,
+          69,
+          3
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          91,
+          69,
+          5
+        ],
+        [
+          88,
+          69,
+          8
+        ]
+      ],
+      "etherwarps": [],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "item",
+        "location": [
+          88,
+          69,
+          8
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          88,
+          69,
+          8
+        ],
+        [
+          86,
+          73,
+          4
+        ],
+        [
+          75,
+          73,
+          3
+        ],
+        [
+          72,
+          81,
+          10
+        ],
+        [
+          70,
+          81,
+          14
+        ],
+        [
+          69,
+          82,
+          14
+        ],
+        [
+          69,
+          87,
+          14
+        ],
+        [
+          68,
+          87,
+          14
+        ]
+      ],
+      "etherwarps": [
+        [
+          86,
+          72,
+          4
+        ],
+        [
+          75,
+          72,
+          3
+        ],
+        [
+          72,
+          80,
+          10
+        ],
+        [
+          70,
+          80,
+          14
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "item",
+        "location": [
+          68,
+          87,
+          14
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          68,
+          87,
+          14
+        ],
+        [
+          67,
+          87,
+          14
+        ]
+      ],
+      "etherwarps": [],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          66,
+          87,
+          14
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          67,
+          87,
+          14
+        ],
+        [
+          69,
+          87,
+          14
+        ],
+        [
+          69,
+          82,
+          14
+        ],
+        [
+          70,
+          81,
+          14
+        ],
+        [
+          71,
+          81,
+          24
+        ],
+        [
+          71,
+          68,
+          24
+        ],
+        [
+          64,
+          69,
+          24
+        ]
+      ],
+      "etherwarps": [
+        [
+          71,
+          80,
+          24
+        ],
+        [
+          64,
+          68,
+          24
+        ]
+      ],
+      "mines": [
+        [
+          71,
+          80,
+          24
+        ],
+        [
+          71,
+          79,
+          24
+        ],
+        [
+          71,
+          78,
+          24
+        ],
+        [
+          63,
+          69,
+          25
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "lever",
+        "location": [
+          63,
+          69,
+          26
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          64,
+          69,
+          24
+        ],
+        [
+          26,
+          69,
+          20
+        ],
+        [
+          26,
+          69,
+          16
+        ],
+        [
+          29,
+          69,
+          12
+        ],
+        [
+          34,
+          69,
+          11
+        ]
+      ],
+      "etherwarps": [
+        [
+          26,
+          68,
+          20
+        ]
+      ],
+      "mines": [
+        [
+          64,
+          68,
+          22
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          35,
+          69,
+          11
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          34,
+          69,
+          11
+        ],
+        [
+          29,
+          69,
+          12
+        ],
+        [
+          26,
+          69,
+          15
+        ],
+        [
+          28,
+          82,
+          17
+        ],
+        [
+          31,
+          87,
+          14
+        ]
+      ],
+      "etherwarps": [
+        [
+          28,
+          81,
+          17
+        ],
+        [
+          31,
+          86,
+          14
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "bat",
+        "location": [
+          37,
+          89,
+          12
+        ]
+      }
+    }
+  ],
+  "Market-5": [
+    {
+      "locations": [
+        [
+          43,
+          69,
+          47
+        ],
+        [
+          43,
+          75,
+          47
+        ]
+      ],
+      "etherwarps": [
+        [
+          43,
+          74,
+          47
+        ]
+      ],
+      "mines": [
+        [
+          44,
+          78,
+          47
+        ],
+        [
+          45,
+          78,
+          47
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          46,
+          79,
+          48
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          43,
+          75,
+          47
+        ],
+        [
+          32,
+          69,
+          48
+        ],
+        [
+          32,
+          65,
+          48
+        ]
+      ],
+      "etherwarps": [
+        [
+          32,
+          68,
+          48
+        ]
+      ],
+      "mines": [
+        [
+          32,
+          68,
+          48
+        ],
+        [
+          32,
+          67,
+          48
+        ],
+        [
+          32,
+          66,
+          48
+        ],
+        [
+          32,
+          65,
+          48
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          32,
+          61,
+          48
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          32,
+          65,
+          48
+        ],
+        [
+          32,
+          74,
+          48
+        ],
+        [
+          31,
+          69,
+          48
+        ],
+        [
+          12,
+          69,
+          46
+        ],
+        [
+          12,
+          61,
+          46
+        ]
+      ],
+      "etherwarps": [
+        [
+          12,
+          68,
+          46
+        ]
+      ],
+      "mines": [
+        [
+          12,
+          68,
+          46
+        ],
+        [
+          12,
+          67,
+          46
+        ],
+        [
+          12,
+          66,
+          46
+        ],
+        [
+          12,
+          65,
+          46
+        ],
+        [
+          12,
+          64,
+          46
+        ],
+        [
+          12,
+          63,
+          46
+        ],
+        [
+          12,
+          62,
+          46
+        ],
+        [
+          12,
+          61,
+          46
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "bat",
+        "location": [
+          8,
+          60,
+          51
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          12,
+          61,
+          46
+        ],
+        [
+          11,
+          61,
+          46
+        ]
+      ],
+      "etherwarps": [],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          7,
+          59,
+          44
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          10,
+          59,
+          46
+        ],
+        [
+          16,
+          86,
+          49
+        ],
+        [
+          16,
+          86,
+          55
+        ]
+      ],
+      "etherwarps": [
+        [
+          16,
+          85,
+          49
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          16,
+          86,
+          56
+        ]
+      }
+    }
+  ],
+  "Mithril-Cave-10": [
+    {
+      "locations": [
+        [
+          52,
+          69,
+          9
+        ],
+        [
+          52,
+          80,
+          9
+        ],
+        [
+          49,
+          80,
+          12
+        ],
+        [
+          45,
+          80,
+          13
+        ]
+      ],
+      "etherwarps": [
+        [
+          52,
+          78,
+          9
+        ]
+      ],
+      "mines": [],
+      "interacts": [
+        [
+          52,
+          79,
+          9
+        ]
+      ],
+      "tnts": [
+        [
+          52,
+          80,
+          9
+        ]
+      ],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          41,
+          80,
+          12
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          45,
+          80,
+          13
+        ],
+        [
+          47,
+          86,
+          12
+        ],
+        [
+          27,
+          101,
+          8
+        ],
+        [
+          6,
+          107,
+          11
+        ],
+        [
+          9,
+          108,
+          16
+        ]
+      ],
+      "etherwarps": [
+        [
+          47,
+          85,
+          12
+        ],
+        [
+          27,
+          100,
+          8
+        ],
+        [
+          6,
+          106,
+          11
+        ],
+        [
+          9,
+          107,
+          16
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          9,
+          108,
+          17
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          9,
+          108,
+          16
+        ],
+        [
+          13,
+          110,
+          20
+        ],
+        [
+          11,
+          110,
+          29
+        ]
+      ],
+      "etherwarps": [
+        [
+          13,
+          109,
+          20
+        ],
+        [
+          11,
+          109,
+          29
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [
+        [
+          13,
+          111,
+          21
+        ],
+        [
+          9,
+          111,
+          29
+        ]
+      ],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          9,
+          109,
+          30
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          11,
+          110,
+          29
+        ],
+        [
+          12,
+          110,
+          20
+        ],
+        [
+          12,
+          81,
+          20
+        ]
+      ],
+      "etherwarps": [
+        [
+          12,
+          109,
+          20
+        ]
+      ],
+      "mines": [
+        [
+          12,
+          109,
+          20
+        ],
+        [
+          12,
+          108,
+          20
+        ],
+        [
+          12,
+          107,
+          20
+        ],
+        [
+          12,
+          106,
+          20
+        ],
+        [
+          12,
+          105,
+          20
+        ],
+        [
+          12,
+          104,
+          20
+        ],
+        [
+          12,
+          103,
+          20
+        ],
+        [
+          12,
+          102,
+          20
+        ],
+        [
+          12,
+          101,
+          20
+        ],
+        [
+          12,
+          100,
+          20
+        ],
+        [
+          12,
+          99,
+          20
+        ],
+        [
+          12,
+          98,
+          20
+        ],
+        [
+          12,
+          97,
+          20
+        ],
+        [
+          12,
+          96,
+          20
+        ],
+        [
+          12,
+          95,
+          20
+        ],
+        [
+          12,
+          94,
+          20
+        ],
+        [
+          12,
+          93,
+          20
+        ],
+        [
+          12,
+          92,
+          20
+        ],
+        [
+          12,
+          91,
+          20
+        ],
+        [
+          12,
+          90,
+          20
+        ],
+        [
+          12,
+          89,
+          20
+        ],
+        [
+          12,
+          88,
+          20
+        ],
+        [
+          12,
+          87,
+          20
+        ],
+        [
+          12,
+          86,
+          20
+        ],
+        [
+          12,
+          85,
+          20
+        ],
+        [
+          12,
+          84,
+          20
+        ],
+        [
+          12,
+          83,
+          20
+        ],
+        [
+          12,
+          82,
+          20
+        ],
+        [
+          12,
+          81,
+          20
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          9,
+          82,
+          21
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          12,
+          81,
+          20
+        ],
+        [
+          5,
+          81,
+          24
+        ],
+        [
+          4,
+          68,
+          25
+        ],
+        [
+          7,
+          55,
+          44
+        ],
+        [
+          4,
+          54,
+          56
+        ]
+      ],
+      "etherwarps": [
+        [
+          5,
+          80,
+          24
+        ],
+        [
+          4,
+          67,
+          25
+        ],
+        [
+          7,
+          54,
+          44
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "item",
+        "location": [
+          4,
+          54,
+          56
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          4,
+          54,
+          56
+        ],
+        [
+          7,
+          55,
+          44
+        ],
+        [
+          25,
+          70,
+          32
+        ],
+        [
+          36,
+          72,
+          29
+        ],
+        [
+          51,
+          49,
+          28
+        ],
+        [
+          52,
+          49,
+          10
+        ]
+      ],
+      "etherwarps": [
+        [
+          7,
+          54,
+          44
+        ],
+        [
+          25,
+          69,
+          32
+        ],
+        [
+          36,
+          71,
+          29
+        ],
+        [
+          51,
+          48,
+          28
+        ],
+        [
+          52,
+          48,
+          10
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "item",
+        "location": [
+          53,
+          48,
+          8
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          52,
+          49,
+          10
+        ],
+        [
+          51,
+          49,
+          22
+        ],
+        [
+          53,
+          42,
+          38
+        ],
+        [
+          55,
+          44,
+          41
+        ],
+        [
+          59,
+          44,
+          46
+        ],
+        [
+          60,
+          43,
+          49
+        ]
+      ],
+      "etherwarps": [
+        [
+          51,
+          48,
+          22
+        ],
+        [
+          53,
+          41,
+          38
+        ],
+        [
+          55,
+          43,
+          41
+        ],
+        [
+          59,
+          43,
+          46
+        ],
+        [
+          60,
+          42,
+          49
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          60,
+          43,
+          50
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          60,
+          43,
+          49
+        ],
+        [
+          59,
+          44,
+          46
+        ],
+        [
+          55,
+          44,
+          41
+        ],
+        [
+          53,
+          42,
+          38
+        ],
+        [
+          51,
+          49,
+          28
+        ],
+        [
+          51,
+          49,
+          27
+        ],
+        [
+          54,
+          79,
+          48
+        ],
+        [
+          46,
+          78,
+          54
+        ],
+        [
+          35,
+          78,
+          57
+        ]
+      ],
+      "etherwarps": [
+        [
+          59,
+          43,
+          46
+        ],
+        [
+          55,
+          43,
+          41
+        ],
+        [
+          53,
+          41,
+          38
+        ],
+        [
+          51,
+          48,
+          28
+        ],
+        [
+          54,
+          78,
+          48
+        ],
+        [
+          46,
+          77,
+          54
+        ],
+        [
+          35,
+          77,
+          57
+        ]
+      ],
+      "mines": [
+        [
+          52,
+          79,
+          50
+        ],
+        [
+          51,
+          79,
+          50
+        ]
+      ],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "lever",
+        "location": [
+          34,
+          79,
+          59
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          35,
+          78,
+          57
+        ],
+        [
+          55,
+          78,
+          58
+        ]
+      ],
+      "etherwarps": [
+        [
+          55,
+          77,
+          58
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          56,
+          78,
+          58
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          55,
+          78,
+          58
+        ],
+        [
+          45,
+          79,
+          58
+        ],
+        [
+          3,
+          86,
+          42
+        ],
+        [
+          32,
+          98,
+          41
+        ],
+        [
+          31,
+          98,
+          55
+        ]
+      ],
+      "etherwarps": [
+        [
+          45,
+          78,
+          58
+        ],
+        [
+          3,
+          85,
+          42
+        ],
+        [
+          32,
+          97,
+          41
+        ],
+        [
+          31,
+          97,
+          55
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "interact",
+        "location": [
+          31,
+          99,
+          58
+        ]
+      }
+    },
+    {
+      "locations": [
+        [
+          31,
+          98,
+          55
+        ],
+        [
+          32,
+          98,
+          41
+        ],
+        [
+          8,
+          89,
+          51
+        ],
+        [
+          7,
+          89,
+          57
+        ]
+      ],
+      "etherwarps": [
+        [
+          32,
+          97,
+          41
+        ],
+        [
+          8,
+          88,
+          51
+        ],
+        [
+          7,
+          88,
+          57
+        ]
+      ],
+      "mines": [],
+      "interacts": [],
+      "tnts": [
+        [
+          6,
+          90,
+          57
+        ]
+      ],
+      "enderpearls": [],
+      "enderpearlangles": [],
+      "secret": {
+        "type": "item",
+        "location": [
+          2,
+          89,
+          57
+        ]
+      }
+    }
+  ]
+}

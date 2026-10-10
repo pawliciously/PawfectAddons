@@ -26,10 +26,12 @@ object RouteFit {
         "item" to setOf("item"),
         "bat" to setOf("bat"),
         "interact" to setOf("chest", "wither", "lever", "redstone_key"),
+        // A step that's only flipping a lever, as our own routes have.
+        "lever" to setOf("lever"),
     )
 
     /** How far a route's secret can be from ours and still be the same one, squared. */
-    private val MATCH_RANGE_SQ = mapOf("item" to 100, "bat" to 256, "interact" to 4)
+    private val MATCH_RANGE_SQ = mapOf("item" to 100, "bat" to 256, "interact" to 4, "lever" to 4)
 
     /** Our secrets worth collecting, and the route secret type each one is. */
     private val COLLECTABLE = mapOf("chest" to "interact", "wither" to "interact", "item" to "item", "bat" to "bat")
@@ -108,6 +110,20 @@ object RouteFit {
                 out += step
                 return@forEach
             }
+            // A route that digs or blows its own way in keeps it when the lever is out of the way:
+            // a lever across the room (Sewer's, Mossy's behind a crypt) is a trip there and back.
+            val chest = intArrayOf(ours!!.x, ours.y, ours.z)
+            val ownWay = (step.mines + step.tnts).any { near(it, chest, OWN_WAY_SQ) } || step.pearls.isNotEmpty()
+            val from = out.lastOrNull { it.target != null }?.target ?: step.start ?: chest
+            val detour = pending.sumOf { lever ->
+                val at = intArrayOf(lever.x, lever.y, lever.z)
+                length(from, at) + length(at, chest) - length(from, chest)
+            }
+            if (ownWay && detour > LEVER_DETOUR) {
+                logger.info("Leaving {}'s lever out, {} blocks out of the way; the route has its own way in", ours.secretName, detour.toInt())
+                out += step
+                return@forEach
+            }
             pending.forEach { lever ->
                 // A pressure plate is stood on, not clicked: done once you get there.
                 val plate = lever.secretName.contains("plate", ignoreCase = true)
@@ -127,6 +143,12 @@ object RouteFit {
     }
 
     private val LEVER_LOCKED = setOf("chest", "wither", "item")
+
+    /** How close, squared, a mined or blown block has to be to a chest to be the route's way in. */
+    private const val OWN_WAY_SQ = 36
+
+    /** How many extra blocks a lever can add to the way to its chest before the route's own way in is kept. */
+    private const val LEVER_DETOUR = 16.0
 
     // ------------------------------------------------------------------ turning
 

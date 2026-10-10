@@ -88,7 +88,9 @@ object SecretRoutes {
         val existing = progress[room]
         if (existing != null) return room to existing
         val fill = config.fillMissing && !RouteData.isRecorded(name)
-        val routes = RouteData.routesFor(name, config.source, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill, config.useLevers) }
+        // Our own routes already go to their levers where it makes sense.
+        val levers = config.useLevers && !RouteData.isOurs(name)
+        val routes = RouteData.routesFor(name, config.source, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill, levers) }
         if (routes.isEmpty()) return null
         val here = here(room) ?: return null
         // With more than one route for the room, the one starting nearest to you.
@@ -128,6 +130,10 @@ object SecretRoutes {
         }
         val here = here(room) ?: return
         val now = System.currentTimeMillis()
+        if (unexplained > 0 && now - unexplainedAt >= BAR_SETTLE_MS) {
+            if (lastCollectAt < unexplainedAt - BAR_EXPLAIN_MS) creditBat(room, state)
+            unexplained = 0
+        }
         if (now >= state.nextRescan) {
             state.nextRescan = now + RESCAN_MS
             rescan(room, state)
@@ -160,7 +166,35 @@ object SecretRoutes {
         barFound = match.groupValues[1].toInt()
         barTotal = match.groupValues[2].toInt()
         barAt = System.currentTimeMillis()
+        // The count is the room's, whoever collects; a rise is a secret found. Fresh in a room it's
+        // still the last room's for a moment, so that's only taken as where the count starts.
+        val room = DungeonScanner.matchedRoom()
+        if (room == null || room !== barRoom || barAt - enteredAt < 2_000L || barFound < barBaseline) {
+            barRoom = room
+            barBaseline = barFound
+            return
+        }
+        if (barFound > barBaseline) {
+            unexplained += barFound - barBaseline
+            unexplainedAt = barAt
+            barBaseline = barFound
+        }
     }
+
+    /** The room the action bar's count was last read in, and the count then. */
+    private var barRoom: DungeonRoom? = null
+    private var barBaseline = -1
+
+    /** Secrets the action bar counted that no event of ours explained yet, and when it counted them. */
+    private var unexplained = 0
+    private var unexplainedAt = 0L
+
+    /** When something was last collected by the route's own events, to explain a rise in the count. */
+    private var lastCollectAt = 0L
+
+    /** How long a rise in the count waits for our own event, and how far back one still explains it. */
+    private const val BAR_SETTLE_MS = 750L
+    private const val BAR_EXPLAIN_MS = 1_500L
 
     /**
      * Every secret here is collected: the room's checkmark is green, the action bar says all
@@ -203,15 +237,47 @@ object SecretRoutes {
                 "wither" -> level.getBlockState(pos).block.let {
                     it == net.minecraft.world.level.block.Blocks.PLAYER_HEAD || it == net.minecraft.world.level.block.Blocks.PLAYER_WALL_HEAD
                 }
+                "bat" -> batNear(pos)
                 else -> return@forEach
             }
             if (present) state.seen += secret
             else if (secret in state.seen) {
                 state.collected += secret
                 changed = true
+                if (secret.category == "bat") logger.info("Bat for {} is gone, killed by someone", secret.secretName)
             }
         }
+        if (changed) lastCollectAt = System.currentTimeMillis()
         if (changed && !state.hold) advance(state)
+    }
+
+    /** How far, squared, a secret bat flutters from its spot while it's still alive. */
+    private const val BAT_ALIVE_SQ = 24.0 * 24.0
+
+    private fun batNear(pos: BlockPos): Boolean {
+        val level = McCompat.mc.level ?: return true
+        return level.getEntitiesOfClass(
+            net.minecraft.world.entity.ambient.Bat::class.java,
+            net.minecraft.world.phys.AABB(pos).inflate(24.0),
+        ).any { it.isAlive && it.distanceToSqr(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5) <= BAT_ALIVE_SQ }
+    }
+
+    /**
+     * The room's secret count went up and nothing we saw explains it: a bat killed out of sight,
+     * or by a teammate. When the next secret the route waits on is a bat that isn't around any
+     * more, that was it.
+     */
+    private fun creditBat(room: DungeonRoom, state: Progress) {
+        val k = (state.index until state.route.size).firstOrNull { !state.route[it].walkOnly && !stepDone(state, it) } ?: return
+        val step = state.route[k]
+        if (step.secretType != "bat") return
+        val at = step.ours?.let { intArrayOf(it.x, it.y, it.z) } ?: step.secretAt ?: return
+        if (batNear(DungeonScanner.relativeToActual(room, at[0], at[1], at[2]))) return
+        step.ours?.let { state.collected += it }
+        state.passed += k
+        state.hold = false
+        logger.info("Secret count went up with no bat seen dying, counting step {} (bat) as done", k + 1)
+        advance(state)
     }
 
     private fun secretDone(state: Progress, step: RouteData.Step): Boolean {
@@ -277,6 +343,7 @@ object SecretRoutes {
      */
     private fun collected(pos: BlockPos, type: String, ourRangeSq: Int, routeRange: Double) {
         val (room, state) = current() ?: return
+        lastCollectAt = System.currentTimeMillis()
         val name = room.name ?: return
         val rel = DungeonScanner.actualToRelative(room, pos)
         val at = intArrayOf(rel.x, rel.y, rel.z)
@@ -294,7 +361,7 @@ object SecretRoutes {
             // A step not tied to any of our secrets: the first one from here whose spot is close.
             val k = (state.index until state.route.size).firstOrNull { k ->
                 val step = state.route[k]
-                step.ours == null && step.secretType == type && k !in state.passed &&
+                step.ours == null && (step.secretType == type || type == "interact" && step.secretType == "lever") && k !in state.passed &&
                     step.secretAt?.let { distanceSq(it, at) <= routeRange * routeRange } == true
             } ?: return
             state.passed += k

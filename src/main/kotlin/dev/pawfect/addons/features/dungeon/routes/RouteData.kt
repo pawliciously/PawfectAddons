@@ -31,7 +31,8 @@ import kotlin.io.path.name
  *   line to walk.
  *
  * Route files live in config/pawfectaddons/routes. Your own recordings go in recorded.json and
- * win over everything else, then the source you pick, then the other one for rooms it lacks.
+ * win over everything else, then our own routes bundled with the mod for rooms the community
+ * ones get wrong, then the source you pick, then the other one for rooms it lacks.
  *
  * Community routes, downloaded when you ask (or when a set is missing):
  * - Stella's default routes, recorded by Luckkytigger for Stella by Eclipse (NEXD_),
@@ -76,7 +77,7 @@ object RouteData {
         val start: IntArray? get() = locations.firstOrNull() ?: etherwarps.firstOrNull() ?: secretAt
     }
 
-    private enum class Kind { RECORDED, STELLA, PEARL, STANDARD }
+    private enum class Kind { RECORDED, PAWFECT, STELLA, PEARL, STANDARD }
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Routes")
 
@@ -98,6 +99,7 @@ object RouteData {
     fun routesFor(room: String, source: SecretRoutesConfig.Source, pearls: Boolean): List<List<Step>> {
         val key = room.lowercase()
         routes[Kind.RECORDED]?.get(key)?.let { return it }
+        routes[Kind.PAWFECT]?.get(key)?.let { return it }
         val stella = SecretRoomData.displayKey(key)?.let { routes[Kind.STELLA]?.get(it) }
         val secretRoutes = (if (pearls) routes[Kind.PEARL]?.get(key) else null)
             ?: routes[Kind.STANDARD]?.get(key) ?: routes[Kind.PEARL]?.get(key)
@@ -114,9 +116,31 @@ object RouteData {
 
     fun isRecorded(room: String): Boolean = routes[Kind.RECORDED]?.containsKey(room.lowercase()) == true
 
+    /** The room's route is one of ours, already in order with its levers where they go. */
+    fun isOurs(room: String): Boolean = !isRecorded(room) && routes[Kind.PAWFECT]?.containsKey(room.lowercase()) == true
+
+    /** Our own routes, bundled with the mod. */
+    private const val PAWFECT_RESOURCE = "/assets/pawfectaddons/routes/pawfect.json"
+
+    private fun readRooms(json: JsonObject, stella: Boolean, target: HashMap<String, MutableList<List<Step>>>) {
+        json.entrySet().forEach { (name, value) ->
+            if (name.startsWith("#") || !value.isJsonArray) return@forEach
+            val room = if (stella) stellaKey(name) else name.substringBefore(':').lowercase()
+            val steps = value.asJsonArray.mapNotNull { step ->
+                runCatching { step.asJsonObject.let { if (stella) parseStellaStep(it) else parseStep(it) } }.getOrNull()
+            }
+            if (steps.isNotEmpty()) target.getOrPut(room) { mutableListOf() } += steps
+        }
+    }
+
     fun load() {
         val loaded = HashMap<Kind, HashMap<String, MutableList<List<Step>>>>()
         var files = 0
+        runCatching {
+            RouteData::class.java.getResourceAsStream(PAWFECT_RESOURCE)?.bufferedReader()?.use { reader ->
+                readRooms(JsonParser.parseReader(reader).asJsonObject, false, loaded.getOrPut(Kind.PAWFECT) { HashMap() })
+            }
+        }.onFailure { logger.warn("Could not read our own routes: {}", it.message) }
         runCatching {
             Files.createDirectories(folder)
             folder.listDirectoryEntries().filter { it.extension == "json" }.sortedBy { it.name }.forEach { file ->
@@ -129,23 +153,16 @@ object RouteData {
                         file.name.contains("pearl", ignoreCase = true) -> Kind.PEARL
                         else -> Kind.STANDARD
                     }
-                    val target = loaded.getOrPut(kind) { HashMap() }
-                    json.entrySet().forEach { (name, value) ->
-                        if (name.startsWith("#") || !value.isJsonArray) return@forEach
-                        val room = if (stella) stellaKey(name) else name.substringBefore(':').lowercase()
-                        val steps = value.asJsonArray.mapNotNull { step ->
-                            runCatching { step.asJsonObject.let { if (stella) parseStellaStep(it) else parseStep(it) } }.getOrNull()
-                        }
-                        if (steps.isNotEmpty()) target.getOrPut(room) { mutableListOf() } += steps
-                    }
+                    readRooms(json, stella, loaded.getOrPut(kind) { HashMap() })
                     files++
                 }.onFailure { logger.warn("Could not read route file {}: {}", file.name, it.message) }
             }
         }.onFailure { logger.warn("Could not read the routes folder: {}", it.message) }
         routes = loaded
         val stellaRooms = loaded[Kind.STELLA]?.size ?: 0
-        val otherRooms = loaded.filterKeys { it != Kind.STELLA }.values.flatMap { it.keys }.toSet().size
-        report = "$files files, $stellaRooms Stella rooms, $otherRooms other rooms"
+        val ourRooms = loaded[Kind.PAWFECT]?.size ?: 0
+        val otherRooms = loaded.filterKeys { it != Kind.STELLA && it != Kind.PAWFECT }.values.flatMap { it.keys }.toSet().size
+        report = "$files files, $stellaRooms Stella rooms, $otherRooms other rooms, $ourRooms of our own"
         logger.info("Secret routes: {}", report)
     }
 
