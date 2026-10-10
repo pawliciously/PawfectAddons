@@ -1,33 +1,43 @@
 package dev.pawfect.addons.features.cosmetics
 
-import dev.pawfect.addons.config.ModuleSwitch
 import com.mojang.blaze3d.vertex.PoseStack
-import com.mojang.blaze3d.vertex.VertexConsumer
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.features.CosmeticsConfig.Visibility
+import dev.pawfect.addons.features.cosmetics.WorldFx.TAU
+import dev.pawfect.addons.features.cosmetics.WorldFx.hash
 import dev.pawfect.addons.utils.McCompat
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents
 import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.world.phys.Vec3
-import org.joml.Vector3f
+import org.joml.Quaternionf
 import java.util.UUID
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
-import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
 
+/**
+ * A landing that blooms: a crown of crystal shards breaks out of the ground and sinks back, two
+ * rings of light run outward with a low glowing wall on the leading one, and sparks fly up and
+ * fall. Harder landings bloom bigger.
+ */
 object Ripples {
 
     private const val VIEW_LIMIT = 72.0
     private const val MAX_PLAYERS = 48
     private const val MAX_LIVE = 32
-    private const val SEGMENTS = 32
     private const val GROUND_LIFT = 0.02
     private const val IDLE_MS = 8_000L
-    private const val RISE = 0.18f
+    private const val RISE = 0.12f
+    private const val SHARDS = 14
+    private const val SPARKS = 22
+    private const val GRAVITY = 7f
 
     private val fallers = HashMap<UUID, Faller>()
     private val live = ArrayDeque<Ring>()
+    private var born = 0
 
     private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
@@ -38,12 +48,13 @@ object Ripples {
         var lastSeen = 0L
     }
 
-    private class Ring(
+    internal class Ring(
         val center: Vec3,
         val bornAt: Long,
         val trail: ResolvedTrail,
         val ripple: ResolvedRipple,
         val power: Float,
+        val seed: Int,
     ) {
         val lifeMs: Long = (ripple.life * 1000f).toLong().coerceAtLeast(1L)
     }
@@ -103,19 +114,14 @@ object Ripples {
         live.removeIf { now - it.bornAt > it.lifeMs }
         if (live.isEmpty()) return
 
-        val rings = live.filter { it.center.distanceToSqr(camera) <= VIEW_LIMIT * VIEW_LIMIT }
+        val rings = live.filter { it.center.distanceToSqr(camera) <= VIEW_LIMIT * VIEW_LIMIT }.map { Bloom(it, camera, now, time) }
         if (rings.isEmpty()) return
 
-        poseStack.pushPose()
-        poseStack.translate(-camera.x, -camera.y, -camera.z)
-
-        rings.groupBy { it.trail.glow }.forEach { (glow, group) ->
-            collector.submitCustomGeometry(poseStack, TrailRenderTypes.forGlow(glow)) { pose, consumer ->
-                group.forEach { ring -> annulus(pose, consumer, ring, now, time) }
-            }
-        }
-
-        poseStack.popPose()
+        WorldFx.submit(
+            poseStack, collector, WorldFx.shade(level, rings.first().ring.center.add(0.0, 0.5, 0.0)),
+            solids = { fx -> rings.forEach { it.shards(fx) } },
+            lights = { fx -> rings.forEach { it.light(fx) } },
+        )
     }
 
     private fun track(
@@ -147,7 +153,7 @@ object Ripples {
 
             if (fell >= ripple.minFall) {
                 val power = ((fell - ripple.minFall) / 6.0).coerceIn(0.0, 1.0).toFloat() * 0.3f + 0.7f
-                spawn(Ring(Vec3(position.x, position.y + GROUND_LIFT, position.z), now, trail, ripple, power))
+                spawn(Ring(Vec3(position.x, position.y + GROUND_LIFT, position.z), now, trail, ripple, power, born++))
             }
         }
 
@@ -159,79 +165,108 @@ object Ripples {
         while (live.size > MAX_LIVE) live.removeFirst()
     }
 
-    private fun annulus(
-        pose: PoseStack.Pose,
-        consumer: VertexConsumer,
-        ring: Ring,
-        now: Long,
-        time: Float,
-    ) {
-        val age = ((now - ring.bornAt).toFloat() / ring.lifeMs.toFloat()).coerceIn(0f, 1f)
-        if (age >= 1f) return
+    /** One landing worked out for this frame. */
+    internal class Bloom(val ring: Ring, camera: Vec3, now: Long, private val time: Float) {
+        private val ripple = ring.ripple
+        private val palette = ring.trail.palette
+        private val power = ring.power
+        private val seed = ring.seed * 7919 + 17
+        private val age = ((now - ring.bornAt).toFloat() / ring.lifeMs).coerceIn(0f, 1f)
+        private val seconds = (now - ring.bornAt) / 1000f
 
-        val eased = (age * ring.ripple.speed).coerceIn(0f, 1f).pow(0.55f)
-        val outer = eased * ring.ripple.size * ring.power
-        val inner = (outer - ring.ripple.thickness).coerceAtLeast(0f)
-        if (outer <= 0.001f) return
+        /** How far out the front has got, easing off as it spreads. */
+        private val front = (age * ripple.speed).coerceIn(0f, 1f).pow(0.55f) * ripple.size * power
+        private val fade = envelope(age) * power
+        private val scale = sqrt(ripple.size / 1.6f) * power
 
-        val fade = envelope(age) * ring.power
-        val rgb = ring.trail.palette.colorAt(eased, time) and 0xFFFFFF
-        val alpha = (fade * 255f).roundToInt().coerceIn(0, 255)
-        if (alpha == 0) return
+        private val cx = (ring.center.x - camera.x).toFloat()
+        private val cy = (ring.center.y - camera.y).toFloat()
+        private val cz = (ring.center.z - camera.z).toFloat()
+        private val spin = Quaternionf()
 
-        val core = (alpha shl 24) or rgb
-        val edge = ((alpha / 4) shl 24) or rgb
-        val mid = (inner + outer) * 0.5f
+        /** Shards burst up to full height early, hold, then sink back into the ground and shrink. */
+        fun shards(fx: Fx) {
+            if (front <= 0.01f) return
+            for (i in 0 until SHARDS) {
+                val delay = hash(seed, i, 1) * 0.12f
+                val local = ((age - delay) / (1f - delay)).coerceIn(0f, 1f)
+                if (local <= 0f) continue
+                val pop = sin(PI.toFloat() * (local / 0.35f).coerceAtMost(1f) * 0.5f)
+                val sink = if (local < 0.55f) 1f else (1f - (local - 0.55f) / 0.45f).coerceAtLeast(0f)
+                val grow = pop * sink
+                if (grow <= 0.01f) continue
+                val a = (i + hash(seed, i, 2) * 0.6f) / SHARDS * TAU
+                val r = front * (0.78f + hash(seed, i, 3) * 0.12f)
+                val tall = (0.14f + hash(seed, i, 4) * 0.12f) * scale
+                val wide = tall * (0.32f + hash(seed, i, 5) * 0.1f)
+                val lean = 0.35f + hash(seed, i, 6) * 0.25f
+                // Lean outward from the centre, with a slight twist so no two catch the light alike.
+                spin.identity().rotateY(-a).rotateZ(-lean).rotateY(hash(seed, i, 7) * TAU)
+                val base = palette.colorAt(i / SHARDS.toFloat(), time) or 0xFF000000.toInt()
+                fx.crystal(
+                    cx + cos(a) * r, cy - tall * 0.9f + tall * 1.25f * grow, cz + sin(a) * r,
+                    spin, wide * grow, tall * grow, base, 0.9f,
+                )
+            }
+        }
 
-        val cx = ring.center.x.toFloat()
-        val cy = ring.center.y.toFloat()
-        val cz = ring.center.z.toFloat()
+        fun light(fx: Fx) {
+            if (fade <= 0.003f) return
+            val additive = ring.trail.glow
+            val y = cy
+            val thick = ripple.thickness * power
+            val c = palette.colorAt(age, time) or 0xFF000000.toInt()
+            val rim = fx.light(WorldFx.hot(c, 0.3f) and 0xFFFFFF or ((fade * 255f).toInt().coerceIn(0, 255) shl 24), additive)
+            val body = fx.light(c and 0xFFFFFF or ((fade * 0.45f * 255f).toInt().coerceIn(0, 255) shl 24), additive)
 
-        ribbon(pose, consumer, cx, cy, cz, inner, mid, edge, core)
-        ribbon(pose, consumer, cx, cy, cz, mid, outer, core, edge)
-    }
+            // The leading ring: soft inside, a hot rim, a quick falloff outside.
+            fx.band(cx, y, cz, (front - thick * 2.2f).coerceAtLeast(0f), front - thick * 0.25f, 0, body)
+            fx.band(cx, y, cz, front - thick * 0.25f, front, body, rim)
+            fx.band(cx, y + 0.002f, cz, front, front + thick * 0.6f, rim, 0)
 
-    private fun envelope(age: Float): Float {
-        val rise = (age / RISE).coerceIn(0f, 1f)
-        val fall = ((1f - age) / (1f - RISE)).coerceIn(0f, 1f)
-        return rise * fall.pow(1.15f)
-    }
+            // A second, slower ring following it in.
+            val inner = front * 0.6f
+            val trailRing = fx.dim(body, 0.7f)
+            fx.band(cx, y + 0.001f, cz, (inner - thick).coerceAtLeast(0f), inner, 0, trailRing)
+            fx.band(cx, y + 0.001f, cz, inner, inner + thick * 0.4f, trailRing, 0)
 
-    private fun ribbon(
-        pose: PoseStack.Pose,
-        consumer: VertexConsumer,
-        cx: Float,
-        cy: Float,
-        cz: Float,
-        from: Float,
-        to: Float,
-        fromColor: Int,
-        toColor: Int,
-    ) {
-        val step = (Math.PI * 2.0 / SEGMENTS).toFloat()
-        val a = Vector3f()
-        val b = Vector3f()
-        val c = Vector3f()
-        val d = Vector3f()
+            // The glowing wall on the leading ring, lower as it spreads.
+            val wall = (0.42f * scale) * (1f - age).pow(0.8f)
+            fx.wall(cx, cz, front, y, y + wall, fx.dim(rim, 0.55f), 0)
 
-        for (segment in 0 until SEGMENTS) {
-            val head = step * segment
-            val tail = step * (segment + 1)
+            // The flash of the impact.
+            val flash = (1f - age / 0.25f).coerceIn(0f, 1f)
+            if (flash > 0f) {
+                val hot = fx.light(WorldFx.hot(c, 0.6f) and 0xFFFFFF or ((flash * power * 200f).toInt() shl 24), additive)
+                fx.soft(cx, y + 0.15f, cz, (0.5f + 0.4f * age) * scale, hot, 14)
+                fx.band(cx, y + 0.003f, cz, 0f, 0.9f * scale, hot, 0)
+            }
 
-            val headX = cos(head)
-            val headZ = sin(head)
-            val tailX = cos(tail)
-            val tailZ = sin(tail)
+            sparks(fx, c, additive)
+        }
 
-            a.set(cx + headX * from, cy, cz + headZ * from)
-            b.set(cx + headX * to, cy, cz + headZ * to)
-            c.set(cx + tailX * to, cy, cz + tailZ * to)
-            d.set(cx + tailX * from, cy, cz + tailZ * from)
+        /** Thrown out and up from the impact, falling back as they go out. */
+        private fun sparks(fx: Fx, c: Int, additive: Boolean) {
+            val reach = ripple.size * power * ripple.speed
+            for (i in 0 until SPARKS) {
+                val a = hash(seed, i, 20) * TAU
+                val out = reach * (0.55f + hash(seed, i, 21) * 0.6f)
+                val upward = (2.2f + hash(seed, i, 22) * 2.2f) * scale
+                val t = seconds * (0.8f + hash(seed, i, 23) * 0.4f)
+                val h = upward * t - 0.5f * GRAVITY * t * t
+                if (h < -0.05f) continue
+                val d = out * (1f - (1f - (t / ripple.life).coerceIn(0f, 1f)).pow(2f))
+                val glow = (1f - age) * (0.5f + 0.5f * sin(time * 9f + i * 1.7f).let { it * it })
+                val base = palette.colorAt(hash(seed, i, 24), time) or 0xFF000000.toInt()
+                val col = fx.light(WorldFx.hot(base, 0.5f) and 0xFFFFFF or ((glow * power * 255f).toInt().coerceIn(0, 255) shl 24), additive)
+                fx.star(cx + cos(a) * d, cy + h.coerceAtLeast(0f), cz + sin(a) * d, (0.06f + 0.05f * hash(seed, i, 25)) * scale, col)
+            }
+        }
 
-            consumer.addVertex(pose, a.x, a.y, a.z).setColor(fromColor)
-            consumer.addVertex(pose, b.x, b.y, b.z).setColor(toColor)
-            consumer.addVertex(pose, c.x, c.y, c.z).setColor(toColor)
-            consumer.addVertex(pose, d.x, d.y, d.z).setColor(fromColor)
+        private fun envelope(age: Float): Float {
+            val rise = (age / RISE).coerceIn(0f, 1f)
+            val fall = ((1f - age) / (1f - RISE)).coerceIn(0f, 1f)
+            return rise * fall.pow(1.15f)
         }
     }
 }
