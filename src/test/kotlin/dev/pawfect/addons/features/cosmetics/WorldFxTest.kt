@@ -36,22 +36,23 @@ class WorldFxTest {
 
     @Test
     fun motes() {
-        val motes = ResolvedMotes(palette, 48, 0.06f, 1f, 2.2f, 2f, true)
         val anchor = camera.add(3.0, -0.5, 2.0)
-        for (time in floatArrayOf(0f, 3.7f, 1800f)) {
-            val r = Recorder()
-            val swarm = Motes.Swarm(Motes.Job(motes, anchor, anchor.add(-1.0, 0.0, 0.4), 12345, 48), camera, time)
-            swarm.gems(r.fx())
-            swarm.glow(r.fx())
-            println("motes t=$time: ${r.vertices} vertices, furthest ${r.furthest}")
-            assertTrue(r.bad == 0 && r.vertices % 4 == 0 && r.vertices > 0)
-            assertTrue(r.furthest < 8f, "motes stay round the player")
+        for (form in Form.entries) for (glow in listOf(true, false)) {
+            val motes = ResolvedMotes(form.palette, 48, 0.06f, 1f, 2.2f, 2f, glow, false, form)
+            for (time in floatArrayOf(0f, 3.7f, 1800f)) {
+                val r = Recorder()
+                val swarm = Swarm.of(Motes.Job(motes, anchor, anchor.add(-1.0, 0.0, 0.4), 12345, 48), camera, time)
+                swarm.solids(r.fx())
+                swarm.lights(r.fx())
+                println("motes ${form.id} t=$time: ${r.vertices} vertices, furthest ${r.furthest}")
+                assertTrue(r.bad == 0 && r.vertices % 4 == 0 && r.vertices > 0, "${form.id} motes")
+                assertTrue(r.furthest < 8f, "${form.id} motes stay round the player")
+            }
         }
     }
 
     @Test
     fun trail() {
-        val trail = ResolvedTrail(palette, 0.45f, 0.9f, true, null)
         val track = Trails.Track()
         var dist = 0f
         // A curving run, then straight up, then hovering: every frame case the ribbon meets.
@@ -66,26 +67,36 @@ class WorldFxTest {
             dist += step.length().toFloat()
             track.points.addLast(Trails.Point(p.x, p.y, p.z, 1_000_000L + i * 20L, 0.8f, dist, i))
         }
-        val r = Recorder()
-        val ribbon = Trails.Ribbon.of(trail, track, camera, 1_000_000L + 64 * 20L, 2f)!!
-        ribbon.draw(r.fx())
-        println("trail: ${r.vertices} vertices, furthest ${r.furthest}")
-        assertTrue(r.bad == 0 && r.vertices % 4 == 0 && r.vertices > 0)
-        assertTrue(r.furthest < 12f)
+        for (form in Form.entries) {
+            val trail = ResolvedTrail(form.palette, 0.45f, 0.9f, true, null, false, form)
+            val r = Recorder()
+            val ribbon = Ribbon.of(trail, track, camera, 1_000_000L + 64 * 20L, 2f)!!
+            ribbon.solids(r.fx())
+            ribbon.lights(r.fx())
+            println("trail ${form.id}: ${r.vertices} vertices, furthest ${r.furthest}")
+            assertTrue(r.bad == 0 && r.vertices % 4 == 0 && r.vertices > 0, "${form.id} trail")
+            assertTrue(r.furthest < 12f)
+        }
     }
 
     @Test
     fun landing() {
-        val trail = ResolvedTrail(palette, 0.45f, 0.9f, true, ResolvedRipple(1.6f, 1f, 0.18f, 1.5f, 0.9f))
-        val ring = Ripples.Ring(camera.add(4.0, -1.6, 1.0), 1_000_000L, trail, trail.ripple!!, 1f, 3)
-        for (ms in longArrayOf(0L, 40L, 200L, 450L, 880L)) {
-            val r = Recorder()
-            val bloom = Ripples.Bloom(ring, camera, 1_000_000L + ms, 5f)
-            bloom.shards(r.fx())
-            bloom.light(r.fx())
-            println("landing ${ms}ms: ${r.vertices} vertices, furthest ${r.furthest}")
-            assertTrue(r.bad == 0 && r.vertices % 4 == 0)
-            assertTrue(r.furthest < 10f)
+        for (form in Form.entries) for (size in floatArrayOf(0.4f, 1.6f, 6f)) {
+            val ripple = ResolvedRipple(size, 1f, 0.18f, 1.5f, 0.9f, false, form, form.palette)
+            val trail = ResolvedTrail(palette, 0.45f, 0.9f, true, ripple)
+            val ring = Ripples.Ring(camera.add(4.0, -1.6, 1.0), 1_000_000L, trail, ripple, 1f, 3)
+            var total = 0
+            for (ms in longArrayOf(0L, 40L, 200L, 450L, 780L, 880L)) {
+                val r = Recorder()
+                val bloom = Bloom.of(ring, camera, 1_000_000L + ms, 5f)
+                bloom.solids(r.fx())
+                bloom.lights(r.fx())
+                total += r.vertices
+                assertTrue(r.bad == 0 && r.vertices % 4 == 0, "${form.id} landing")
+                assertTrue(r.furthest < 16f, "${form.id} landing stays near")
+            }
+            println("landing ${form.id} size $size: ${total / 6} vertices a frame")
+            assertTrue(total > 0)
         }
     }
 }

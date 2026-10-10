@@ -25,6 +25,9 @@ import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.cosmetics.Capes
 import dev.pawfect.addons.features.cosmetics.celestial.Celestial
 import dev.pawfect.addons.features.cosmetics.CosmeticEnroll
+import dev.pawfect.addons.features.cosmetics.LegacyMotes
+import dev.pawfect.addons.features.cosmetics.LegacyRipples
+import dev.pawfect.addons.features.cosmetics.LegacyTrails
 import dev.pawfect.addons.features.cosmetics.Motes
 import dev.pawfect.addons.features.cosmetics.Ripples
 import dev.pawfect.addons.features.cosmetics.Trails
@@ -126,6 +129,9 @@ object PawfectAddons : ClientModInitializer {
         Trails.register()
         Ripples.register()
         Motes.register()
+        LegacyTrails.register()
+        LegacyRipples.register()
+        LegacyMotes.register()
         Celestial.register()
         SecretWaypointRenderer.register()
         SecretTracker.register()
@@ -285,6 +291,8 @@ object PawfectAddons : ClientModInitializer {
         runCatching { Capes.onTick() }
         runCatching { Trails.onTick() }
         runCatching { Ripples.onTick() }
+        runCatching { LegacyTrails.onTick() }
+        runCatching { LegacyRipples.onTick() }
         runCatching { CosmeticEnroll.onTick() }
         runCatching { HubCapture.onTick() }
         runCatching { HubSceneRenderer.preload() }

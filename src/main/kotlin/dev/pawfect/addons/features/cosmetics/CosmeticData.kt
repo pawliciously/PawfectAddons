@@ -121,8 +121,30 @@ class TrailCosmetic {
     @Expose
     var rippleLife: Float = 0.9f
 
+    /** "legacy" for the flat ribbon from before, anything else for the new themed one. */
+    @Expose
+    var look: String? = null
+
+    @Expose
+    var form: String? = null
+
+    /** The new trail and ripple use their theme's colours instead of [colors]. */
+    @Expose
+    var own: Boolean = true
+
+    @Expose
+    var rippleLook: String? = null
+
+    @Expose
+    var rippleForm: String? = null
+
     fun resolve(): ResolvedTrail? {
-        val palette = resolvePalette(style, colors, speed, spread) ?: return null
+        val legacy = Form.legacy(look)
+        val shape = Form.of(form)
+        val mine = resolvePalette(style, colors, speed, spread)
+        val palette = (if (!legacy && own) shape.palette else mine) ?: return null
+        val rippleLegacy = Form.legacy(rippleLook)
+        val rippleShape = Form.of(rippleForm)
         return ResolvedTrail(
             palette,
             width.coerceIn(0.1f, 1.5f),
@@ -135,10 +157,15 @@ class TrailCosmetic {
                     rippleThickness.coerceIn(0.03f, 1f),
                     rippleMinFall.coerceIn(0f, 12f),
                     rippleLife.coerceIn(0.2f, 4f),
+                    rippleLegacy,
+                    rippleShape,
+                    (if (!rippleLegacy && own) rippleShape.palette else mine) ?: palette,
                 )
             } else {
                 null
             },
+            legacy,
+            shape,
         )
     }
 }
@@ -175,8 +202,21 @@ class MotesCosmetic {
     @Expose
     var glow: Boolean = true
 
+    /** "legacy" for the flat lights from before, anything else for the new themed ones. */
+    @Expose
+    var look: String? = null
+
+    @Expose
+    var form: String? = null
+
+    /** The new motes use their theme's colours instead of [colors]. */
+    @Expose
+    var own: Boolean = true
+
     fun resolve(): ResolvedMotes? {
-        val palette = resolvePalette(style, colors, speed, spread) ?: return null
+        val legacy = Form.legacy(look)
+        val shape = Form.of(form)
+        val palette = (if (!legacy && own) shape.palette else resolvePalette(style, colors, speed, spread)) ?: return null
         return ResolvedMotes(
             palette,
             density.coerceIn(1, 48),
@@ -185,6 +225,8 @@ class MotesCosmetic {
             radius.coerceIn(0.5f, 6f),
             height.coerceIn(0.3f, 6f),
             glow,
+            legacy,
+            shape,
         )
     }
 }
@@ -273,6 +315,8 @@ class ResolvedTrail(
     val length: Float,
     val glow: Boolean,
     val ripple: ResolvedRipple?,
+    val legacy: Boolean = false,
+    val form: Form = Form.PRISM,
 )
 
 class ResolvedRipple(
@@ -281,6 +325,10 @@ class ResolvedRipple(
     val thickness: Float,
     val minFall: Float,
     val life: Float,
+    val legacy: Boolean = false,
+    val form: Form = Form.PRISM,
+    /** Usually the trail's, unless the ripple keeps its own theme's colours. */
+    val palette: ResolvedName? = null,
 )
 
 class ResolvedMotes(
@@ -291,6 +339,8 @@ class ResolvedMotes(
     val radius: Float,
     val height: Float,
     val glow: Boolean,
+    val legacy: Boolean = false,
+    val form: Form = Form.PRISM,
 )
 
 class ResolvedName(
