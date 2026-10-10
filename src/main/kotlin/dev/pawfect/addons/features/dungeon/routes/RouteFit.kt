@@ -55,7 +55,8 @@ object RouteFit {
 
     /**
      * Routes only list etherwarps; other teleports (Aspect of the Void, a warp you didn't
-     * crouch for) show up as a jump between walking points. Those get a mark where you land.
+     * crouch for) show up as a jump between walking points. Those get a mark where you land,
+     * unless the jump is a fall or a climb.
      */
     private fun markTeleports(route: List<RouteData.Step>): List<RouteData.Step> = route.map { step ->
         val added = ArrayList<IntArray>()
@@ -66,6 +67,8 @@ object RouteFit {
             if (dx * dx + dy * dy + dz * dz <= TELEPORT_SQ) return@zipWithNext
             // Dropping straight down a hole isn't a teleport.
             if (dx * dx + dz * dz <= 4 && dy < 0) return@zipWithNext
+            // Nor is climbing a ladder or vines, going up more than across (Wizard's way to its item).
+            if (dy > 0 && dy * dy >= dx * dx + dz * dz) return@zipWithNext
             // Nor is landing a pearl thrown from here.
             if (step.pearls.any { p -> (p[0] - from[0]).let { it * it } + (p[1] - from[1]).let { it * it } + (p[2] - from[2]).let { it * it } <= 9.0 }) return@zipWithNext
             val below = intArrayOf(to[0], to[1] - 1, to[2])
