@@ -123,6 +123,8 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
     }
 
     fun tick(level: ClientLevel, player: BlockPos) {
+        // The entrance, fairy and blood rooms have no data to match against.
+        if (!type.scan) return
         if (matchState == MatchState.FAILED) {
             if (--retryIn > 0) return
             matchState = MatchState.MATCHING

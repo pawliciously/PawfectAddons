@@ -91,13 +91,16 @@ object DungeonScanner {
         return null
     }
 
-    /** The dungeon map in slot 9, while you have it. */
+    /** The dungeon map: slot 9 where Hypixel puts it, or wherever else in the hotbar it's ended up. */
     fun mapData(): MapItemSavedData? {
         val player = McCompat.player ?: return null
         val level = McCompat.mc.level ?: return null
-        val stack = player.inventory.getItem(8)
-        if (!stack.`is`(net.minecraft.world.item.Items.FILLED_MAP)) return null
-        return MapItem.getSavedData(stack, level)
+        for (slot in intArrayOf(8, 0, 1, 2, 3, 4, 5, 6, 7)) {
+            val stack = player.inventory.getItem(slot)
+            if (!stack.`is`(net.minecraft.world.item.Items.FILLED_MAP)) continue
+            MapItem.getSavedData(stack, level)?.let { return it }
+        }
+        return null
     }
 
     fun onTick() {
@@ -138,9 +141,11 @@ object DungeonScanner {
         val map = mapData()
         if (map == null) {
             current = null
-            status = "no dungeon map in slot 9"
+            status = "no dungeon map in the hotbar"
             return
         }
+        // Said once, since what follows ("matching ...") isn't logged and a log would end on the missing map.
+        if (status == "no dungeon map in the hotbar") logger.info("Scanner: dungeon map is back")
 
         if (mapEntrance == null || mapRoomSize == 0) {
             val found = DungeonMapUtils.getMapEntrancePosAndRoomSize(map)
