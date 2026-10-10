@@ -158,14 +158,23 @@ object RouteFit {
     /**
      * Lines the route up with our room: turned (Slime is half a turn out) and shifted (Super
      * Tall sits 8 blocks off), whichever puts the most of its secrets exactly on ours.
+     *
+     * A route with a single secret (the Secret Routes Mod's Crypts) can't be told apart by
+     * secrets alone, so the blocks it mines, blows up and warps onto settle it: in the right
+     * frame they're really there in our block layout. A frame that puts any of the route
+     * outside the room is never the right one.
      */
     private fun turn(room: String, route: List<RouteData.Step>, secrets: List<SecretRoomData.SecretEntry>): List<RouteData.Step> {
         val box = box(room) ?: return route
         val (mx, mz) = box
+        val layout = layout(room)
         val turns = if (mx == mz) Turn.entries else listOf(Turn.NONE, Turn.HALF)
         val none = score(route, secrets) { it }
+        val noneSolid = solid(route, layout) { it }
+        val total = route.sumOf { it.mines.size + it.tnts.size + it.etherwarps.size }
         var best = Triple(Turn.NONE, 0, 0)
         var bestScore = none
+        var bestSolid = noneSolid
         turns.forEach { turn ->
             // Shifts worth trying: the ones that put some route secret right on one of ours.
             val shifts = LinkedHashSet<Pair<Int, Int>>()
@@ -180,22 +189,61 @@ object RouteFit {
                 }
             }
             shifts.forEach { (tx, tz) ->
-                val score = score(route, secrets) { shift(turnBlock(it, turn, mx, mz), tx, tz) }
-                if (score.first * 2 + score.second > bestScore.first * 2 + bestScore.second) {
+                val frame = { p: IntArray -> shift(turnBlock(p, turn, mx, mz), tx, tz) }
+                if (!inside(route, mx, mz, frame)) return@forEach
+                val score = score(route, secrets, frame)
+                val solid = solid(route, layout, frame)
+                val key = score.first * 2 + score.second
+                val bestKey = bestScore.first * 2 + bestScore.second
+                // Secrets first; between frames they fit equally, clearly more real blocks.
+                if (key > bestKey || key == bestKey && solid >= bestSolid + SOLID_MARGIN) {
                     best = Triple(turn, tx, tz)
                     bestScore = score
+                    bestSolid = solid
                 }
             }
         }
-        // Only moved when it clearly fits better: most of its secrets and levers, and at least two, land exactly on ours.
+        // Only moved when it clearly fits better: most of its secrets and levers, and at least two,
+        // land exactly on ours; or its one secret does and the blocks it works on are really there.
         val anchors = route.count { it.secretType in CATEGORIES && it.secretAt != null } + route.sumOf { it.interacts.size }
         val (turn, tx, tz) = best
-        if (best == Triple(Turn.NONE, 0, 0) || bestScore.first < max(2, (anchors + 1) / 2) || bestScore.first <= none.first) return route
+        val bySecrets = bestScore.first >= max(2, (anchors + 1) / 2)
+        val byBlocks = bestScore.first >= 1 && bestSolid >= noneSolid + SOLID_MARGIN && bestSolid * 2 >= total
+        if (best == Triple(Turn.NONE, 0, 0) || bestScore.first <= none.first || !(bySecrets || byBlocks)) return route
         logger.info("Route for {} is turned {} and shifted ({}, {}) from our room data, lining it up ({} exact before, {} after)", room, turn, tx, tz, none.first, bestScore.first)
         return route.map { step -> turnStep(step, turn, mx, mz, tx, tz) }
     }
 
     private fun shift(p: IntArray, tx: Int, tz: Int): IntArray = if (tx == 0 && tz == 0) p else intArrayOf(p[0] + tx, p[1], p[2] + tz)
+
+    /** How many more real blocks one frame needs than another to count as fitting better. */
+    private const val SOLID_MARGIN = 2
+
+    /** The room's block layout, sorted, each block as x, y, z and its id packed in one int. */
+    private fun layout(room: String): IntArray? = SecretRoomData.shapes.firstNotNullOfOrNull { SecretRoomData.roomsForShape(it)[room] }
+
+    private fun solidAt(layout: IntArray, p: IntArray): Boolean {
+        if (p[0] !in 0..255 || p[1] !in 0..255 || p[2] !in 0..255) return false
+        val base = (p[0] shl 24) or (p[1] shl 16) or (p[2] shl 8)
+        val found = java.util.Arrays.binarySearch(layout, base)
+        if (found >= 0) return true
+        val at = -found - 1
+        return at < layout.size && (layout[at] and 0xFFFFFF00.toInt()) == base
+    }
+
+    /** The route's mined, blown up and warped onto blocks that are really there in this frame. */
+    private fun solid(route: List<RouteData.Step>, layout: IntArray?, frame: (IntArray) -> IntArray): Int {
+        if (layout == null) return 0
+        return route.sumOf { step -> (step.mines + step.tnts + step.etherwarps).count { solidAt(layout, frame(it)) } }
+    }
+
+    /** Every block the route works on and every secret it gets falls inside the room. */
+    private fun inside(route: List<RouteData.Step>, mx: Int, mz: Int, frame: (IntArray) -> IntArray): Boolean = route.all { step ->
+        (step.mines + step.tnts + step.etherwarps + step.interacts + listOfNotNull(step.secretAt)).all { p ->
+            val q = frame(p)
+            q[0] in -1..mx + 1 && q[2] in -1..mz + 1
+        }
+    }
 
     /**
      * Route secrets landing exactly on one of ours, and within a few blocks of one. Levers the
