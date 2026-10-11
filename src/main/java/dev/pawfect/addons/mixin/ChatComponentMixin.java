@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.chat.ChatStyle;
+import dev.pawfect.addons.features.dev.RecordingMode;
 
 @Mixin(ChatComponent.class)
 public abstract class ChatComponentMixin {
@@ -37,6 +38,16 @@ public abstract class ChatComponentMixin {
         CallbackInfo callback
     ) {
         ChatStyle.endLines(access);
+    }
+
+    /** Recording mode keeps everything but our own messages out of chat. */
+    @Inject(
+        method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+        at = @At("HEAD"),
+        cancellable = true
+    )
+    private void pawfectaddons$recordingFilter(CallbackInfo callback) {
+        if (RecordingMode.hidesChat()) callback.cancel();
     }
 
     @Inject(method = "lambda$extractRenderState$1", at = @At("HEAD"), cancellable = true)

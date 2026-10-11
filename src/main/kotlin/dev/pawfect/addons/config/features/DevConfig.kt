@@ -35,4 +35,10 @@ class DevConfig {
 
     @Expose
     var alwaysCapture: Boolean = false
+
+    @Expose
+    var recordingMode: Boolean = false
+
+    @Expose
+    var recordingHideChat: Boolean = true
 }

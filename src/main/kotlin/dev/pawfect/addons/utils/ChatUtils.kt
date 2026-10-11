@@ -1,5 +1,6 @@
 package dev.pawfect.addons.utils
 
+import dev.pawfect.addons.features.dev.RecordingMode
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
@@ -43,7 +44,7 @@ object ChatUtils {
 
     private fun send(body: String) {
         val player = McCompat.player ?: return
-        player.sendSystemMessage(Component.empty().append(prefix).append(Component.literal(body)))
+        RecordingMode.ours { player.sendSystemMessage(Component.empty().append(prefix).append(Component.literal(body))) }
     }
 
     fun chat(message: String) = send("§7$message")

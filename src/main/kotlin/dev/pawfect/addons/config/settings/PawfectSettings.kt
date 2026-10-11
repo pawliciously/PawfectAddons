@@ -1129,6 +1129,19 @@ object PawfectSettings {
             ).onChange { PawfectAddons.queueScreen { ConfigGuiManager.open("dev") } },
         ),
         group(
+            "Recording",
+            ToggleSetting(
+                "Recording Mode",
+                "Clean the screen up for recording footage of the mod. Only works on the dev account.",
+                dev::recordingMode,
+            ),
+            ToggleSetting(
+                "Hide Other Chat",
+                "Only PawfectAddons messages reach chat. Everything else, from the server, players or other mods, is dropped and doesn't come back when you turn this off.",
+                dev::recordingHideChat,
+            ).showIf { dev.recordingMode },
+        ),
+        group(
             "Packets",
             PacketLogSetting(
                 "Packet Log",
