@@ -128,19 +128,23 @@ object RouteRecorder {
             ChatUtils.chat(stop())
             return
         }
-        val player = McCompat.player ?: return
+        if (!teleported(here)) sample(force = false)
+    }
+
+    /**
+     * Logs a jump of more than five blocks since the last check as a teleport. Crouching makes it
+     * an etherwarp onto the block below you; otherwise it lands you in the air or on the ground.
+     */
+    private fun teleported(here: DungeonRoom): Boolean {
+        val player = McCompat.player ?: return false
         val now = player.position()
         val last = lastTickPos
         lastTickPos = now
-        // A jump of more than five blocks in one tick is a teleport. Crouching makes it an
-        // etherwarp onto the block below you; otherwise it lands you in the air or on the ground.
-        if (last != null && last.distanceToSqr(now) > TELEPORT_SQ) {
-            if (player.isShiftKeyDown) builder.etherwarps += relative(here, player.blockPosition().below())
-            else builder.teleports += relative(here, player.blockPosition())
-            sample(force = true)
-            return
-        }
-        sample(force = false)
+        if (last == null || last.distanceToSqr(now) <= TELEPORT_SQ) return false
+        if (player.isShiftKeyDown) builder.etherwarps += relative(here, player.blockPosition().below())
+        else builder.teleports += relative(here, player.blockPosition())
+        sample(force = true)
+        return true
     }
 
     private fun sample(force: Boolean) {
@@ -162,7 +166,9 @@ object RouteRecorder {
         val at = relative(here, pos)
         // The same secret again (a chest's click and opening, or a second click) is one step.
         if (steps.any { it.secretType == type && it.secretAt?.contentEquals(at) == true }) return
-        sample(force = true)
+        // Etherwarping onto an item picks it up before the tick sees the jump, so the
+        // etherwarp has to go in this step rather than the next.
+        if (!teleported(here)) sample(force = true)
         steps += builder.build(type, at)
         builder = Builder()
         ChatUtils.chat("§7Step ${steps.size}: $type")
