@@ -298,7 +298,7 @@ object PawfectSettings {
                 group(
                     "Secret Routes",
                     ToggleSetting("Secret Routes", "Lead you through each room's secrets in order: where to walk, etherwarp, stonk, superboom and pearl, step by step. Uses route files in the routes folder.", routes::enabled),
-                    DropdownSetting("Route Source", "Whose routes to follow. Stella's are recorded by Luckkytigger, the Secret Routes Mod's by zyra and its team. Rooms one doesn't have use the other's.", routes::source, SecretRoutesConfig.Source.entries.toList())
+                    DropdownSetting("Route Source", "Whose routes to follow. Stella's are recorded by Luckkytigger, the Secret Routes Mod's by zyra and its team (3ppopka's set), FoW SRM's by FlameOfWar, the set that mod uses by default. Rooms one doesn't have use another's.", routes::source, SecretRoutesConfig.Source.entries.toList())
                         .showIf { routes.enabled },
                     DropdownSetting("Show", "How much of the route to draw ahead of you.", routes::shown, SecretRoutesConfig.Shown.entries.toList())
                         .showIf { routes.enabled },
@@ -308,7 +308,7 @@ object PawfectSettings {
                         .showIf { routes.enabled },
                     ToggleSetting("Routes Through Walls", "Draw the route even when something is in front of it.", routes::throughWalls)
                         .showIf { routes.enabled },
-                    ToggleSetting("Pearl Routes", "Use the Secret Routes Mod's pearl routes for rooms that have them.", routes::usePearlRoutes)
+                    ToggleSetting("Pearl Routes", "With Secret Routes Mod as the source, use its pearl routes for rooms that have them. FoW SRM's routes already use pearls.", routes::usePearlRoutes)
                         .showIf { routes.enabled },
                     ToggleSetting("Fill Missing Secrets", "Add the secrets a route skips, from our own room data, before the route leaves the room. Your own recordings are left as they are.", routes::fillMissing)
                         .showIf { routes.enabled },
@@ -318,7 +318,7 @@ object PawfectSettings {
                         .showIf { routes.enabled },
                     FloatSliderSetting("Route Opacity", "Opacity of the route.", routes::opacity, 0.1f, 1f, 0.05f)
                         .showIf { routes.enabled },
-                    ButtonSetting("Community Routes", "Download Stella's and the Secret Routes Mod's routes from their GitHubs into your routes folder. Stella's routes by Luckkytigger and Eclipse (LGPL-3.0); Secret Routes Mod routes by yourboykyle, zyra and the Secret Routes team (GPL-3.0).", "Download") {
+                    ButtonSetting("Community Routes", "Download Stella's, the Secret Routes Mod's and FoW's routes from their GitHubs into your routes folder. Stella's routes by Luckkytigger and Eclipse (LGPL-3.0); Secret Routes Mod routes by yourboykyle, zyra and the Secret Routes team, FoW routes by FlameOfWar, Itplays, wyannnnn and yourboykyle (GPL-3.0).", "Download") {
                         ChatUtils.chat("Downloading routes...")
                         RouteData.downloadCommunity { message -> McCompat.mc.execute { ChatUtils.chat(message); SecretRoutes.reload() } }
                     }.showIf { routes.enabled },

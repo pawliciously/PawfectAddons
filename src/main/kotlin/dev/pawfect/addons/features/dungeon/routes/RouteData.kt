@@ -26,18 +26,22 @@ import kotlin.io.path.name
  * every position relative to the room's corner the same way our room data is:
  *
  * - The Secret Routes Mod's, keyed by room id ("Sewer-7"). A room can have more than one route
- *   ("Name", "Name:1"); the one starting closest to you is used.
+ *   ("Name", "Name:1"); the one starting closest to you is used. The mod ships two sets now:
+ *   3ppopka's and FlameOfWar's, its default.
  * - Stella's, keyed by display name ("Pressure Plates"), each step a list of waypoints and the
  *   line to walk.
  *
  * Route files live in config/pawfectaddons/routes. Your own recordings go in recorded.json and
  * win over everything else, then our own routes bundled with the mod for rooms the community
- * ones get wrong, then the source you pick, then the other one for rooms it lacks.
+ * ones get wrong, then the source you pick, then the others for rooms it lacks. Files of the same
+ * kind never mix their routes for a room: the first file that has the room is the one used, files
+ * you add yourself before the community ones.
  *
  * Community routes, downloaded when you ask (or when a set is missing):
  * - Stella's default routes, recorded by Luckkytigger for Stella by Eclipse (NEXD_),
  *   https://github.com/Eclipse-5214/ether (LGPL-3.0).
- * - The Secret Routes Mod's routes, by yourboykyle, zyra and the Secret Routes team,
+ * - The Secret Routes Mod's routes, by yourboykyle, zyra and the Secret Routes team, and
+ *   FlameOfWar's routes from the same mod, by FlameOfWar, Itplays, wyannnnn and yourboykyle,
  *   https://github.com/yourboykyle/SecretRoutes (GPL-3.0).
  */
 object RouteData {
@@ -68,7 +72,7 @@ object RouteData {
         ) = Step(locations, etherwarps, mines, interacts, tnts, pearls, pearlAngles, secretType, secretAt, ours, extra, teleports)
 
         /** A step with nothing to collect, done once you get there. */
-        val walkOnly: Boolean get() = secretType == null || secretType == "exit" || secretType == "exitroute" || secretType == "dummy" || secretType == "plate"
+        val walkOnly: Boolean get() = secretType == null || secretType in WALK_TYPES
 
         /** Where the step ends: its secret, or the last place it walks to. */
         val target: IntArray? get() = secretAt ?: locations.lastOrNull()
@@ -77,13 +81,24 @@ object RouteData {
         val start: IntArray? get() = locations.firstOrNull() ?: etherwarps.firstOrNull() ?: secretAt
     }
 
-    private enum class Kind { RECORDED, PAWFECT, STELLA, PEARL, STANDARD }
+    /**
+     * Step types with nothing to collect: done once you get there. FlameOfWar's Sloth ends on
+     * the Prince, a mob to kill rather than a secret.
+     */
+    private val WALK_TYPES = setOf("exit", "exitroute", "dummy", "plate", "prince")
+
+    private enum class Kind { RECORDED, PAWFECT, STELLA, PEARL, FOW, STANDARD }
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Routes")
 
     const val RECORDED_FILE = "recorded.json"
 
     const val STELLA_FILE = "stella.json"
+
+    /** The Secret Routes Mod's current route sets; routes.json and pearlroutes.json are their older versions. */
+    const val THREE_PPOPKA_FILE = "3ppopkaroutes.json"
+
+    const val FOW_FILE = "fowroutes.json"
 
     /**
      * Room to its routes, per kind of file: the room id in lower case, or for Stella's files
@@ -103,8 +118,12 @@ object RouteData {
         val stella = SecretRoomData.displayKey(key)?.let { routes[Kind.STELLA]?.get(it) }
         val secretRoutes = (if (pearls) routes[Kind.PEARL]?.get(key) else null)
             ?: routes[Kind.STANDARD]?.get(key) ?: routes[Kind.PEARL]?.get(key)
-        val preferStella = source == SecretRoutesConfig.Source.STELLA && key !in STELLA_BROKEN
-        return (if (preferStella) stella ?: secretRoutes else secretRoutes ?: stella).orEmpty()
+        val fow = routes[Kind.FOW]?.get(key)
+        return when (source) {
+            SecretRoutesConfig.Source.STELLA -> if (key in STELLA_BROKEN) secretRoutes ?: fow ?: stella else stella ?: secretRoutes ?: fow
+            SecretRoutesConfig.Source.SECRET_ROUTES -> secretRoutes ?: fow ?: stella
+            SecretRoutesConfig.Source.FOW -> fow ?: secretRoutes ?: stella
+        }.orEmpty()
     }
 
     /**
@@ -133,6 +152,27 @@ object RouteData {
         }
     }
 
+    /** Which kind of routes a file holds, going by its name and contents. */
+    private fun kindOf(name: String, stella: Boolean): Kind = when {
+        name.equals(RECORDED_FILE, ignoreCase = true) -> Kind.RECORDED
+        stella -> Kind.STELLA
+        name.contains("fow", ignoreCase = true) -> Kind.FOW
+        name.contains("pearl", ignoreCase = true) -> Kind.PEARL
+        else -> Kind.STANDARD
+    }
+
+    /**
+     * Order files of one kind are tried in: your own first, then the community files, newest
+     * set first, so a stale routes.json left from before only fills rooms the current one lacks.
+     */
+    private fun rank(name: String): Int = when (name.lowercase()) {
+        THREE_PPOPKA_FILE -> 1
+        FOW_FILE -> 1
+        "pearlroutes.json" -> 1
+        "routes.json" -> 2
+        else -> 0
+    }
+
     fun load() {
         val loaded = HashMap<Kind, HashMap<String, MutableList<List<Step>>>>()
         var files = 0
@@ -143,17 +183,15 @@ object RouteData {
         }.onFailure { logger.warn("Could not read our own routes: {}", it.message) }
         runCatching {
             Files.createDirectories(folder)
-            folder.listDirectoryEntries().filter { it.extension == "json" }.sortedBy { it.name }.forEach { file ->
+            folder.listDirectoryEntries().filter { it.extension == "json" }.sortedWith(compareBy({ rank(it.name) }, { it.name })).forEach { file ->
                 runCatching {
                     val json = Files.newBufferedReader(file).use { JsonParser.parseReader(it) }.asJsonObject
                     val stella = isStella(json)
-                    val kind = when {
-                        file.name.equals(RECORDED_FILE, ignoreCase = true) -> Kind.RECORDED
-                        stella -> Kind.STELLA
-                        file.name.contains("pearl", ignoreCase = true) -> Kind.PEARL
-                        else -> Kind.STANDARD
-                    }
-                    readRooms(json, stella, loaded.getOrPut(kind) { HashMap() })
+                    // Read on its own, then only rooms no earlier file of its kind had are kept.
+                    val own = HashMap<String, MutableList<List<Step>>>()
+                    readRooms(json, stella, own)
+                    val target = loaded.getOrPut(kindOf(file.name, stella)) { HashMap() }
+                    own.forEach { (room, list) -> target.putIfAbsent(room, list) }
                     files++
                 }.onFailure { logger.warn("Could not read route file {}: {}", file.name, it.message) }
             }
@@ -161,8 +199,9 @@ object RouteData {
         routes = loaded
         val stellaRooms = loaded[Kind.STELLA]?.size ?: 0
         val ourRooms = loaded[Kind.PAWFECT]?.size ?: 0
-        val otherRooms = loaded.filterKeys { it != Kind.STELLA && it != Kind.PAWFECT }.values.flatMap { it.keys }.toSet().size
-        report = "$files files, $stellaRooms Stella rooms, $otherRooms other rooms, $ourRooms of our own"
+        val fowRooms = loaded[Kind.FOW]?.size ?: 0
+        val otherRooms = loaded.filterKeys { it != Kind.STELLA && it != Kind.PAWFECT && it != Kind.FOW }.values.flatMap { it.keys }.toSet().size
+        report = "$files files, $stellaRooms Stella rooms, $fowRooms FoW rooms, $otherRooms other rooms, $ourRooms of our own"
         logger.info("Secret routes: {}", report)
     }
 
@@ -321,7 +360,8 @@ object RouteData {
     /** Community route files, saved under the name on the left, fetched when you ask for them. */
     private val COMMUNITY = listOf(
         STELLA_FILE to "https://raw.githubusercontent.com/Eclipse-5214/ether/main/routes/default.json",
-        "routes.json" to "https://raw.githubusercontent.com/yourboykyle/SecretRoutes/main/routes.json",
+        THREE_PPOPKA_FILE to "https://raw.githubusercontent.com/yourboykyle/SecretRoutes/main/3ppopkaroutes.json",
+        FOW_FILE to "https://raw.githubusercontent.com/yourboykyle/SecretRoutes/main/fowroutes.json",
         "pearlroutes.json" to "https://raw.githubusercontent.com/yourboykyle/SecretRoutes/main/pearlroutes.json",
     )
 
@@ -342,7 +382,7 @@ object RouteData {
                     Files.writeString(folder.resolve(name), response.body())
                 }
                 load()
-                "Downloaded community routes ($report). Stella's routes by Luckkytigger and Eclipse (LGPL-3.0); Secret Routes Mod routes by yourboykyle, zyra and the Secret Routes team (GPL-3.0)."
+                "Downloaded community routes ($report). Stella's routes by Luckkytigger and Eclipse (LGPL-3.0); Secret Routes Mod routes by yourboykyle, zyra and the Secret Routes team, FoW routes by FlameOfWar, Itplays, wyannnnn and yourboykyle (GPL-3.0)."
             }.getOrElse { "Could not download routes: ${it.message}" }
             done(message)
         }

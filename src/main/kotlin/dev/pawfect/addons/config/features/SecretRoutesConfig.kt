@@ -22,7 +22,8 @@ class SecretRoutesConfig {
 
     enum class Source(private val label: String) {
         STELLA("Stella"),
-        SECRET_ROUTES("Secret Routes Mod");
+        SECRET_ROUTES("Secret Routes Mod"),
+        FOW("FoW SRM");
 
         override fun toString(): String = label
     }
