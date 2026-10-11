@@ -1,0 +1,17 @@
+Route sets bundled with PawfectAddons
+
+default.json
+  The Secret Routes Mod's routes (3ppopka's set), by yourboykyle, zyra and the Secret Routes team.
+  https://github.com/yourboykyle/SecretRoutes (3ppopkaroutes.json), GPL-3.0.
+
+flameofwar.json
+  FlameOfWar's routes from the Secret Routes Mod, by FlameOfWar, Itplays, wyannnnn and yourboykyle.
+  https://github.com/yourboykyle/SecretRoutes (fowroutes.json), GPL-3.0.
+
+stella.json
+  Stella's default routes, recorded by Luckkytigger for Stella by Eclipse (NEXD_).
+  https://github.com/Eclipse-5214/ether (routes/default.json), LGPL-3.0.
+
+pawfect.json
+  PawfectAddons' own routes for rooms the community routes get wrong. Some are built on
+  Stella's routes (LGPL-3.0); the rest are from in-game waypoints.

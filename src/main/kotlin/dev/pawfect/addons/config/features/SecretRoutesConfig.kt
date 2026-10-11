@@ -1,6 +1,7 @@
 package dev.pawfect.addons.config.features
 
 import com.google.gson.annotations.Expose
+import com.google.gson.annotations.SerializedName
 
 class SecretRoutesConfig {
 
@@ -21,9 +22,17 @@ class SecretRoutesConfig {
     }
 
     enum class Source(private val label: String) {
+        /** The Secret Routes Mod's routes, saved as SECRET_ROUTES before they were bundled. */
+        @SerializedName(value = "DEFAULT", alternate = ["SECRET_ROUTES"])
+        DEFAULT("Default"),
+
+        @SerializedName(value = "FLAMEOFWAR", alternate = ["FOW"])
+        FLAMEOFWAR("FlameOfWar SRM"),
+
         STELLA("Stella"),
-        SECRET_ROUTES("Secret Routes Mod"),
-        FOW("FoW SRM");
+
+        /** Your own recordings, with Default for rooms you haven't recorded. */
+        RECORDED("Recorded");
 
         override fun toString(): String = label
     }
@@ -32,7 +41,7 @@ class SecretRoutesConfig {
     var enabled: Boolean = false
 
     @Expose
-    var source: Source = Source.STELLA
+    var source: Source = Source.DEFAULT
 
     @Expose
     var style: Style = Style.BOTH
@@ -45,9 +54,6 @@ class SecretRoutesConfig {
 
     @Expose
     var throughWalls: Boolean = true
-
-    @Expose
-    var usePearlRoutes: Boolean = false
 
     @Expose
     var fillMissing: Boolean = true

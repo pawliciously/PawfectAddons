@@ -6,43 +6,32 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import dev.pawfect.addons.config.ConfigManager
-import dev.pawfect.addons.config.features.SecretRoutesConfig
+import dev.pawfect.addons.config.features.SecretRoutesConfig.Source
 import dev.pawfect.addons.features.dungeon.secrets.SecretRoomData
 import org.slf4j.LoggerFactory
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
-import java.time.Duration
-import kotlin.concurrent.thread
-import kotlin.io.path.extension
-import kotlin.io.path.listDirectoryEntries
-import kotlin.io.path.name
 
 /**
  * Secret routes. Two file formats are read, both mapping a room to its steps in order with
  * every position relative to the room's corner the same way our room data is:
  *
  * - The Secret Routes Mod's, keyed by room id ("Sewer-7"). A room can have more than one route
- *   ("Name", "Name:1"); the one starting closest to you is used. The mod ships two sets now:
- *   3ppopka's and FlameOfWar's, its default.
+ *   ("Name", "Name:1"); the one starting closest to you is used.
  * - Stella's, keyed by display name ("Pressure Plates"), each step a list of waypoints and the
  *   line to walk.
  *
- * Route files live in config/pawfectaddons/routes. Your own recordings go in recorded.json and
- * win over everything else, then our own routes bundled with the mod for rooms the community
- * ones get wrong, then the source you pick, then the others for rooms it lacks. Files of the same
- * kind never mix their routes for a room: the first file that has the room is the one used, files
- * you add yourself before the community ones.
- *
- * Community routes, downloaded when you ask (or when a set is missing):
- * - Stella's default routes, recorded by Luckkytigger for Stella by Eclipse (NEXD_),
+ * The route sets ship with the mod (assets/pawfectaddons/routes, credits in CREDITS.txt):
+ * - Default: the Secret Routes Mod's routes (3ppopka's set), by yourboykyle, zyra and the
+ *   Secret Routes team, https://github.com/yourboykyle/SecretRoutes (GPL-3.0).
+ * - FlameOfWar SRM: FlameOfWar's routes from the same mod, by FlameOfWar, Itplays, wyannnnn and
+ *   yourboykyle (GPL-3.0).
+ * - Stella: Stella's default routes, recorded by Luckkytigger for Stella by Eclipse (NEXD_),
  *   https://github.com/Eclipse-5214/ether (LGPL-3.0).
- * - The Secret Routes Mod's routes, by yourboykyle, zyra and the Secret Routes team, and
- *   FlameOfWar's routes from the same mod, by FlameOfWar, Itplays, wyannnnn and yourboykyle,
- *   https://github.com/yourboykyle/SecretRoutes (GPL-3.0).
+ * - Our own routes for rooms the community ones get wrong, used over Default and Stella.
+ *
+ * Your recordings are saved in config/pawfectaddons/routes/recorded.json and used when you pick
+ * Recorded. A room without one falls back to Default, and so on down for a set that lacks it.
  */
 object RouteData {
 
@@ -87,18 +76,18 @@ object RouteData {
      */
     private val WALK_TYPES = setOf("exit", "exitroute", "dummy", "plate", "prince")
 
-    private enum class Kind { RECORDED, PAWFECT, STELLA, PEARL, FOW, STANDARD }
+    private enum class Kind(val resource: String?) {
+        RECORDED(null),
+        PAWFECT("pawfect.json"),
+        DEFAULT("default.json"),
+        FLAMEOFWAR("flameofwar.json"),
+        STELLA("stella.json"),
+    }
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Routes")
 
     const val RECORDED_FILE = "recorded.json"
 
-    const val STELLA_FILE = "stella.json"
-
-    /** The Secret Routes Mod's current route sets; routes.json and pearlroutes.json are their older versions. */
-    const val THREE_PPOPKA_FILE = "3ppopkaroutes.json"
-
-    const val FOW_FILE = "fowroutes.json"
 
     /**
      * Room to its routes, per kind of file: the room id in lower case, or for Stella's files
@@ -111,19 +100,45 @@ object RouteData {
 
     val folder: Path get() = ConfigManager.configDirectory.resolve("routes")
 
-    fun routesFor(room: String, source: SecretRoutesConfig.Source, pearls: Boolean): List<List<Step>> {
+    /**
+     * A room's routes and the set they came from. [note] says why that isn't the set you picked,
+     * for showing in game; null when it is.
+     */
+    class Picked(val routes: List<List<Step>>, val from: Source, val ours: Boolean, val note: String?)
+
+    /** The sets tried for a room, in order, with [source] picked. */
+    private fun order(source: Source): List<Source> = when (source) {
+        Source.DEFAULT, Source.RECORDED -> listOf(Source.DEFAULT, Source.FLAMEOFWAR, Source.STELLA)
+        Source.FLAMEOFWAR -> listOf(Source.FLAMEOFWAR, Source.DEFAULT, Source.STELLA)
+        Source.STELLA -> listOf(Source.STELLA, Source.DEFAULT, Source.FLAMEOFWAR)
+    }
+
+    /** [room]'s routes from [set], ours over Default and Stella where we have them. */
+    private fun from(set: Source, key: String): Pair<List<List<Step>>, Boolean>? {
+        if (set == Source.DEFAULT || set == Source.STELLA) routes[Kind.PAWFECT]?.get(key)?.let { return it to true }
+        val found = when (set) {
+            Source.DEFAULT -> routes[Kind.DEFAULT]?.get(key)
+            Source.FLAMEOFWAR -> routes[Kind.FLAMEOFWAR]?.get(key)
+            Source.STELLA -> if (key in STELLA_BROKEN) null else SecretRoomData.displayKey(key)?.let { routes[Kind.STELLA]?.get(it) }
+            Source.RECORDED -> routes[Kind.RECORDED]?.get(key)
+        }
+        return found?.let { it to false }
+    }
+
+    fun routesFor(room: String, source: Source): Picked? {
         val key = room.lowercase()
-        routes[Kind.RECORDED]?.get(key)?.let { return it }
-        routes[Kind.PAWFECT]?.get(key)?.let { return it }
-        val stella = SecretRoomData.displayKey(key)?.let { routes[Kind.STELLA]?.get(it) }
-        val secretRoutes = (if (pearls) routes[Kind.PEARL]?.get(key) else null)
-            ?: routes[Kind.STANDARD]?.get(key) ?: routes[Kind.PEARL]?.get(key)
-        val fow = routes[Kind.FOW]?.get(key)
-        return when (source) {
-            SecretRoutesConfig.Source.STELLA -> if (key in STELLA_BROKEN) secretRoutes ?: fow ?: stella else stella ?: secretRoutes ?: fow
-            SecretRoutesConfig.Source.SECRET_ROUTES -> secretRoutes ?: fow ?: stella
-            SecretRoutesConfig.Source.FOW -> fow ?: secretRoutes ?: stella
-        }.orEmpty()
+        if (source == Source.RECORDED) from(Source.RECORDED, key)?.let { (list, _) -> return Picked(list, Source.RECORDED, false, null) }
+        for (set in order(source)) {
+            val (list, ours) = from(set, key) ?: continue
+            val note = when {
+                set == source -> null
+                source == Source.RECORDED -> "No recording for this room, using $set"
+                source == Source.STELLA && key in STELLA_BROKEN -> "Stella's route here doesn't work, using $set"
+                else -> "No $source route for this room, using $set"
+            }
+            return Picked(list, set, ours, note)
+        }
+        return null
     }
 
     /**
@@ -133,13 +148,7 @@ object RouteData {
      */
     private val STELLA_BROKEN = setOf("grass-ruin-3", "sewer-7")
 
-    fun isRecorded(room: String): Boolean = routes[Kind.RECORDED]?.containsKey(room.lowercase()) == true
-
-    /** The room's route is one of ours, already in order with its levers where they go. */
-    fun isOurs(room: String): Boolean = !isRecorded(room) && routes[Kind.PAWFECT]?.containsKey(room.lowercase()) == true
-
-    /** Our own routes, bundled with the mod. */
-    private const val PAWFECT_RESOURCE = "/assets/pawfectaddons/routes/pawfect.json"
+    private const val RESOURCES = "/assets/pawfectaddons/routes/"
 
     private fun readRooms(json: JsonObject, stella: Boolean, target: HashMap<String, MutableList<List<Step>>>) {
         json.entrySet().forEach { (name, value) ->
@@ -152,56 +161,28 @@ object RouteData {
         }
     }
 
-    /** Which kind of routes a file holds, going by its name and contents. */
-    private fun kindOf(name: String, stella: Boolean): Kind = when {
-        name.equals(RECORDED_FILE, ignoreCase = true) -> Kind.RECORDED
-        stella -> Kind.STELLA
-        name.contains("fow", ignoreCase = true) -> Kind.FOW
-        name.contains("pearl", ignoreCase = true) -> Kind.PEARL
-        else -> Kind.STANDARD
-    }
-
-    /**
-     * Order files of one kind are tried in: your own first, then the community files, newest
-     * set first, so a stale routes.json left from before only fills rooms the current one lacks.
-     */
-    private fun rank(name: String): Int = when (name.lowercase()) {
-        THREE_PPOPKA_FILE -> 1
-        FOW_FILE -> 1
-        "pearlroutes.json" -> 1
-        "routes.json" -> 2
-        else -> 0
-    }
-
     fun load() {
         val loaded = HashMap<Kind, HashMap<String, MutableList<List<Step>>>>()
-        var files = 0
+        Kind.entries.forEach { kind ->
+            val resource = kind.resource ?: return@forEach
+            runCatching {
+                RouteData::class.java.getResourceAsStream(RESOURCES + resource)?.bufferedReader()?.use { reader ->
+                    val json = JsonParser.parseReader(reader).asJsonObject
+                    readRooms(json, isStella(json), loaded.getOrPut(kind) { HashMap() })
+                }
+            }.onFailure { logger.warn("Could not read the bundled routes {}: {}", resource, it.message) }
+        }
         runCatching {
-            RouteData::class.java.getResourceAsStream(PAWFECT_RESOURCE)?.bufferedReader()?.use { reader ->
-                readRooms(JsonParser.parseReader(reader).asJsonObject, false, loaded.getOrPut(Kind.PAWFECT) { HashMap() })
+            val file = folder.resolve(RECORDED_FILE)
+            if (Files.exists(file)) {
+                val json = Files.newBufferedReader(file).use { JsonParser.parseReader(it) }.asJsonObject
+                readRooms(json, false, loaded.getOrPut(Kind.RECORDED) { HashMap() })
             }
-        }.onFailure { logger.warn("Could not read our own routes: {}", it.message) }
-        runCatching {
-            Files.createDirectories(folder)
-            folder.listDirectoryEntries().filter { it.extension == "json" }.sortedWith(compareBy({ rank(it.name) }, { it.name })).forEach { file ->
-                runCatching {
-                    val json = Files.newBufferedReader(file).use { JsonParser.parseReader(it) }.asJsonObject
-                    val stella = isStella(json)
-                    // Read on its own, then only rooms no earlier file of its kind had are kept.
-                    val own = HashMap<String, MutableList<List<Step>>>()
-                    readRooms(json, stella, own)
-                    val target = loaded.getOrPut(kindOf(file.name, stella)) { HashMap() }
-                    own.forEach { (room, list) -> target.putIfAbsent(room, list) }
-                    files++
-                }.onFailure { logger.warn("Could not read route file {}: {}", file.name, it.message) }
-            }
-        }.onFailure { logger.warn("Could not read the routes folder: {}", it.message) }
+        }.onFailure { logger.warn("Could not read your recorded routes: {}", it.message) }
         routes = loaded
-        val stellaRooms = loaded[Kind.STELLA]?.size ?: 0
-        val ourRooms = loaded[Kind.PAWFECT]?.size ?: 0
-        val fowRooms = loaded[Kind.FOW]?.size ?: 0
-        val otherRooms = loaded.filterKeys { it != Kind.STELLA && it != Kind.PAWFECT && it != Kind.FOW }.values.flatMap { it.keys }.toSet().size
-        report = "$files files, $stellaRooms Stella rooms, $fowRooms FoW rooms, $otherRooms other rooms, $ourRooms of our own"
+        fun rooms(kind: Kind) = loaded[kind]?.size ?: 0
+        report = "Default ${rooms(Kind.DEFAULT)} rooms, FlameOfWar SRM ${rooms(Kind.FLAMEOFWAR)}, Stella ${rooms(Kind.STELLA)}, " +
+            "${rooms(Kind.PAWFECT)} of our own, ${rooms(Kind.RECORDED)} recorded"
         logger.info("Secret routes: {}", report)
     }
 
@@ -355,36 +336,4 @@ object RouteData {
         return same != null
     }
 
-    // ------------------------------------------------------------------ community routes
-
-    /** Community route files, saved under the name on the left, fetched when you ask for them. */
-    private val COMMUNITY = listOf(
-        STELLA_FILE to "https://raw.githubusercontent.com/Eclipse-5214/ether/main/routes/default.json",
-        THREE_PPOPKA_FILE to "https://raw.githubusercontent.com/yourboykyle/SecretRoutes/main/3ppopkaroutes.json",
-        FOW_FILE to "https://raw.githubusercontent.com/yourboykyle/SecretRoutes/main/fowroutes.json",
-        "pearlroutes.json" to "https://raw.githubusercontent.com/yourboykyle/SecretRoutes/main/pearlroutes.json",
-    )
-
-    /** Whether any community route file isn't in the routes folder yet. */
-    fun communityMissing(): Boolean = COMMUNITY.any { (name, _) -> !Files.exists(folder.resolve(name)) }
-
-    fun downloadCommunity(done: (String) -> Unit) {
-        thread(name = "PawfectAddons Route Download", isDaemon = true) {
-            val message = runCatching {
-                Files.createDirectories(folder)
-                val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).followRedirects(HttpClient.Redirect.NORMAL).build()
-                COMMUNITY.forEach { (name, url) ->
-                    val request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30)).GET().build()
-                    val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-                    check(response.statusCode() == 200) { "$name: HTTP ${response.statusCode()}" }
-                    // Only kept if it reads as a route file.
-                    JsonParser.parseString(response.body()).asJsonObject
-                    Files.writeString(folder.resolve(name), response.body())
-                }
-                load()
-                "Downloaded community routes ($report). Stella's routes by Luckkytigger and Eclipse (LGPL-3.0); Secret Routes Mod routes by yourboykyle, zyra and the Secret Routes team, FoW routes by FlameOfWar, Itplays, wyannnnn and yourboykyle (GPL-3.0)."
-            }.getOrElse { "Could not download routes: ${it.message}" }
-            done(message)
-        }
-    }
 }

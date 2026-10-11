@@ -297,8 +297,8 @@ object PawfectSettings {
                 ),
                 group(
                     "Secret Routes",
-                    ToggleSetting("Secret Routes", "Lead you through each room's secrets in order: where to walk, etherwarp, stonk, superboom and pearl, step by step. Uses route files in the routes folder.", routes::enabled),
-                    DropdownSetting("Route Source", "Whose routes to follow. Stella's are recorded by Luckkytigger, the Secret Routes Mod's by zyra and its team (3ppopka's set), FoW SRM's by FlameOfWar, the set that mod uses by default. Rooms one doesn't have use another's.", routes::source, SecretRoutesConfig.Source.entries.toList())
+                    ToggleSetting("Secret Routes", "Lead you through each room's secrets in order: where to walk, etherwarp, stonk, superboom and pearl, step by step.", routes::enabled),
+                    DropdownSetting("Route Source", "Whose routes to follow. Default is the Secret Routes Mod's (yourboykyle, zyra and its team, GPL-3.0), FlameOfWar SRM is FlameOfWar's set from that mod (GPL-3.0), Stella's are recorded by Luckkytigger (LGPL-3.0). Recorded uses your own recordings. A room the set doesn't have uses Default instead, or another set if Default lacks it too, and says so in orange over the route.", routes::source, SecretRoutesConfig.Source.entries.toList())
                         .showIf { routes.enabled },
                     DropdownSetting("Show", "How much of the route to draw ahead of you.", routes::shown, SecretRoutesConfig.Shown.entries.toList())
                         .showIf { routes.enabled },
@@ -307,8 +307,6 @@ object PawfectSettings {
                     ToggleSetting("Labels", "Name each marker, like Etherwarp or Stonk.", routes::labels)
                         .showIf { routes.enabled },
                     ToggleSetting("Routes Through Walls", "Draw the route even when something is in front of it.", routes::throughWalls)
-                        .showIf { routes.enabled },
-                    ToggleSetting("Pearl Routes", "With Secret Routes Mod as the source, use its pearl routes for rooms that have them. FoW SRM's routes already use pearls.", routes::usePearlRoutes)
                         .showIf { routes.enabled },
                     ToggleSetting("Fill Missing Secrets", "Add the secrets a route skips, from our own room data, before the route leaves the room. Your own recordings are left as they are.", routes::fillMissing)
                         .showIf { routes.enabled },
@@ -320,17 +318,13 @@ object PawfectSettings {
                         .showIf { routes.enabled },
                     FloatSliderSetting("Route Opacity", "Opacity of the route.", routes::opacity, 0.1f, 1f, 0.05f)
                         .showIf { routes.enabled },
-                    ButtonSetting("Community Routes", "Download Stella's, the Secret Routes Mod's and FoW's routes from their GitHubs into your routes folder. Stella's routes by Luckkytigger and Eclipse (LGPL-3.0); Secret Routes Mod routes by yourboykyle, zyra and the Secret Routes team, FoW routes by FlameOfWar, Itplays, wyannnnn and yourboykyle (GPL-3.0).", "Download") {
-                        ChatUtils.chat("Downloading routes...")
-                        RouteData.downloadCommunity { message -> McCompat.mc.execute { ChatUtils.chat(message); SecretRoutes.reload() } }
-                    }.showIf { routes.enabled },
-                    ButtonSetting("Routes Folder", "Open the folder route files are read from. Your recordings are saved there as recorded.json.", "Open") {
+                    ButtonSetting("Routes Folder", "Open the folder your recordings are saved in, as recorded.json.", "Open") {
                         runCatching {
                             java.nio.file.Files.createDirectories(RouteData.folder)
                             net.minecraft.util.Util.getPlatform().openFile(RouteData.folder.toFile())
                         }.onFailure { ChatUtils.error("Could not open the routes folder.") }
                     }.showIf { routes.enabled },
-                    ButtonSetting("Reload Routes", "Read the route files again after changing them.", "Reload") {
+                    ButtonSetting("Reload Routes", "Read recorded.json again after changing it by hand.", "Reload") {
                         SecretRoutes.reload()
                         ChatUtils.chat("Routes: ${RouteData.report}")
                     }.showIf { routes.enabled },

@@ -30,6 +30,9 @@ object RouteRenderer {
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.secretRoutes)
 
+    /** Colour of the note saying a room's route is from another set. */
+    private const val NOTE_COLOR = 0xFFB86B
+
     private class Label(val text: Component, val at: Vec3) {
         constructor(text: String, at: Vec3) : this(Component.literal(text), at)
     }
@@ -72,14 +75,18 @@ object RouteRenderer {
         if (state.done) {
             // Dev only: the whole route, faint, to look over a room after it's done.
             if (!config.showFinished || !DevAccount.isDev()) return
-            return draw(poseStack, collector, camera, room, state.route, 0, state.route.map { it to false }, start = true)
+            return draw(poseStack, collector, camera, room, state.route, 0, state.route.map { it to false }, start = true, state.note)
         }
         val steps = shownSteps(state)
         if (steps.isEmpty()) return
-        draw(poseStack, collector, camera, room, state.route, state.index, steps, start = state.index == 0)
+        draw(poseStack, collector, camera, room, state.route, state.index, steps, start = state.index == 0, state.note)
     }
 
-    /** Draws [steps] of [route], the first of them being step [from]. */
+    /**
+     * Draws [steps] of [route], the first of them being step [from]. A [note] on where the route
+     * came from floats over its start, or over where the first step starts once you're past it,
+     * even with labels off, so falling back to another set is never silent.
+     */
     private fun draw(
         poseStack: PoseStack,
         collector: SubmitNodeCollector,
@@ -89,6 +96,7 @@ object RouteRenderer {
         from: Int,
         steps: List<Pair<RouteData.Step, Boolean>>,
         start: Boolean,
+        note: String? = null,
     ) {
         val eye = McCompat.mc.gameRenderer.mainCamera().position()
         val opacity = config.opacity.coerceIn(0.1f, 1f)
@@ -100,6 +108,10 @@ object RouteRenderer {
         if (start != null) {
             labels += Label(Component.literal("START").withStyle { it.withColor(config.pathColor).withBold(true) }, start.add(0.0, 1.0, 0.0))
         }
+        val noteAt = start?.add(0.0, 1.35, 0.0) ?: steps.firstOrNull()?.first?.start?.let { centre(room, it).add(0.0, 2.2, 0.0) }
+        val noteLabel = if (note != null && noteAt != null) {
+            Label(Component.literal(note).withStyle { it.withColor(NOTE_COLOR) }, noteAt)
+        } else null
 
         poseStack.pushPose()
         poseStack.translate(-eye.x, -eye.y, -eye.z)
@@ -187,6 +199,7 @@ object RouteRenderer {
                 collector.submitNameTag(poseStack, label.at, 0, label.text, config.throughWalls, 0xF000F0, camera)
             }
         }
+        if (noteLabel != null) collector.submitNameTag(poseStack, noteLabel.at, 0, noteLabel.text, true, 0xF000F0, camera)
         poseStack.popPose()
     }
 

@@ -26,7 +26,8 @@ import kotlin.math.abs
  */
 object SecretRoutes {
 
-    class Progress(val route: List<RouteData.Step>) {
+    /** [note] says why the route isn't from the set you picked, shown with it; null when it is. */
+    class Progress(val route: List<RouteData.Step>, val note: String? = null) {
         /** The step being shown. */
         var index = 0
 
@@ -59,8 +60,6 @@ object SecretRoutes {
 
     private var loaded = false
 
-    private var fetched = false
-
     /** The route source rooms were last set up from, so switching it takes effect straight away. */
     private var lastSource: SecretRoutesConfig.Source? = null
 
@@ -87,19 +86,23 @@ object SecretRoutes {
         val name = room.name ?: return null
         val existing = progress[room]
         if (existing != null) return room to existing
-        val fill = config.fillMissing && !RouteData.isRecorded(name)
+        // An old config can hold a source that's gone; Gson leaves it null.
+        @Suppress("SENSELESS_COMPARISON")
+        val source = config.source ?: SecretRoutesConfig.Source.DEFAULT
+        val picked = RouteData.routesFor(name, source) ?: return null
+        val fill = config.fillMissing && picked.from != SecretRoutesConfig.Source.RECORDED
         // Our own routes already go to their levers where it makes sense.
-        val levers = config.useLevers && !RouteData.isOurs(name)
-        val routes = RouteData.routesFor(name, config.source, config.usePearlRoutes).map { RouteFit.prepare(name, it, fill, levers) }
+        val levers = config.useLevers && !picked.ours
+        val routes = picked.routes.map { RouteFit.prepare(name, it, fill, levers) }
         if (routes.isEmpty()) return null
         val here = here(room) ?: return null
         // With more than one route for the room, the one starting nearest to you.
         val route = routes.minBy { route -> route.firstNotNullOfOrNull { it.start }?.let { distanceSq(it, here) } ?: Double.MAX_VALUE }
         logger.info(
-            "Route for {}: {} steps, {} added from our room data, {} levers",
-            name, route.size, route.count { it.extra }, route.count { it.secretType == "lever" || it.secretType == "plate" },
+            "Route for {} from {}: {} steps, {} added from our room data, {} levers",
+            name, picked.from, route.size, route.count { it.extra }, route.count { it.secretType == "lever" || it.secretType == "plate" },
         )
-        return room to Progress(route).also { progress[room] = it }
+        return room to Progress(route, picked.note).also { progress[room] = it }
     }
 
     private fun tick() {
@@ -107,7 +110,6 @@ object SecretRoutes {
             loaded = true
             RouteData.load()
         }
-        fetchIfEmpty()
         if (config.source != lastSource) {
             lastSource = config.source
             progress.clear()
@@ -307,17 +309,6 @@ object SecretRoutes {
         while (!state.done && stepDone(state, state.index)) state.index++
     }
 
-    private fun fetchIfEmpty() {
-        if (fetched || !config.enabled || !RouteData.communityMissing()) return
-        if (McCompat.player == null) return
-        fetched = true
-        logger.info("Some community route files are missing, downloading them")
-        RouteData.downloadCommunity { message ->
-            logger.info(message)
-            McCompat.mc.execute { progress.clear() }
-        }
-    }
-
     private fun here(room: DungeonRoom): IntArray? {
         val player = McCompat.player ?: return null
         val rel = DungeonScanner.actualToRelative(room, player.blockPosition())
@@ -435,6 +426,7 @@ object SecretRoutes {
         val extra = state?.route?.count { it.extra } ?: 0
         return "Routes: ${RouteData.report}. Room: ${room?.name ?: "unknown"}" +
             (state?.let { ", step ${(it.index + 1).coerceAtMost(it.route.size)} of ${it.route.size}" } ?: "") +
+            (state?.note?.let { ". $it" } ?: "") +
             (if (extra > 0) ", $extra added from our room data" else "")
     }
 }
