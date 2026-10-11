@@ -53,6 +53,16 @@ object RouteRecorder {
 
     val recording: Boolean get() = room != null
 
+    /**
+     * What's been recorded so far, for drawing as you go: the room, the finished steps and the one
+     * still being walked, which has no secret yet.
+     */
+    fun preview(): Pair<DungeonRoom, List<RouteData.Step>>? {
+        val here = room ?: return null
+        val live = if (builder.empty) emptyList() else listOf(builder.build(null, null))
+        return here to steps.toList() + live
+    }
+
     private const val SAMPLE_GAP_SQ = 9
     private const val TELEPORT_SQ = 25.0
 

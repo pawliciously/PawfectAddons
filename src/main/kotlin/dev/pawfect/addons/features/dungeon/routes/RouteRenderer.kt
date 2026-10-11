@@ -6,6 +6,7 @@ import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ModuleSwitch
 import dev.pawfect.addons.config.features.SecretRoutesConfig
 import dev.pawfect.addons.config.features.SecretRoutesConfig.Shown
+import dev.pawfect.addons.features.dev.DevAccount
 import dev.pawfect.addons.features.dungeon.WaypointRenderTypes
 import dev.pawfect.addons.features.dungeon.secrets.DungeonRoom
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
@@ -23,7 +24,7 @@ import kotlin.math.roundToInt
 /**
  * Draws the route: a line along where to walk, and a marked box for each etherwarp, stonk,
  * superboom, lever and pearl on the way, ending at the step's secret. Steps after the current
- * one are drawn fainter.
+ * one are drawn fainter. While you're recording, the recording is drawn instead as it grows.
  */
 object RouteRenderer {
 
@@ -59,18 +60,43 @@ object RouteRenderer {
     }
 
     private fun draw(poseStack: PoseStack, collector: SubmitNodeCollector, camera: CameraRenderState) {
+        val recorded = RouteRecorder.preview()
+        if (recorded != null) {
+            // Finished steps faint, the one you're walking now bright, so you see it come together.
+            val (room, route) = recorded
+            if (route.isEmpty()) return
+            val steps = route.mapIndexed { i, step -> step to (i == route.lastIndex) }
+            return draw(poseStack, collector, camera, room, route, 0, steps, start = true)
+        }
         val (room, state) = SecretRoutes.current() ?: return
-        if (state.done) return
+        if (state.done) {
+            // Dev only: the whole route, faint, to look over a room after it's done.
+            if (!config.showFinished || !DevAccount.isDev()) return
+            return draw(poseStack, collector, camera, room, state.route, 0, state.route.map { it to false }, start = true)
+        }
         val steps = shownSteps(state)
         if (steps.isEmpty()) return
+        draw(poseStack, collector, camera, room, state.route, state.index, steps, start = state.index == 0)
+    }
 
+    /** Draws [steps] of [route], the first of them being step [from]. */
+    private fun draw(
+        poseStack: PoseStack,
+        collector: SubmitNodeCollector,
+        camera: CameraRenderState,
+        room: DungeonRoom,
+        route: List<RouteData.Step>,
+        from: Int,
+        steps: List<Pair<RouteData.Step, Boolean>>,
+        start: Boolean,
+    ) {
         val eye = McCompat.mc.gameRenderer.mainCamera().position()
         val opacity = config.opacity.coerceIn(0.1f, 1f)
         val width = config.lineWidth.coerceIn(0.5f, 6f)
         val labels = ArrayList<Label>()
         val lines = config.style != SecretRoutesConfig.Style.BOXES
         boxesOn = config.style != SecretRoutesConfig.Style.LINES
-        val start = if (state.index == 0) startPoint(room, state.route) else null
+        val start = if (start) startPoint(room, route) else null
         if (start != null) {
             labels += Label(Component.literal("START").withStyle { it.withColor(config.pathColor).withBold(true) }, start.add(0.0, 1.0, 0.0))
         }
@@ -79,7 +105,7 @@ object RouteRenderer {
         poseStack.translate(-eye.x, -eye.y, -eye.z)
         collector.submitCustomGeometry(poseStack, WaypointRenderTypes.forMode(config.throughWalls)) { pose, consumer ->
             // Lines carry on from where the step before the first one shown ended.
-            var previousEnd: Vec3? = state.route.getOrNull(state.index - 1)?.let { before ->
+            var previousEnd: Vec3? = route.getOrNull(from - 1)?.let { before ->
                 before.locations.lastOrNull()?.let { centre(room, it) }
                     ?: before.secretAt?.let { block(room, it) }?.let { Vec3(it.x + 0.5, it.y + 0.5, it.z + 0.5) }
             }
@@ -91,7 +117,7 @@ object RouteRenderer {
             steps.forEachIndexed { i, (step, current) ->
                 val alpha = opacity * if (current) 1f else FAINT
                 fun color(rgb: Int) = ((alpha * 255f).roundToInt().coerceIn(0, 255) shl 24) or (rgb and 0xFFFFFF)
-                val stepNumber = state.index + i + 1
+                val stepNumber = from + i + 1
 
                 if (lines) {
                     val points = step.locations.map { centre(room, it) }

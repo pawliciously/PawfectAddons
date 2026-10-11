@@ -55,6 +55,10 @@ class SecretRoutesConfig {
     @Expose
     var useLevers: Boolean = true
 
+    /** Dev only: keep drawing a room's route once it's done. */
+    @Expose
+    var showFinished: Boolean = false
+
     @Expose
     var lineWidth: Float = 2f
 
