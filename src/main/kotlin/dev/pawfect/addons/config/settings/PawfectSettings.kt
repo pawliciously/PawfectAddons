@@ -408,20 +408,22 @@ object PawfectSettings {
                 group(
                     "Invincibility Timers",
                     ToggleSetting("Invincibility Timers", "Show when Bonzo's Mask, the Spirit Mask and the Phoenix pet last saved you: their few seconds of invincibility, then their cooldown. The mask you're wearing is lit up.", invincibility::enabled),
-                    DropdownSetting("Show", "Always: every mask you carry, ready or not. While Used: only while invincible or cooling down.", invincibility::showWhen, InvincibilityConfig.ShowWhen.entries.toList())
+                    DropdownSetting("Show", "Always: every one you've switched on, ready or not. While Used: only while invincible or cooling down.", invincibility::showWhen, InvincibilityConfig.ShowWhen.entries.toList())
                         .showIf { invincibility.enabled },
-                    ToggleSetting("Only In Dungeons", "Only time them, and show them, inside a dungeon.", invincibility::onlyInDungeons)
+                    ToggleSetting("Only In Dungeons", "Only time them, and show them, inside a dungeon. Leaving a dungeon always clears them.", invincibility::onlyInDungeons)
                         .showIf { invincibility.enabled },
                     ToggleSetting("Bonzo's Mask", "Time Bonzo's Mask.", invincibility::bonzo)
                         .showIf { invincibility.enabled },
                     ToggleSetting("Spirit Mask", "Time the Spirit Mask.", invincibility::spirit)
                         .showIf { invincibility.enabled },
-                    ToggleSetting("Phoenix", "Time the Phoenix pet. It shows once it has saved you, since a pet can't be seen in your inventory.", invincibility::phoenix)
+                    ToggleSetting("Phoenix", "Time the Phoenix pet.", invincibility::phoenix)
                         .showIf { invincibility.enabled },
                     ToggleSetting("Cooldown On Item", "Slide the cooldown down the mask itself in your inventory and hotbar.", invincibility::onItem)
                         .showIf { invincibility.enabled },
-                    ToggleSetting("Alert", "Flash a title when one saves you.", invincibility::alert)
+                    ToggleSetting("Alert", "Show a line of text in the middle of your screen when one saves you.", invincibility::alert)
                         .showIf { invincibility.enabled },
+                    TextSetting("Alert Text", "What the alert says. {item} is what saved you, {time} its seconds of invincibility, & starts a colour code.", invincibility::alertText)
+                        .showIf { invincibility.enabled && invincibility.alert },
                     ToggleSetting("Sound", "Play a sound when one saves you.", invincibility::sound)
                         .showIf { invincibility.enabled },
                     SoundListSetting(
@@ -432,6 +434,8 @@ object PawfectSettings {
                     ) { SoundCue.play(invincibility.soundId, 1f, 1f) }
                         .showIf { invincibility.enabled && invincibility.sound },
                     ToggleSetting("Tell Party", "Say in party chat when one saves you.", invincibility::announce)
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Background", "Draw the panel behind the timers.", invincibility::background)
                         .showIf { invincibility.enabled },
                     PositionSetting("Timers Position", "Drag the timers to reposition them.", invincibility.position) {
                         PawfectAddons.queueScreen { GuiEditManager.openEditor() }
@@ -1021,6 +1025,8 @@ object PawfectSettings {
                     ToggleSetting("Slayers", "Show it while you have a slayer quest, for that slayer. Each kill's chat gives the exact total.", rngMeter::slayers)
                         .showIf { rngMeter.enabled },
                     ToggleSetting("Runs Left", "Show about how many more runs or bosses fill it, going by your last one.", rngMeter::showLeft)
+                        .showIf { rngMeter.enabled },
+                    ToggleSetting("Background", "Draw the panel behind the meter.", rngMeter::background)
                         .showIf { rngMeter.enabled },
                     PositionSetting("Meter Position", "Drag the meter to reposition it.", rngMeter.position) {
                         PawfectAddons.queueScreen { GuiEditManager.openEditor() }

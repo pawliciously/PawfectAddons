@@ -1,6 +1,8 @@
 package dev.pawfect.addons
 
 import com.mojang.blaze3d.platform.InputConstants
+import dev.pawfect.addons.features.debug.ItemDump
+import dev.pawfect.addons.features.dev.DevAccount
 import dev.pawfect.addons.features.media.MediaBridge
 import dev.pawfect.addons.features.visual.TooltipHider
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
@@ -17,6 +19,9 @@ object PawfectKeybinds {
     private lateinit var mediaToggle: KeyMapping
     private lateinit var mediaNext: KeyMapping
     private lateinit var mediaPrevious: KeyMapping
+
+    /** Dev only, so it's only registered on the dev account. */
+    private var dumpGui: KeyMapping? = null
 
     fun register() {
         val category = KeyMapping.Category.register(
@@ -59,7 +64,19 @@ object PawfectKeybinds {
             ),
         )
 
+        if (DevAccount.isDev()) {
+            dumpGui = KeyMappingHelper.registerKeyMapping(
+                KeyMapping(
+                    "key.pawfectaddons.dumpGui",
+                    InputConstants.Type.KEYSYM,
+                    InputConstants.KEY_F8,
+                    category,
+                ),
+            )
+        }
+
         ClientTickEvents.END_CLIENT_TICK.register {
+            dumpGui?.let { while (it.consumeClick()) ItemDump.gui() }
             while (toggleTooltips.consumeClick()) TooltipHider.toggle()
             while (mediaToggle.consumeClick()) MediaBridge.togglePlayback()
             while (mediaNext.consumeClick()) MediaBridge.next()
@@ -70,6 +87,7 @@ object PawfectKeybinds {
             ScreenKeyboardEvents.afterKeyPress(screen).register { current, keyEvent ->
                 if (current.focused is EditBox) return@register
                 if (toggleTooltips.matches(keyEvent)) TooltipHider.toggle()
+                if (dumpGui?.matches(keyEvent) == true) ItemDump.gui()
             }
         }
     }

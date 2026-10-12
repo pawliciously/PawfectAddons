@@ -53,8 +53,12 @@ object RngMeterOverlay {
     }
 
     private fun draw(graphics: GuiGraphicsExtractor, meter: String, entry: RngMeterEntry?) {
-        graphics.dropShadow(0f, 0f, WIDTH, HEIGHT, RADIUS, 10f, Theme.withAlpha(0x000000, 140), 2f)
-        graphics.roundPanel(0f, 0f, WIDTH, HEIGHT, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
+        if (config.background) {
+            graphics.dropShadow(0f, 0f, WIDTH, HEIGHT, RADIUS, 10f, Theme.withAlpha(0x000000, 140), 2f)
+            graphics.roundPanel(0f, 0f, WIDTH, HEIGHT, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
+        }
+        // Without the panel behind it, a shadow keeps the text readable.
+        val shadow = !config.background
 
         val item = entry?.item
         graphics.item(item?.let { NeuRepo.itemStack(it) } ?: ItemStack(Items.PAINTING), PAD.toInt(), PAD.toInt())
@@ -64,10 +68,10 @@ object RngMeterOverlay {
         val goal = entry?.goal?.takeIf { it > 0 && item != null }
         val fraction = if (entry != null && goal != null) (entry.stored.toDouble() / goal).coerceIn(0.0, 1.0) else null
 
-        graphics.string(label(meter), textX, PAD, Theme.opaque(Theme.text), bold = true)
+        graphics.string(label(meter), textX, PAD, Theme.opaque(Theme.text), shadow, bold = true)
         if (fraction != null) {
             val percent = if (fraction >= 1.0) "FULL" else "%.1f%%".format(fraction * 100)
-            graphics.stringRight(percent, right, PAD, Theme.opaque(if (fraction >= 1.0) FULL else Theme.accent))
+            graphics.stringRight(percent, right, PAD, Theme.opaque(if (fraction >= 1.0) FULL else Theme.accent), shadow)
         }
 
         val second = when {
@@ -75,7 +79,7 @@ object RngMeterOverlay {
             item == null -> "No drop selected" to Theme.opaque(Theme.textDim)
             else -> NeuRepo.displayName(item).let { it.removeColor().trim() to Theme.opaque(rarity(it)) }
         }
-        graphics.string(Draw.truncate(second.first, right - textX), textX, PAD + 10f, second.second)
+        graphics.string(Draw.truncate(second.first, right - textX), textX, PAD + 10f, second.second, shadow)
 
         val barY = PAD + ICON + 5f
         val barWidth = right - PAD
@@ -88,12 +92,12 @@ object RngMeterOverlay {
         val bottomY = barY + BAR + 4f
         val dim = Theme.opaque(Theme.textDim)
         if (entry == null) {
-            graphics.string("to start tracking it", PAD, bottomY, dim)
+            graphics.string("to start tracking it", PAD, bottomY, dim, shadow)
             return
         }
         val stored = (if (entry.exact) "" else "~") + "%,d".format(entry.stored)
-        graphics.string(if (goal != null) "$stored / ${"%,d".format(goal)}" else "$stored stored", PAD, bottomY, dim)
-        left(meter, entry, goal)?.let { graphics.stringRight(it, right, bottomY, dim) }
+        graphics.string(if (goal != null) "$stored / ${"%,d".format(goal)}" else "$stored stored", PAD, bottomY, dim, shadow)
+        left(meter, entry, goal)?.let { graphics.stringRight(it, right, bottomY, dim, shadow) }
     }
 
     /** About how many more runs or bosses fill the meter, going by the last one. */

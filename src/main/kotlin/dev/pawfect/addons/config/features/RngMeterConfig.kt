@@ -19,5 +19,8 @@ class RngMeterConfig {
     var showLeft: Boolean = true
 
     @Expose
+    var background: Boolean = true
+
+    @Expose
     val position: Position = HudDefaults.position(HudDefaults.RNG_METER)
 }

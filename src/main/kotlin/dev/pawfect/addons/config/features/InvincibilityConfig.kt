@@ -37,6 +37,13 @@ class InvincibilityConfig {
     @Expose
     var alert: Boolean = true
 
+    /** The alert's small line under the title; the big line stays empty. */
+    @Expose
+    var alertText: String = "&6{item} &fsaved you! &e{time}s &finvincible"
+
+    @Expose
+    var background: Boolean = true
+
     @Expose
     var sound: Boolean = true
 

@@ -4,5 +4,6 @@
   "key.pawfectaddons.toggleTooltips": "Toggle Item Tooltips",
   "key.pawfectaddons.mediaToggle": "Media: Play / Pause",
   "key.pawfectaddons.mediaNext": "Media: Next Track",
-  "key.pawfectaddons.mediaPrevious": "Media: Previous Track"
+  "key.pawfectaddons.mediaPrevious": "Media: Previous Track",
+  "key.pawfectaddons.dumpGui": "Dev: Dump Open Menu"
 }

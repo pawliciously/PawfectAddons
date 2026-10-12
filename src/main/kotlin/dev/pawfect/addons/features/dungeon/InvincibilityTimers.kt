@@ -31,7 +31,7 @@ import java.util.EnumMap
  * Timers for the things that save you from dying: Bonzo's Mask, the Spirit Mask and the Phoenix
  * pet. Each one's chat line starts a few seconds of invincibility and then its cooldown, read off
  * the mask's own "Cooldown:" line so starred masks are right. Shown as a HUD and, on the masks,
- * as a cooldown sliding down the item like vanilla's.
+ * as a cooldown sliding down the item like vanilla's. Leaving the dungeon clears them all.
  */
 object InvincibilityTimers {
 
@@ -45,7 +45,7 @@ object InvincibilityTimers {
     ) {
         BONZO("Bonzo's Mask", Regex("^Your (?:. )?Bonzo's Mask saved your life!$"), 3_000, 180_000, setOf("BONZO_MASK", "STARRED_BONZO_MASK"), "BONZO_MASK"),
         SPIRIT("Spirit Mask", Regex("^Second Wind Activated! Your Spirit Mask saved your life!$"), 3_000, 30_000, setOf("SPIRIT_MASK", "STARRED_SPIRIT_MASK"), "SPIRIT_MASK"),
-        PHOENIX("Phoenix", Regex("^Your Phoenix Pet saved you from certain death!$"), 4_000, 60_000, emptySet(), "PHOENIX;4"),
+        PHOENIX("Phoenix", Regex("^Your Phoenix Pet saved you from certain death!$"), 4_000, 60_000, emptySet(), "PHOENIX"),
     }
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.invincibility)
@@ -55,10 +55,13 @@ object InvincibilityTimers {
     private val procAt = EnumMap<Kind, Long>(Kind::class.java)
     private val cooldown = EnumMap<Kind, Long>(Kind::class.java)
 
-    /** Masks you carry, and the one you're wearing, checked every so often rather than every frame. */
-    private var owned: Set<Kind> = emptySet()
+    /** The mask you're wearing, checked every so often rather than every frame. */
     private var equipped: Kind? = null
     private var ticks = 0
+    private var wasInDungeon = false
+
+    /** Each kind's icon. The NEU repo only has the Phoenix by rarity ("PHOENIX;8"), so it's looked up. */
+    private val icons = EnumMap<Kind, ItemStack>(Kind::class.java)
 
     fun register() {
         ClientTickEvents.END_CLIENT_TICK.register { runCatching { tick() } }
@@ -67,13 +70,23 @@ object InvincibilityTimers {
     private fun tick() {
         if (!config.enabled || ++ticks < SCAN_INTERVAL) return
         ticks = 0
+        val inDungeon = SkyBlockData.inDungeons
+        if (wasInDungeon && !inDungeon) {
+            procAt.clear()
+            cooldown.clear()
+        }
+        wasInDungeon = inDungeon
         val player = McCompat.player ?: return
-        val found = HashSet<Kind>()
-        val inventory = player.inventory
-        for (slot in 0 until inventory.containerSize) kindOf(inventory.getItem(slot))?.let { found += it }
         equipped = kindOf(player.getItemBySlot(EquipmentSlot.HEAD))
-        equipped?.let { found += it }
-        owned = found
+    }
+
+    private fun icon(kind: Kind): ItemStack {
+        icons[kind]?.let { return it }
+        val id = if (kind == Kind.PHOENIX) NeuRepo.allItemIds().filter { it.startsWith("PHOENIX;") }.maxOrNull() else kind.icon
+        val stack = id?.let { NeuRepo.itemStack(it) }?.takeIf { !it.isEmpty } ?: ItemStack(Items.PLAYER_HEAD)
+        // Only kept once the repo is in, so an early frame doesn't stick with a plain head.
+        if (NeuRepo.isLoaded) icons[kind] = stack
+        return stack
     }
 
     private fun kindOf(stack: ItemStack): Kind? {
@@ -93,8 +106,10 @@ object InvincibilityTimers {
         if (config.alert) {
             val gui = McCompat.mc.gui.hud
             gui.setTimes(2, 30, 6)
-            gui.setSubtitle(Component.literal("§fInvincible for ${kind.invincibleMs / 1000}s"))
-            gui.setTitle(Component.literal("§6§l${kind.label.uppercase()}"))
+            val text = config.alertText.replace("{item}", kind.label).replace("{time}", (kind.invincibleMs / 1000).toString())
+            gui.setSubtitle(Component.literal(text.replace('&', '§')))
+            // The big line stays empty; a subtitle only shows under a title.
+            gui.setTitle(Component.empty())
         }
         if (config.sound) SoundCue.play(config.soundId, 1f, 1f)
         if (config.announce) McCompat.mc.connection?.sendCommand("pc ${kind.label} procced!")
@@ -173,9 +188,7 @@ object InvincibilityTimers {
         val invincible = invincibleLeft(kind, now)
         val left = cooldownLeft(kind, now)
         val used = left > 0
-        // The Phoenix can't be seen in your inventory, so it shows once it has saved you.
-        val known = kind in owned || used || (kind == Kind.PHOENIX && procAt.containsKey(kind))
-        if (!known || (config.showWhen == ShowWhen.COOLING && !used)) return@mapNotNull null
+        if (config.showWhen == ShowWhen.COOLING && !used) return@mapNotNull null
         when {
             invincible > 0 -> Row(kind, "Invincible %.1fs".format(invincible / 1000f), INVINCIBLE)
             used -> Row(kind, clock(left), COOLING)
@@ -195,16 +208,20 @@ object InvincibilityTimers {
     }
 
     private fun draw(graphics: GuiGraphicsExtractor, rows: List<Row>, height: Float) {
-        graphics.dropShadow(0f, 0f, WIDTH, height, RADIUS, 10f, Theme.withAlpha(0x000000, 140), 2f)
-        graphics.roundPanel(0f, 0f, WIDTH, height, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
+        if (config.background) {
+            graphics.dropShadow(0f, 0f, WIDTH, height, RADIUS, 10f, Theme.withAlpha(0x000000, 140), 2f)
+            graphics.roundPanel(0f, 0f, WIDTH, height, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
+        }
         rows.forEachIndexed { i, row ->
             val top = PAD + i * ROW
-            graphics.item(NeuRepo.itemStack(row.kind.icon), PAD.toInt(), top.toInt())
+            graphics.item(icon(row.kind), PAD.toInt(), top.toInt())
             val textY = top + (ICON - Draw.LINE_HEIGHT) / 2f
             // The mask you're wearing is the one that'll go off next.
             val nameColor = if (row.kind == equipped) Theme.accent else Theme.text
-            graphics.string(row.kind.label, PAD + ICON + 5f, textY, Theme.opaque(nameColor))
-            graphics.stringRight(row.status, WIDTH - PAD, textY, Theme.opaque(row.color))
+            // Without the panel behind it, a shadow keeps the text readable.
+            val shadow = !config.background
+            graphics.string(row.kind.label, PAD + ICON + 5f, textY, Theme.opaque(nameColor), shadow)
+            graphics.stringRight(row.status, WIDTH - PAD, textY, Theme.opaque(row.color), shadow)
         }
     }
 

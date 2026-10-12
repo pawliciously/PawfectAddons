@@ -24,6 +24,7 @@ import dev.pawfect.addons.features.dungeon.DungeonWaypoints
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.features.FeatureRegistry
 import dev.pawfect.addons.features.recipetracker.RecipeTracker
+import dev.pawfect.addons.features.debug.ItemDump
 import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.chat.LevelPrestige
@@ -253,7 +254,7 @@ object PawfectCommands {
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
             .executes {
-                ChatUtils.chat("/pa dev blocks | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
+                ChatUtils.chat("/pa dev item | blocks | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
                 SUCCESS
             }
             .then(
@@ -265,6 +266,12 @@ object PawfectCommands {
                     }
                     if (result.counts.size > BLOCK_PREVIEW) ChatUtils.chat("  §7and ${result.counts.size - BLOCK_PREVIEW} more")
                     ChatUtils.chat("§7Full list saved to §f${result.file}")
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("item").executes {
+                    ItemDump.held()
                     SUCCESS
                 },
             )
