@@ -58,9 +58,13 @@ class DropItemRenderer : PictureInPictureRenderer<DropItemState>() {
         pose.mulPose(Axis.XP.rotation(state.tilt))
         pose.mulPose(Axis.YP.rotation(state.spin))
         pose.scale(state.zoom, state.zoom, state.zoom)
-        McCompat.mc.gameRenderer.lighting().setupFor(Lighting.Entry.ITEMS_3D)
+        val lighting = if (state.item.usesBlockLight()) Lighting.Entry.ITEMS_3D else Lighting.Entry.ITEMS_FLAT
+        McCompat.mc.gameRenderer.lighting().setupFor(lighting)
         state.item.submit(pose, collector, FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0)
     }
+
+    /** Centred in its box; the base renderer stands things on the box's bottom edge. */
+    override fun getTranslateY(height: Int, guiScale: Int): Float = height / 2f
 
     override fun getTextureLabel(): String = "pawfectaddons drop item"
 

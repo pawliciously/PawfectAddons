@@ -111,10 +111,6 @@ object DropCelebrationOverlay {
         vignette(fr, 0x000000, 0.6f * p)
         // Each heartbeat flushes the edges and sends a ring out.
         if (kick > 0f) vignette(fr, fr.color, 0.45f * kick)
-        for (beat in fr.f.heartbeats) {
-            val q = (t - beat) / 500f
-            if (q in 0f..1f) ring(g, fr.cx, fr.cy, 10f + q.pow(0.6f) * fr.reach * 0.8f, 1f + 3f * (1f - q), argb(fr.color, (1f - q) * 0.7f))
-        }
         // Light dragged in toward the point it's about to burst from, faster as it builds.
         for (i in 0 until 40) {
             val angle = WorldFx.hash(fr.seed, i, 0) * WorldFx.TAU
@@ -122,6 +118,12 @@ object DropCelebrationOverlay {
             val from = fr.reach * (1f - phase)
             val length = 24f + 70f * WorldFx.hash(fr.seed, i, 3) * (0.4f + p)
             ray(g, fr.cx, fr.cy, angle, from, length, 1.2f + p, argb(fr.glow, 0.9f * p), argb(fr.color, 0f))
+        }
+        // The GUI batches each layer by kind, so glows go on a layer of their own to land on top.
+        g.nextStratum()
+        for (beat in fr.f.heartbeats) {
+            val q = (t - beat) / 500f
+            if (q in 0f..1f) ring(g, fr.cx, fr.cy, 10f + q.pow(0.6f) * fr.reach * 0.8f, 1f + 3f * (1f - q), argb(fr.color, (1f - q) * 0.7f))
         }
         val closing = 8f + fr.reach * 0.6f * (1f - p * p)
         ring(g, fr.cx, fr.cy, closing, 1.5f + 3f * p, argb(fr.color, p))
@@ -152,7 +154,9 @@ object DropCelebrationOverlay {
             val width = (10f + WorldFx.hash(seed, i, 6) * 16f) * fr.size
             ray(g, fr.cx, fr.cy, angle, 0f, length, width, argb(ink, 1f), argb(ink, 1f))
         }
+        g.nextStratum()
         Shapes.circle(g, fr.cx, fr.cy, 38f * fr.size, argb(ink, 1f))
+        g.nextStratum()
         // Caught at a hard angle, different each frame.
         val spin = (WorldFx.hash(seed, 0, 7) - 0.5f) * 2.2f
         val tilt = (WorldFx.hash(seed, 0, 8) - 0.5f) * 0.9f
@@ -180,6 +184,8 @@ object DropCelebrationOverlay {
         if (f.lightning && r < 320f && (r / 40f).toInt() % 2 == 0) lightning(fr, fr.seed + (r / 40f).toInt(), argb(fr.glow, 0.8f * (1f - r / 320f)), 1.6f)
 
         rays(fr, r, appear * out, out)
+        // Each kind of thing on its own layer, as the GUI batches a layer by kind and loses the order.
+        g.nextStratum()
         val breathe = 1f + 0.06f * sin(r / 1000f * 3.2f)
         soft(g, fr.cx, fr.cy, 50f * fr.size * breathe * out, argb(fr.color, 0.55f * appear * out))
         soft(g, fr.cx, fr.cy, 22f * fr.size * out, argb(0xFFFFFF, 0.5f * appear * out))
@@ -196,10 +202,12 @@ object DropCelebrationOverlay {
             if (q in 0f..1f) ring(g, fr.cx, fr.cy, 14f + q.pow(0.5f) * fr.reach, 1f + 6f * (1f - q), argb(fr.glow, (1f - q).pow(1.5f)))
         }
 
+        g.nextStratum()
         fireworks(fr, r, out)
         sparks(fr, r, out)
         for (wave in 0 until f.waves) confetti(fr, r - wave * 1500f, out, fr.seed + wave * 1009)
         orbit(fr, r, appear * out)
+        g.nextStratum()
 
         // Spins in fast and settles, then turns slowly on show; spins away and shrinks at the end.
         val pop = elasticOut(min(1f, r / 800f))
@@ -210,6 +218,7 @@ object DropCelebrationOverlay {
         val roll = sin(r / 1000f * 1.7f) * 0.06f
         val bob = sin(r / 1000f * 2.3f) * 3f * appear
         item(fr, 0f, bob, zoom, spin, tilt, roll)
+        g.nextStratum()
         if (o > 0.75f) {
             val k = (o - 0.75f) / 0.25f
             soft(g, fr.cx, fr.cy, 6f + 30f * k, argb(0xFFFFFF, (1f - k) * 0.9f))
