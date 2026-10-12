@@ -16,6 +16,8 @@ import dev.pawfect.addons.utils.StringUtil.removeColor
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.network.chat.Component
+import net.minecraft.world.item.ItemStack
+import org.slf4j.LoggerFactory
 
 /**
  * Keeps track of your Catacombs and Slayer RNG Meters.
@@ -31,6 +33,8 @@ import net.minecraft.network.chat.Component
 object RngMeter {
 
     private val config get() = ModuleSwitch.view("rngmeter", ConfigManager.features.rngMeter)
+
+    private val logger = LoggerFactory.getLogger("PawfectAddons/RngMeter")
 
     /** Slayer chat names the boss by its mob; the meters go by the boss. */
     private val SLAYER_BY_MOB = mapOf(
@@ -209,25 +213,47 @@ object RngMeter {
             return
         }
         var stored: Long? = null
-        var selected: Pair<String?, Long>? = null
+        var selected: Pair<String, Long>? = null
+        var noDrop = false
         for (stack in stacks) {
             val lore = stack.loreLines().map { it.removeColor() }
+            if (lore.any { it.contains("don't have an RNG drop", ignoreCase = true) }) noDrop = true
             val progress = lore.firstNotNullOfOrNull { progressRegex.find(it) } ?: continue
             val current = amount(progress.groupValues[1]) ?: continue
             // Cheaper drops can show a capped amount, so the biggest is the meter.
             stored = maxOf(stored ?: 0L, current)
             if (lore.any { it.contains("SELECTED") }) {
-                val id = stack.skyblockId() ?: dropId(meter, stack.plainName())
+                val id = stack.skyblockId()?.takeIf { it in NeuRepo.rngDrops(meter) } ?: dropId(meter, stack.plainName()) ?: continue
                 selected = id to (amount(progress.groupValues[2]) ?: 0L)
             }
         }
         val total = stored ?: return
+        if (selected == null && !noDrop) logMenuOnce(name, stacks)
         update(meter) { entry ->
             entry.stored = total
             entry.exact = true
-            entry.item = selected?.first
-            entry.goal = selected?.second?.takeIf { it > 0 } ?: selected?.first?.let { NeuRepo.rngDrops(meter)[it] }
+            // Not finding the selected drop isn't proof there's none: only the menu saying so,
+            // or the reset message, clears it.
+            val pick = selected
+            if (pick != null) {
+                entry.item = pick.first
+                entry.goal = pick.second.takeIf { it > 0 } ?: NeuRepo.rngDrops(meter)[pick.first]
+            } else if (noDrop) {
+                entry.item = null
+                entry.goal = null
+            }
         }
+    }
+
+    /** Menus already written to the log this session. */
+    private val logged = HashSet<String>()
+
+    /** Writes a menu whose selected drop couldn't be found to the log once, to see how it shows it. */
+    private fun logMenuOnce(name: String, stacks: List<ItemStack>) {
+        if (!logged.add(name)) return
+        val dump = stacks.filter { stack -> stack.loreLines().any { progressRegex.containsMatchIn(it.removeColor()) } }.take(6)
+            .joinToString("\n") { stack -> "  ${stack.hoverName.string} [${stack.skyblockId()}]: " + stack.loreLines().joinToString(" | ") }
+        logger.info("RNG Meter menu '{}' had no selected drop I could find:\n{}", name, dump)
     }
 
     private fun readFloorItem(meter: String, raw: List<String>) {
