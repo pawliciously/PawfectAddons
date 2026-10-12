@@ -12,6 +12,7 @@ import dev.pawfect.addons.features.drops.DropDraw.line
 import dev.pawfect.addons.features.drops.DropDraw.ray
 import dev.pawfect.addons.features.drops.DropDraw.ring
 import dev.pawfect.addons.features.drops.DropDraw.soft
+import dev.pawfect.addons.ui.Draw.gradientHorizontal
 import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Theme
 import net.minecraft.core.component.DataComponents
@@ -45,8 +46,19 @@ enum class Signature(val id: String, val ownMusic: Boolean) {
     NECRON("necron", false),
 }
 
-/** Where the item sits and how it's turned, off the centre of the screen. */
-class ItemPose(val x: Float, val y: Float, val zoom: Float, val spin: Float, val tilt: Float, val roll: Float)
+/**
+ * Where the item sits and how it's turned, off the centre of the screen. Anything of it lower than
+ * [clipBelow] (also off the centre) is hidden, as if it's gone into the screen there.
+ */
+class ItemPose(
+    val x: Float,
+    val y: Float,
+    val zoom: Float,
+    val spin: Float,
+    val tilt: Float,
+    val roll: Float,
+    val clipBelow: Float = Float.NaN,
+)
 
 object DropSignatures {
 
@@ -112,12 +124,12 @@ object DropSignatures {
         val q = (t - from) / (fr.f.windup - from)
         if (q < 0f) return null
         val top = -(fr.cy + fr.unit * 3f)
-        val y = top + (plantedY(fr) - top) * easeInCubic(q)
-        return ItemPose(0f, y, GIANT_ZOOM, 0f, 0f, SWORD_DOWN)
+        val y = top + (plantedY(fr, GIANT_ZOOM) - top) * easeInCubic(q)
+        return ItemPose(0f, y, GIANT_ZOOM, 0f, 0f, SWORD_DOWN, entryY(fr))
     }
 
     fun impactPose(fr: DropFrame, index: Int): ItemPose? = when (fr.show.signature) {
-        Signature.GIANT -> ItemPose(0f, plantedY(fr), GIANT_ZOOM * 1.08f, 0f, 0f, SWORD_DOWN + if (index % 2 == 0) -0.04f else 0.04f)
+        Signature.GIANT -> ItemPose(0f, plantedY(fr, GIANT_ZOOM), GIANT_ZOOM, 0f, 0f, SWORD_DOWN + if (index % 2 == 0) -0.04f else 0.04f, entryY(fr))
         else -> null
     }
 
@@ -133,19 +145,29 @@ object DropSignatures {
         }
     }
 
+    /** How much lower the rarity text sits, to clear the signature. */
+    fun labelDrop(fr: DropFrame): Float = if (fr.show.signature == Signature.GIANT) fr.unit * 0.45f else 0f
+
     /** Drawn over the item, under the text. */
     fun front(fr: DropFrame, r: Float, out: Float) {
-        if (fr.show.signature == Signature.RECOMB) dial(fr, r, out)
+        when (fr.show.signature) {
+            Signature.RECOMB -> dial(fr, r, out)
+            Signature.GIANT -> slit(fr, r, out)
+            else -> Unit
+        }
     }
 
     /** The item through the reveal, moved its own way. [outro] runs 0 to 1 as it goes. */
     fun pose(fr: DropFrame, r: Float, outro: Float, base: ItemPose): ItemPose = when (fr.show.signature) {
         Signature.GIANT -> {
-            // Stuck in the ground point first, juddering from the hit.
+            // Stuck a third of the way into the screen, juddering from the hit, and otherwise dead
+            // still: no bob or tilt, so it reads as stuck fast.
             val judder = sin(r * 0.09f) * 0.14f * exp(-r / 450f)
-            val settle = GIANT_ZOOM - 0.2f * easeOutCubic(min(1f, r / 600f))
-            // Held dead still otherwise: no bob or tilt, so it reads as stuck fast.
-            ItemPose(0f, plantedY(fr), settle * (1f - outro * outro), 0f, 0f, SWORD_DOWN + judder)
+            // Before the end it grinds down through the slit and is gone.
+            val sink = easeInCubic((r - sinkStart(fr.show)) / SINK_MS)
+            val shudder = sin(r * 0.25f) * 1.5f * sink * (1f - sink)
+            val down = sink * (2f * SWORD_TIP * GIANT_ZOOM + 0.3f) * fr.unit
+            ItemPose(shudder, plantedY(fr, GIANT_ZOOM) + down, GIANT_ZOOM, 0f, 0f, SWORD_DOWN + judder, entryY(fr))
         }
         else -> base
     }
@@ -166,6 +188,10 @@ object DropSignatures {
                 list += Cue(hit, "minecraft:block.anvil.land", 1f, 0.5f)
                 list += Cue(hit, "minecraft:block.deepslate.break", 1f, 0.6f)
                 list += Cue(hit + 30f, "minecraft:block.glass.break", 0.9f, 0.6f)
+                val sink = reveal + sinkStart(show)
+                list += Cue(sink, "minecraft:block.grindstone.use", 0.9f, 0.6f)
+                list += Cue(sink + SINK_MS * 0.5f, "minecraft:block.grindstone.use", 0.7f, 0.5f)
+                list += Cue(sink + SINK_MS, "minecraft:block.deepslate.break", 0.8f, 0.5f)
             }
             Signature.RECOMB -> {
                 for (k in RARITIES.indices) {
@@ -253,10 +279,39 @@ object DropSignatures {
 
     // ------------------------------------------------------------------ giant's sword
 
-    private fun plantedY(fr: DropFrame): Float = fr.unit * 0.1f
+    /** The line it goes into the screen at, below the centre. */
+    private fun entryY(fr: DropFrame): Float = SWORD_ENTRY * fr.unit
+
+    /** Where the sword's centre sits with its point [SWORD_BURY] blocks into the screen. */
+    private fun plantedY(fr: DropFrame, zoom: Float): Float = (SWORD_ENTRY - (SWORD_TIP * zoom - SWORD_BURY)) * fr.unit
+
+    /** When it starts sinking out of sight, counted from the reveal. */
+    private fun sinkStart(show: DropCelebration.Show): Float = show.outroAt - show.revealAt - SINK_MS
 
     /** Where the point went in. */
-    private fun tip(fr: DropFrame): Pair<Float, Float> = fr.cx to fr.cy + plantedY(fr) + fr.unit * 0.95f
+    private fun tip(fr: DropFrame): Pair<Float, Float> = fr.cx to fr.cy + entryY(fr)
+
+    /** The slit it's stuck in, with sparks thrown up as it grinds down through. */
+    private fun slit(fr: DropFrame, r: Float, out: Float) {
+        val g = fr.g
+        val (tx, ty) = tip(fr)
+        val half = fr.unit * 0.42f
+        g.gradientHorizontal(tx - half, ty - 1.2f, half, 2.4f, argb(0x000000, 0f), argb(0x000000, 0.85f * out))
+        g.gradientHorizontal(tx, ty - 1.2f, half, 2.4f, argb(0x000000, 0.85f * out), argb(0x000000, 0f))
+        g.gradientHorizontal(tx - half, ty + 1.2f, half, 0.8f, argb(0xFFFFFF, 0f), argb(0xFFFFFF, 0.6f * out))
+        g.gradientHorizontal(tx, ty + 1.2f, half, 0.8f, argb(0xFFFFFF, 0.6f * out), argb(0xFFFFFF, 0f))
+        val sink = ((r - sinkStart(fr.show)) / SINK_MS).coerceIn(0f, 1f)
+        if (sink <= 0f || sink >= 1f) return
+        for (i in 0 until 14) {
+            val phase = ((r / 260f) + WorldFx.hash(fr.seed, i, 110)) % 1f
+            val side = if (i % 2 == 0) 1f else -1f
+            val x = tx + side * (fr.unit * 0.08f + phase * 26f * fr.size)
+            val y = ty - phase * 16f * fr.size + phase * phase * 34f * fr.size
+            val a = (1f - phase) * out
+            soft(g, x, y, 2.6f * fr.size, argb(0xFFB347, a * 0.7f))
+            blob(g, x, y, 0.8f * fr.size, argb(0xFFFFFF, a))
+        }
+    }
 
     private fun fallStreaks(fr: DropFrame, t: Float) {
         val from = fr.f.windup * GIANT_FALL_FROM
@@ -439,7 +494,17 @@ object DropSignatures {
     private const val SPLATS = 7
     private const val SPLAT_GAP = 70f
     private const val GIANT_FALL_FROM = 0.35f
-    private const val GIANT_ZOOM = 2.2f
+    private const val GIANT_ZOOM = 2.1f
+
+    /** How far below the centre, in blocks, the sword goes into the screen. */
+    private const val SWORD_ENTRY = 0.9f
+
+    /** From the sword's centre to its point, in blocks per unit of zoom: half its diagonal sprite. */
+    private const val SWORD_TIP = 0.66f
+
+    /** How deep, in blocks, the point's in once it's landed. */
+    private const val SWORD_BURY = 0.35f
+    private const val SINK_MS = 1500f
 
     /**
      * Turns the sword's sprite to point straight down. The model space is flipped from the

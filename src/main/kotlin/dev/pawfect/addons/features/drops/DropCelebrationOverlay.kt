@@ -225,7 +225,7 @@ object DropCelebrationOverlay {
             val k = (o - 0.75f) / 0.25f
             soft(g, fr.cx, fr.cy, 6f + 30f * k, argb(0xFFFFFF, (1f - k) * 0.9f))
         }
-        val labelY = fr.cy + fr.unit * 0.62f + 14f
+        val labelY = fr.cy + fr.unit * 0.62f + 14f + DropSignatures.labelDrop(fr)
         label(fr, r, out, labelY)
         name(fr, r, out, labelY + 9f * f.letterScale + 10f)
     }
@@ -476,6 +476,7 @@ object DropCelebrationOverlay {
         DropItemRenderer.draw(
             fr.g, fr.show.stack, fr.cx + pose.x, fr.cy + pose.y, fr.unit, room,
             fr.shakeX, fr.shakeY, pose.zoom, pose.spin, pose.tilt, pose.roll,
+            if (pose.clipBelow.isNaN()) Float.NaN else fr.cy + pose.clipBelow + fr.shakeY,
         )
     }
 

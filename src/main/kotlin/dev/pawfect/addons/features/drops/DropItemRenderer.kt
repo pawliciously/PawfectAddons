@@ -35,14 +35,16 @@ class DropItemState(
     val spin: Float,
     val tilt: Float,
     val roll: Float,
+    /** Only what's inside this shows, for a blade sunk into the screen. */
+    private val scissor: ScreenRectangle?,
 ) : PictureInPictureRenderState {
     override fun x0(): Int = left
     override fun y0(): Int = top
     override fun x1(): Int = right
     override fun y1(): Int = bottom
     override fun scale(): Float = unit
-    override fun scissorArea(): ScreenRectangle? = null
-    override fun bounds(): ScreenRectangle? = PictureInPictureRenderState.getBounds(left, top, right, bottom, null)
+    override fun scissorArea(): ScreenRectangle? = scissor
+    override fun bounds(): ScreenRectangle? = PictureInPictureRenderState.getBounds(left, top, right, bottom, scissor)
 }
 
 class DropItemRenderer : PictureInPictureRenderer<DropItemState>() {
@@ -73,11 +75,13 @@ class DropItemRenderer : PictureInPictureRenderer<DropItemState>() {
 
         /**
          * Draws [stack] centred on ([cx], [cy]) with one block of it [unit] GUI units across, in a box
-         * with room for it to move [reach] blocks off centre and still be in frame.
+         * with room for it to move [reach] blocks off centre and still be in frame. Anything below
+         * [clipBelow], a screen y, is hidden.
          */
         fun draw(
             graphics: GuiGraphicsExtractor, stack: ItemStack, cx: Float, cy: Float, unit: Float, reach: Float,
             offsetX: Float, offsetY: Float, zoom: Float, spin: Float, tilt: Float, roll: Float,
+            clipBelow: Float = Float.NaN,
         ) {
             if (zoom <= 0.01f || unit <= 0f) return
             val client = McCompat.mc
@@ -86,9 +90,15 @@ class DropItemRenderer : PictureInPictureRenderer<DropItemState>() {
             val half = ceil(unit * reach).toInt()
             val x = Math.round(cx)
             val y = Math.round(cy)
+            val scissor = if (clipBelow.isNaN()) {
+                null
+            } else {
+                val window = client.window
+                ScreenRectangle(0, 0, window.guiScaledWidth, Math.round(clipBelow).coerceIn(0, window.guiScaledHeight))
+            }
             val state = DropItemState(
                 item, x - half, y - half, x + half, y + half, unit,
-                offsetX + (cx - x), offsetY + (cy - y), zoom, spin, tilt, roll,
+                offsetX + (cx - x), offsetY + (cy - y), zoom, spin, tilt, roll, scissor,
             )
             (graphics as GuiGraphicsAccessor).`pawfectaddons$guiRenderState`().addPicturesInPictureState(state)
         }
