@@ -451,17 +451,17 @@ object PawfectSettings {
                 "0.48.0",
                 group(
                     "Ambient Motes",
-                    ToggleSetting("Ambient Motes", "Little lights that lift off the blocks around you and drift about however they like: wandering, circling, darting like fireflies or rising away. Only spawned where you're looking and can see.", ambient::enabled),
+                    ToggleSetting("Ambient Motes", "Little lights that lift off the blocks around you and drift about however they like. Only spawned where you're looking.", ambient::enabled),
                     IntSliderSetting("Distance", "How far out they spawn. Capped by your render distance, since unloaded chunks have no blocks to rise from.", ambient::distance, 8, 1024, 8, " blocks")
                         .showIf { ambient.enabled },
                     IntSliderSetting("Amount", "How many are around at once.", ambient::count, 20, 800, 10)
                         .showIf { ambient.enabled },
-                    DropdownSetting("Colours", "Their colours: your theme, a celestial set's, or your own.", ambient::palette, AmbientMotesConfig.Palette.entries.toList())
+                    DropdownSetting("Colours", "Each set moves and looks its own way. Ember: rising embers that cool as they go. Seraph: gold light falling like feathers. Abyss: void motes spiralling down and blinking about. Astral: twinkling stars and the odd shooting star. Sylph: fairy fireflies. Prism: shards that glide and flash as they turn. Theme and Custom do a bit of everything.", ambient::palette, AmbientMotesConfig.Palette.entries.toList())
                         .showIf { ambient.enabled },
                     ColorSetting("Custom Colour", "Their colour with Custom picked.", ambient::customColor, supportsAlpha = false)
                         .showIf { ambient.enabled && ambient.palette == AmbientMotesConfig.Palette.CUSTOM },
-                    DropdownSetting("Look", "Soft glows, four pointed sparks, or some of each.", ambient::look, AmbientMotesConfig.Look.entries.toList())
-                        .showIf { ambient.enabled },
+                    DropdownSetting("Look", "For Theme and Custom: soft glows, four pointed sparks, or some of each.", ambient::look, AmbientMotesConfig.Look.entries.toList())
+                        .showIf { ambient.enabled && ambient.palette in listOf(AmbientMotesConfig.Palette.THEME, AmbientMotesConfig.Palette.CUSTOM) },
                     FloatSliderSetting("Size", "How big they are.", ambient::size, 0.3f, 3f, 0.05f)
                         .showIf { ambient.enabled },
                     FloatSliderSetting("Brightness", "How bright they glow.", ambient::brightness, 0.2f, 2f, 0.05f)
