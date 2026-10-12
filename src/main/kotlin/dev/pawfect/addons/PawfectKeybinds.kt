@@ -4,7 +4,6 @@ import com.mojang.blaze3d.platform.InputConstants
 import dev.pawfect.addons.features.debug.ItemDump
 import dev.pawfect.addons.features.dev.DevAccount
 import dev.pawfect.addons.features.media.MediaBridge
-import dev.pawfect.addons.features.visual.HandInspect
 import dev.pawfect.addons.features.visual.TooltipHider
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
@@ -20,7 +19,6 @@ object PawfectKeybinds {
     private lateinit var mediaToggle: KeyMapping
     private lateinit var mediaNext: KeyMapping
     private lateinit var mediaPrevious: KeyMapping
-    private lateinit var inspect: KeyMapping
 
     /** Dev only, so it's only registered on the dev account. */
     private var dumpGui: KeyMapping? = null
@@ -66,15 +64,6 @@ object PawfectKeybinds {
             ),
         )
 
-        inspect = KeyMappingHelper.registerKeyMapping(
-            KeyMapping(
-                "key.pawfectaddons.inspect",
-                InputConstants.Type.KEYSYM,
-                InputConstants.KEY_I,
-                category,
-            ),
-        )
-
         if (DevAccount.isDev()) {
             dumpGui = KeyMappingHelper.registerKeyMapping(
                 KeyMapping(
@@ -92,7 +81,6 @@ object PawfectKeybinds {
             while (mediaToggle.consumeClick()) MediaBridge.togglePlayback()
             while (mediaNext.consumeClick()) MediaBridge.next()
             while (mediaPrevious.consumeClick()) MediaBridge.previous()
-            while (inspect.consumeClick()) HandInspect.start()
         }
 
         ScreenEvents.AFTER_INIT.register { _, screen, _, _ ->
