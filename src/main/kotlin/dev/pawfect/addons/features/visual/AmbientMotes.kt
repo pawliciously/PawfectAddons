@@ -18,14 +18,12 @@ import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.phys.Vec3
-import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
-import kotlin.math.tan
 import kotlin.random.Random
 
 /**
@@ -35,8 +33,8 @@ import kotlin.random.Random
  * and twinkle with the odd shooting star, Sylph ones flit about like fireflies and Prism shards
  * glide and flash as they turn. Theme and Custom do a bit of everything.
  *
- * Kept cheap: they spawn where you're looking, and those you turn away from are let go to spawn
- * again in front of you. Blocks in front of them hide them through the depth test, for free.
+ * They spawn all around you, not just where you're looking, and live out their lives; blocks in
+ * front of them hide them through the depth test.
  */
 object AmbientMotes {
 
@@ -60,7 +58,6 @@ object AmbientMotes {
         var timer = 0
         /** The tick something happened to it: a blink or a turn, drawn as a flash. */
         var eventAt = -1000
-        var outOfView = 0
     }
 
     private val motes = ArrayList<Mote>(MAX)
@@ -99,11 +96,8 @@ object AmbientMotes {
             clear()
             lastPalette = config.palette
         }
-        val camera = client.gameRenderer.mainCamera()
-        val eye = camera.position()
-        val forward = camera.forwardVector()
+        val eye = client.gameRenderer.mainCamera().position()
         val reach = reach()
-        val cone = viewCone()
         val gust = level.gameTime / 240.0
         windX = sin(gust) * 0.012
         windZ = cos(gust * 0.7) * 0.012
@@ -118,9 +112,7 @@ object AmbientMotes {
             val dy = m.y - eye.y
             val dz = m.z - eye.z
             val distSq = dx * dx + dy * dy + dz * dz
-            val inView = inCone(dx, dy, dz, distSq, forward.x(), forward.y(), forward.z(), cone.cosWide)
-            m.outOfView = if (inView) 0 else m.outOfView + 1
-            if (m.age >= m.life || distSq > reach * reach * 1.3 || m.outOfView > LET_GO_TICKS) {
+            if (m.age >= m.life || distSq > reach * reach * 1.3) {
                 pool.addLast(m)
                 motes[i] = motes[motes.size - 1]
                 motes.removeAt(motes.size - 1)
@@ -131,33 +123,13 @@ object AmbientMotes {
 
         val wanted = config.count.coerceIn(10, MAX)
         val attempts = min(wanted - motes.size, max(SPAWN_TRIES, wanted / 40).coerceAtMost(MAX_TRIES))
-        repeat(attempts.coerceAtLeast(0)) { spawn(level, eye, forward.x(), forward.y(), forward.z(), camera, reach, cone) }
+        repeat(attempts.coerceAtLeast(0)) { spawn(level, eye, reach) }
     }
 
     /** The farthest they go: your setting, but no further than the loaded world. */
     private fun reach(): Double {
         val loaded = (McCompat.mc.options.effectiveRenderDistance * 16 + 8).toDouble()
         return min(config.distance.toDouble(), loaded).coerceAtLeast(8.0)
-    }
-
-    private class Cone(val halfH: Float, val halfV: Float, val cosWide: Double)
-
-    private fun viewCone(): Cone {
-        val client = McCompat.mc
-        val vertical = Math.toRadians(client.options.fov().get().toDouble()).toFloat()
-        val window = client.window
-        val aspect = window.width.toFloat() / window.height.coerceAtLeast(1)
-        val halfV = vertical / 2f
-        val halfH = atan(tan(halfV) * aspect)
-        // Let go a little wider than the screen, so motes don't vanish right at its edge.
-        val wide = sqrt(halfH * halfH + halfV * halfV) + 0.15f
-        return Cone(halfH, halfV, cos(wide.coerceAtMost(3.1f)).toDouble())
-    }
-
-    private fun inCone(dx: Double, dy: Double, dz: Double, distSq: Double, fx: Float, fy: Float, fz: Float, cosLimit: Double): Boolean {
-        if (distSq < 4.0) return true
-        val dot = dx * fx + dy * fy + dz * fz
-        return dot > 0 && dot * dot > cosLimit * cosLimit * distSq
     }
 
     // ------------------------------------------------------------------ spawning
@@ -172,16 +144,13 @@ object AmbientMotes {
         Palette.THEME, Palette.CUSTOM -> WANDERING[random.nextInt(WANDERING.size)]
     }
 
-    private fun spawn(level: ClientLevel, eye: Vec3, fx: Float, fy: Float, fz: Float, camera: net.minecraft.client.Camera, reach: Double, cone: Cone) {
-        val up = camera.upVector()
-        val left = camera.leftVector()
-        val th = tan((random.nextFloat() * 2f - 1f) * cone.halfH * 0.95f)
-        val tv = tan((random.nextFloat() * 2f - 1f) * cone.halfV * 0.95f)
-        var dx = fx - left.x() * th + up.x() * tv
-        var dy = fy - left.y() * th + up.y() * tv
-        var dz = fz - left.z() * th + up.z() * tv
-        val len = sqrt(dx * dx + dy * dy + dz * dz)
-        dx /= len; dy /= len; dz /= len
+    private fun spawn(level: ClientLevel, eye: Vec3, reach: Double) {
+        // Anywhere around you, a little above or below your eye.
+        val yaw = random.nextDouble() * Math.PI * 2
+        val pitch = (random.nextDouble() - 0.6) * 1.0
+        val dx = cos(yaw) * cos(pitch)
+        val dy = sin(pitch)
+        val dz = sin(yaw) * cos(pitch)
         // Weighted toward you: most of what you see is close, and the far ones fill the distance.
         val distance = NEAR + (reach - NEAR) * random.nextDouble().pow(1.7)
         val surface = surface(level, eye.x + dx * distance, eye.y + dy * distance, eye.z + dz * distance) ?: return
@@ -201,7 +170,6 @@ object AmbientMotes {
         val oz = z - eye.z
         val distSq = ox * ox + oy * oy + oz * oz
         if (distSq > reach * reach) return
-        if (!inCone(ox, oy, oz, distSq, fx, fy, fz, cos(sqrt(cone.halfH * cone.halfH + cone.halfV * cone.halfV)).toDouble())) return
         // Lifted up under a ceiling, it'd start inside the blocks.
         if (solidAt(level, x, y, z)) return
 
@@ -247,7 +215,6 @@ object AmbientMotes {
             Look.MIXED -> random.nextFloat() < 0.3f
         }
         m.scale = 0.7f + random.nextFloat() * 0.6f
-        m.outOfView = 0
         motes += m
     }
 
@@ -635,7 +602,6 @@ object AmbientMotes {
     private const val SCAN_DEPTH = 30
     private const val SPAWN_TRIES = 6
     private const val MAX_TRIES = 16
-    private const val LET_GO_TICKS = 50
     private const val COLLIDE_RANGE = 48.0
     private const val BASE_RADIUS = 0.035f
     private const val SHOOTING_CHANCE = 0.015f

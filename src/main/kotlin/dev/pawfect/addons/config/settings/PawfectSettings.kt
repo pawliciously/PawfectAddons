@@ -451,7 +451,7 @@ object PawfectSettings {
                 "0.48.0",
                 group(
                     "Ambient Motes",
-                    ToggleSetting("Ambient Motes", "Little lights that lift off the blocks around you and drift about however they like. Only spawned where you're looking.", ambient::enabled),
+                    ToggleSetting("Ambient Motes", "Little lights that lift off the blocks around you and drift about however they like.", ambient::enabled),
                     IntSliderSetting("Distance", "How far out they spawn. Capped by your render distance, since unloaded chunks have no blocks to rise from.", ambient::distance, 8, 1024, 8, " blocks")
                         .showIf { ambient.enabled },
                     IntSliderSetting("Amount", "How many are around at once.", ambient::count, 20, 800, 10)
