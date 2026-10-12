@@ -144,7 +144,8 @@ object DropSignatures {
             // Stuck in the ground point first, juddering from the hit.
             val judder = sin(r * 0.09f) * 0.14f * exp(-r / 450f)
             val settle = GIANT_ZOOM - 0.2f * easeOutCubic(min(1f, r / 600f))
-            ItemPose(0f, plantedY(fr) + base.y * 0.3f, settle * (1f - outro * outro), 0f, base.tilt * 0.3f, SWORD_DOWN + judder)
+            // Held dead still otherwise: no bob or tilt, so it reads as stuck fast.
+            ItemPose(0f, plantedY(fr), settle * (1f - outro * outro), 0f, 0f, SWORD_DOWN + judder)
         }
         else -> base
     }
@@ -440,8 +441,11 @@ object DropSignatures {
     private const val GIANT_FALL_FROM = 0.35f
     private const val GIANT_ZOOM = 2.2f
 
-    /** Turns the sword's sprite, which points up and right, to point straight down. */
-    private const val SWORD_DOWN = (-3.0 * PI / 4.0).toFloat()
+    /**
+     * Turns the sword's sprite to point straight down. The model space is flipped from the
+     * screen's, so this turns the other way to how it reads.
+     */
+    private const val SWORD_DOWN = (3.0 * PI / 4.0).toFloat()
     private const val DIAL_START = 250f
     private const val DIAL_STEP = 260f
     private const val SWEEP_START = 1200f

@@ -54,6 +54,14 @@ object ItemGet {
     private var moment: Moment? = null
     private var savedCamera: CameraType? = null
 
+    /** Drops waiting for the chest they came from to close. */
+    private val pending = ArrayDeque<Pair<String, String?>>()
+
+    /** Plays once no screen's open, as you can't see yourself through a chest. */
+    fun queue(name: String, id: String?) {
+        if (pending.size < 4) pending.addLast(name to id)
+    }
+
     /** An original fanfare: four notes climbing, then a bright chord. */
     private val cues: List<Cue> = buildList {
         fun note(n: Int) = 2f.pow((n - 12) / 12f)
@@ -94,19 +102,25 @@ object ItemGet {
     }
 
     private fun tick() {
+        if (moment == null && pending.isNotEmpty() && McCompat.screen == null && McCompat.mc.player != null) {
+            val (name, id) = pending.removeFirst()
+            start(name, id)
+        }
         val m = moment ?: return
         if (McCompat.mc.player == null || McCompat.mc.level == null) {
             stop()
+            pending.clear()
             return
         }
         val t = m.elapsed()
+        val volume = DropCelebration.volume()
         while (m.nextCue < cues.size && cues[m.nextCue].at <= t) {
             val cue = cues[m.nextCue++]
-            SoundCue.play(cue.id, cue.volume, cue.pitch)
+            if (volume > 0f) SoundCue.play(cue.id, cue.volume * volume, cue.pitch)
         }
         // A little tick as each pair of letters types out.
         val typed = typedChars(t)
-        if (typed / 2 > m.typed / 2 && typed < plainLength(m)) SoundCue.play("minecraft:block.note_block.hat", 0.2f, 1.8f)
+        if (typed / 2 > m.typed / 2 && typed < plainLength(m) && volume > 0f) SoundCue.play("minecraft:block.note_block.hat", 0.2f * volume, 1.8f)
         m.typed = typed
         if (t >= END) stop()
     }

@@ -201,7 +201,8 @@ object DropCelebrationOverlay {
         fireworks(fr, r, out)
         sparks(fr, r, out)
         for (wave in 0 until f.waves) confetti(fr, r - wave * 1500f, out, fr.seed + wave * 1009)
-        orbit(fr, r, appear * out)
+        // The far side of the ring goes behind the item, the near side over it.
+        orbit(fr, r, appear * out, front = false)
 
         g.nextStratum()
         // Spins in fast and settles, then turns slowly on show; spins away and shrinks at the end.
@@ -218,6 +219,7 @@ object DropCelebrationOverlay {
         item(fr, DropSignatures.pose(fr, r, o, base))
 
         g.nextStratum()
+        orbit(fr, r, appear * out, front = true)
         DropSignatures.front(fr, r, out)
         if (o > 0.75f) {
             val k = (o - 0.75f) / 0.25f
@@ -351,14 +353,18 @@ object DropCelebrationOverlay {
         }
     }
 
-    /** Glints circling the item, as if on a ring tilted toward you. */
-    private fun orbit(fr: DropFrame, r: Float, strength: Float) {
+    /**
+     * Glints circling the item, as if on a ring tilted toward you: the lower half of the ring is
+     * the near side, drawn when [front], and the upper half the far side, drawn when not.
+     */
+    private fun orbit(fr: DropFrame, r: Float, strength: Float, front: Boolean) {
         if (strength <= 0f || fr.show.signature == Signature.RECOMB) return
         val count = 6 + fr.show.tier.ordinal * 3
         val radius = fr.unit * 0.85f
         for (i in 0 until count) {
             val angle = i / count.toFloat() * WorldFx.TAU + r / 1000f * 1.3f
             val depth = sin(angle)
+            if ((depth >= 0f) != front) continue
             val x = fr.cx + cos(angle) * radius
             val y = fr.cy + depth * radius * 0.28f - fr.unit * 0.05f
             val near = 0.55f + 0.45f * depth

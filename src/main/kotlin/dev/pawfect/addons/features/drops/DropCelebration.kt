@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.math.Axis
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.config.ModuleSwitch
+import dev.pawfect.addons.config.features.DropCelebrationConfig.Style
 import dev.pawfect.addons.config.features.DropCelebrationConfig.Tier
 import dev.pawfect.addons.data.NeuRepo
 import dev.pawfect.addons.features.cosmetics.WorldFx
@@ -144,8 +145,13 @@ object DropCelebration {
         val key = found.name.lowercase()
         if (now - (recent[key] ?: 0L) < DEDUPE_MS) return
         recent[key] = now
-        celebrate(found.name, found.id, found.tier)
+        when (config.style) {
+            Style.CELEBRATION -> celebrate(found.name, found.id, found.tier)
+            Style.ITEM_GET -> ItemGet.queue(found.name, found.id)
+        }
     }
+
+    fun volume(): Float = config.volume.coerceIn(0f, 1f)
 
     /** Queues a drop's celebration. [signature] and [extra] are worked out from the item unless given. */
     fun celebrate(name: String, id: String?, tier: Tier, signature: Signature? = null, extra: Int? = null) {

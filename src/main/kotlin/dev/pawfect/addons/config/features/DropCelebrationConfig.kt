@@ -14,8 +14,19 @@ class DropCelebrationConfig {
         override fun toString(): String = label
     }
 
+    /** How a drop's celebrated. */
+    enum class Style(private val label: String) {
+        CELEBRATION("Celebration"),
+        ITEM_GET("Item Get");
+
+        override fun toString(): String = label
+    }
+
     @Expose
     var enabled: Boolean = true
+
+    @Expose
+    var style: Style = Style.CELEBRATION
 
     @Expose
     var dungeonLoot: Boolean = true

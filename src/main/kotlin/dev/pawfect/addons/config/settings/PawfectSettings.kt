@@ -1046,6 +1046,8 @@ object PawfectSettings {
                 group(
                     "Drop Celebration",
                     ToggleSetting("Drop Celebration", "Your own rare drops get a proper moment: the item lands with impact frames, then sits in a burst of light, sparks and confetti with its rarity slammed in under it. The rarer the drop, the harder it hits, from a quick pop for a Fuming Potato Book to the full show for a Handle or a dye.", dropFx::enabled),
+                    DropdownSetting("Style", "Celebration: the item slams onto the screen with impact frames, light and confetti, each drop with its own moment. Item Get: once the chest's closed, the camera turns to face you as you hold it up over your head to a little fanfare.", dropFx::style, DropCelebrationConfig.Style.entries.toList())
+                        .showIf { dropFx.enabled },
                     ToggleSetting("Dungeon Loot", "Rare rewards from your dungeon chests.", dropFx::dungeonLoot)
                         .showIf { dropFx.enabled },
                     ToggleSetting("Dyes", "Any dye you find.", dropFx::dyes)
@@ -1055,15 +1057,15 @@ object PawfectSettings {
                     DropdownSetting("From", "The least rare drop that still gets one.", dropFx::minTier, DropCelebrationConfig.Tier.entries.toList())
                         .showIf { dropFx.enabled },
                     ToggleSetting("Impact Frames", "The hard black and white frames when it lands. Turn these off if flashing bothers you; it gets a softer flash instead.", dropFx::impactFrames)
-                        .showIf { dropFx.enabled },
+                        .showIf { dropFx.enabled && dropFx.style == DropCelebrationConfig.Style.CELEBRATION },
                     ToggleSetting("Screen Shake", "Shake the camera when it lands.", dropFx::shake)
-                        .showIf { dropFx.enabled },
+                        .showIf { dropFx.enabled && dropFx.style == DropCelebrationConfig.Style.CELEBRATION },
                     ToggleSetting("World Effects", "Rings across the ground and lights rising round you, for Crazy Rare drops and up.", dropFx::worldEffects)
-                        .showIf { dropFx.enabled },
+                        .showIf { dropFx.enabled && dropFx.style == DropCelebrationConfig.Style.CELEBRATION },
                     FloatSliderSetting("Volume", "How loud it is.", dropFx::volume, 0f, 1f, 0.05f)
                         .showIf { dropFx.enabled },
                     FloatSliderSetting("Speed", "How quick it plays. The rarest run about ten seconds at normal speed.", dropFx::speed, 0.5f, 2f, 0.05f)
-                        .showIf { dropFx.enabled },
+                        .showIf { dropFx.enabled && dropFx.style == DropCelebrationConfig.Style.CELEBRATION },
                 ),
             ),
             category(
