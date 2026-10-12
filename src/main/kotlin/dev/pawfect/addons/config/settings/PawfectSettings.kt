@@ -102,6 +102,7 @@ object PawfectSettings {
         val invincibility = config.invincibility
         val rngMeter = config.rngMeter
         val ambient = config.ambientMotes
+        val inspect = config.handInspect
 
         return listOfNotNull(
             category(
@@ -449,6 +450,12 @@ object PawfectSettings {
                 "Visuals",
                 Icons.EYE,
                 "0.48.0",
+                group(
+                    "Hand Inspect",
+                    ToggleSetting("Hand Inspect", "Press the Inspect key (I by default, change it in Controls) to show off what you're holding: it turns to face you, flips over and twirls back. Swinging, using it or switching items stops it.", inspect::enabled),
+                    FloatSliderSetting("Speed", "How quick the inspect plays.", inspect::speed, 0.5f, 2f, 0.05f)
+                        .showIf { inspect.enabled },
+                ),
                 group(
                     "Ambient Motes",
                     ToggleSetting("Ambient Motes", "Little lights that lift off the blocks around you and drift about however they like.", ambient::enabled),
