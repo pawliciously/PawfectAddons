@@ -40,4 +40,7 @@ class DropCelebrationConfig {
 
     @Expose
     var volume: Float = 0.8f
+
+    @Expose
+    var speed: Float = 1f
 }

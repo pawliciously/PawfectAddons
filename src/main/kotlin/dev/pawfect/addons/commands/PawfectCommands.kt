@@ -256,7 +256,7 @@ object PawfectCommands {
     private fun dropNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal("drop")
             .executes {
-                ChatUtils.chat("§7/pa dev drop §f<1-4> §7| §fall §7| §fitem <name or id> §7| §fchat <line>")
+                ChatUtils.chat("§7/pa dev drop §f<1-4> §7| §fall §7| §fstop §7| §fitem <name or id> §7| §fchat <line>")
                 ChatUtils.chat("§7In §fchat§7, a leading §f~ §7is the chest loot indent and §f{me} §7is your name, like")
                 ChatUtils.chat("§f/pa dev drop chat WOW! [MVP+] {me} found a Pearlescent Dye!")
                 SUCCESS
@@ -270,6 +270,12 @@ object PawfectCommands {
             .then(
                 ClientCommands.literal("all").executes {
                     DropCelebration.testAll()
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("stop").executes {
+                    DropCelebration.skip()
                     SUCCESS
                 },
             )

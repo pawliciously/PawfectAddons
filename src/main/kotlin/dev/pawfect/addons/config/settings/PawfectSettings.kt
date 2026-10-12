@@ -1062,6 +1062,8 @@ object PawfectSettings {
                         .showIf { dropFx.enabled },
                     FloatSliderSetting("Volume", "How loud it is.", dropFx::volume, 0f, 1f, 0.05f)
                         .showIf { dropFx.enabled },
+                    FloatSliderSetting("Speed", "How quick it plays. The rarest run about ten seconds at normal speed.", dropFx::speed, 0.5f, 2f, 0.05f)
+                        .showIf { dropFx.enabled },
                 ),
             ),
             category(

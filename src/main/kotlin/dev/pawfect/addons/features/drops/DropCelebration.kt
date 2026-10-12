@@ -13,20 +13,26 @@ import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.SoundCue
 import dev.pawfect.addons.utils.StringUtil.removeColor
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents
+import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.network.chat.Component
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import kotlin.math.cos
 import kotlin.math.exp
+import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * Celebrates your rare drops, harder the rarer they are. A drop winds up (for the rare ones),
- * lands with impact frames, then the item sits in the middle of the screen in a burst of light,
- * sparks and confetti with its rarity slammed in under it. One plays at a time; any more queue up.
+ * Celebrates your rare drops, harder and longer the rarer they are. The rare ones build up first
+ * with heartbeats and light pulled into a point; then it lands on impact frames, the item spins in
+ * as a real 3D model in a burst of light, shockwaves, sparks and confetti, the rarity slams in a
+ * letter at a time (with a second hit as the last one lands), fireworks go off while it turns on
+ * show, and it winds out spinning away into a point. One plays at a time; any more queue up.
  */
 object DropCelebration {
 
@@ -35,30 +41,43 @@ object DropCelebration {
     /** How a tier plays out. Times are in milliseconds. */
     class Feel(
         val windup: Float,
+        val heartbeats: FloatArray,
         val impacts: Int,
         val length: Float,
         val size: Float,
         val rays: Int,
         val sparks: Int,
         val confetti: Int,
+        val waves: Int,
+        val fireworks: Int,
         val rings: Int,
         val shake: Float,
         val flash: Float,
         val dim: Float,
         val letterScale: Float,
         val letterGap: Float,
+        val aftershock: Boolean,
+        val lightning: Boolean,
+        val fanfare: Boolean,
     )
 
     class Show(val stack: ItemStack, val name: String, val tier: Tier, val feel: Feel, val seed: Int) {
         var startedAt = 0L
         var nextCue = 0
-        val cues = DropCelebration.cues(tier, feel)
+        val cues = DropCelebration.cues(this)
 
-        fun elapsed(now: Long = System.nanoTime()): Float = (now - startedAt) / 1_000_000f
+        fun elapsed(now: Long = System.nanoTime()): Float = (now - startedAt) / 1_000_000f * DropCelebration.speed()
 
-        /** When the item lands and the reveal starts, after the wind up and impact frames. */
+        /** When it lands, after the wind up. */
         val impactAt: Float get() = feel.windup
+
+        /** When the impact frames end and the reveal starts. */
         val revealAt: Float get() = feel.windup + feel.impacts * IMPACT_MS
+
+        /** When the rarity's last letter lands, for the second hit. */
+        val aftershockAt: Float get() = revealAt + LETTERS_START + DropColors.label(tier).length * feel.letterGap + 110f
+
+        val outroAt: Float get() = feel.length - OUTRO_MS
     }
 
     class Cue(val at: Float, val id: String, val volume: Float, val pitch: Float)
@@ -69,11 +88,14 @@ object DropCelebration {
     private val random = Random(System.nanoTime())
 
     fun register() {
+        PictureInPictureRendererRegistry.register { DropItemRenderer() }
         ClientTickEvents.END_CLIENT_TICK.register { runCatching { current()?.let(::pump) } }
         LevelRenderEvents.COLLECT_SUBMITS.register { context ->
             runCatching { drawWorld(context.poseStack(), context.submitNodeCollector()) }
         }
     }
+
+    fun speed(): Float = config.speed.coerceIn(0.25f, 3f)
 
     // ------------------------------------------------------------------ triggers
 
@@ -100,6 +122,12 @@ object DropCelebration {
         val display = repoId?.let { NeuRepo.displayName(it) }?.takeIf { it.removeColor().isNotBlank() } ?: "§f$name"
         if (queue.size >= MAX_QUEUE) queue.removeFirst()
         queue.addLast(Show(stack, display, tier, feel(tier), random.nextInt()))
+    }
+
+    /** Ends what's playing and anything queued. */
+    fun skip() {
+        playing = null
+        queue.clear()
     }
 
     // ------------------------------------------------------------------ dev tests
@@ -175,11 +203,30 @@ object DropCelebration {
     /** How hard everything shakes right now: building through the wind up, hardest on impact, then settling. */
     fun shakeAmount(show: Show, t: Float): Float {
         val f = show.feel
-        return when {
-            t < show.impactAt -> f.shake * 0.25f * (t / f.windup.coerceAtLeast(1f))
+        var amount = when {
+            t < show.impactAt -> f.shake * 0.25f * (t / f.windup.coerceAtLeast(1f)) + heartbeatKick(show, t) * f.shake * 0.5f
             t < show.revealAt + 40f -> f.shake * 1.4f
             else -> f.shake * exp(-(t - show.revealAt) / 260f)
         }
+        if (f.aftershock && t >= show.aftershockAt) amount += f.shake * exp(-(t - show.aftershockAt) / 200f)
+        return amount
+    }
+
+    /** A thump that fades fast after each heartbeat, for the wind up's pulses. */
+    fun heartbeatKick(show: Show, t: Float): Float {
+        var kick = 0f
+        for (beat in show.feel.heartbeats) {
+            val since = t - beat
+            if (since in 0f..400f) kick = max(kick, exp(-since / 90f))
+        }
+        return kick
+    }
+
+    /** When the [k]th firework goes up, counted from the reveal. */
+    fun fireworkLaunch(show: Show, k: Int): Float {
+        val n = show.feel.fireworks
+        val span = (show.outroAt - show.revealAt - 1800f).coerceAtLeast(600f)
+        return 700f + k * span / max(1, n) + WorldFx.hash(show.seed, k, 40) * 220f
     }
 
     fun noise(t: Float, channel: Int): Float =
@@ -201,7 +248,7 @@ object DropCelebration {
     // ------------------------------------------------------------------ world
 
     /** For the rarest: rings rippling out across the ground round you and lights spiralling up past you. */
-    private fun drawWorld(poseStack: PoseStack, collector: net.minecraft.client.renderer.SubmitNodeCollector) {
+    private fun drawWorld(poseStack: PoseStack, collector: SubmitNodeCollector) {
         if (!config.worldEffects) return
         val show = playing ?: return
         if (show.tier < Tier.CRAZY_RARE) return
@@ -216,7 +263,7 @@ object DropCelebration {
         val y = (feet.y - eye.y).toFloat()
         val z = (feet.z - eye.z).toFloat()
         val left = show.feel.length - show.revealAt
-        val out = 1f - smooth((r - (left - 600f)) / 600f)
+        val out = 1f - smooth((r - (left - 800f)) / 800f)
         val color = DropColors.of(show.tier)
         val glow = DropColors.glowOf(show.tier)
         WorldFx.submit(poseStack, collector, 1f, solids = {}, lights = { fx ->
@@ -226,7 +273,7 @@ object DropCelebration {
                 val a = (1f - q) * (1f - q) * out
                 fx.band(x, y + 0.05f, z, radius, radius + 0.35f, fx.light(argb(color, a * 0.7f), true), fx.light(argb(glow, 0f), true))
             }
-            val count = if (show.tier == Tier.INSANE) 28 else 16
+            val count = if (show.tier == Tier.INSANE) 32 else 18
             for (i in 0 until count) {
                 val phase = ((r / 2600f) + WorldFx.hash(show.seed, i, 0)) % 1f
                 val angle = WorldFx.hash(show.seed, i, 1) * WorldFx.TAU + r / 700f
@@ -247,26 +294,45 @@ object DropCelebration {
     private fun feel(tier: Tier): Feel {
         val frames = config.impactFrames
         return when (tier) {
-            Tier.RARE -> Feel(0f, if (frames) 1 else 0, 2600f, 3.2f, 0, 34, 0, 1, 0.3f, 0.35f, 0.25f, 1.7f, 34f)
-            Tier.VERY_RARE -> Feel(0f, if (frames) 2 else 0, 3300f, 4f, 8, 60, 40, 2, 0.55f, 0.5f, 0.35f, 2.1f, 32f)
-            Tier.CRAZY_RARE -> Feel(380f, if (frames) 3 else 0, 4200f, 4.8f, 12, 90, 80, 2, 0.95f, 0.65f, 0.45f, 2.5f, 30f)
-            Tier.INSANE -> Feel(760f, if (frames) 4 else 0, 5600f, 5.6f, 16, 140, 130, 3, 1.5f, 0.8f, 0.55f, 3f, 26f)
+            Tier.RARE -> Feel(
+                0f, floatArrayOf(), if (frames) 1 else 0, 3800f, 3.4f,
+                6, 44, 0, 0, 1, 1, 0.3f, 0.35f, 0.3f, 1.8f, 34f,
+                aftershock = false, lightning = false, fanfare = false,
+            )
+            Tier.VERY_RARE -> Feel(
+                520f, floatArrayOf(0f), if (frames) 2 else 0, 5400f, 4.2f,
+                8, 70, 50, 1, 2, 2, 0.6f, 0.5f, 0.4f, 2.2f, 32f,
+                aftershock = false, lightning = false, fanfare = true,
+            )
+            Tier.CRAZY_RARE -> Feel(
+                1150f, floatArrayOf(0f, 560f), if (frames) 3 else 0, 7400f, 5f,
+                12, 100, 80, 2, 4, 2, 1f, 0.65f, 0.5f, 2.6f, 30f,
+                aftershock = true, lightning = false, fanfare = true,
+            )
+            Tier.INSANE -> Feel(
+                1800f, floatArrayOf(0f, 620f, 1080f, 1420f, 1650f), if (frames) 5 else 0, 9800f, 5.8f,
+                16, 150, 110, 3, 8, 3, 1.6f, 0.8f, 0.6f, 3f, 26f,
+                aftershock = true, lightning = true, fanfare = true,
+            )
         }
     }
 
-    private fun cues(tier: Tier, feel: Feel): List<Cue> {
+    private fun cues(show: Show): List<Cue> {
+        val f = show.feel
         val list = ArrayList<Cue>()
-        val hit = feel.windup
-        if (feel.windup > 0f) {
-            // The build: a low hum and notes climbing to the hit.
+        val hit = f.windup
+        val reveal = show.revealAt
+        if (f.windup > 0f) {
+            // The build: a low hum, the heart going, and notes climbing to the hit.
             list += Cue(0f, "minecraft:block.beacon.power_select", 0.6f, 0.5f)
-            val steps = (feel.windup / 55f).toInt()
+            for (beat in f.heartbeats) list += Cue(beat, "minecraft:entity.warden.heartbeat", 1f, 1f)
+            val steps = (f.windup / 55f).toInt()
             for (i in 0 until steps) {
                 val k = i / steps.toFloat()
-                list += Cue(i * 55f, "minecraft:block.note_block.pling", 0.3f + 0.5f * k, 0.5f + 1.5f * k)
+                list += Cue(i * 55f, "minecraft:block.note_block.pling", 0.25f + 0.55f * k, 0.5f + 1.5f * k)
             }
         }
-        when (tier) {
+        when (show.tier) {
             Tier.RARE -> {
                 list += Cue(hit, "minecraft:block.note_block.bell", 0.8f, 1.2f)
                 list += Cue(hit, "minecraft:entity.experience_orb.pickup", 0.7f, 0.8f)
@@ -275,32 +341,51 @@ object DropCelebration {
             }
             Tier.VERY_RARE -> {
                 list += Cue(hit, "minecraft:item.trident.thunder", 0.45f, 1.4f)
+                list += Cue(hit, "minecraft:item.mace.smash_ground", 0.8f, 1f)
                 list += Cue(hit, "minecraft:block.note_block.bell", 0.9f, 1f)
-                list += Cue(hit + 150f, "minecraft:ui.toast.challenge_complete", 0.7f, 1.2f)
-                list += Cue(hit + 320f, "minecraft:entity.firework_rocket.twinkle", 0.6f, 1f)
+                list += Cue(reveal + 150f, "minecraft:ui.toast.challenge_complete", 0.7f, 1.2f)
             }
             Tier.CRAZY_RARE -> {
+                list += Cue(hit, "minecraft:item.mace.smash_ground_heavy", 1f, 0.9f)
                 list += Cue(hit, "minecraft:entity.generic.explode", 0.6f, 0.6f)
                 list += Cue(hit, "minecraft:item.totem.use", 0.7f, 1f)
-                list += Cue(hit + 160f, "minecraft:ui.toast.challenge_complete", 0.9f, 1f)
-                list += Cue(hit + 260f, "minecraft:entity.firework_rocket.large_blast", 0.8f, 0.9f)
-                list += Cue(hit + 520f, "minecraft:entity.firework_rocket.twinkle", 0.8f, 1.1f)
-                list += Cue(hit + 900f, "minecraft:entity.firework_rocket.twinkle_far", 0.7f, 1.3f)
+                list += Cue(reveal + 160f, "minecraft:ui.toast.challenge_complete", 0.9f, 1f)
             }
             Tier.INSANE -> {
+                list += Cue(hit, "minecraft:item.mace.smash_ground_heavy", 1f, 0.8f)
                 list += Cue(hit, "minecraft:block.end_portal.spawn", 0.8f, 1f)
                 list += Cue(hit, "minecraft:entity.warden.sonic_boom", 0.7f, 0.8f)
                 list += Cue(hit, "minecraft:entity.lightning_bolt.thunder", 0.35f, 1.6f)
                 list += Cue(hit, "minecraft:item.totem.use", 0.8f, 0.9f)
-                list += Cue(hit + 220f, "minecraft:ui.toast.challenge_complete", 1f, 1f)
-                list += Cue(hit + 320f, "minecraft:entity.firework_rocket.large_blast", 0.9f, 1f)
-                list += Cue(hit + 520f, "minecraft:entity.firework_rocket.large_blast_far", 0.8f, 0.8f)
-                list += Cue(hit + 700f, "minecraft:entity.firework_rocket.twinkle", 0.9f, 1f)
-                list += Cue(hit + 950f, "minecraft:entity.firework_rocket.twinkle", 0.8f, 1.2f)
-                list += Cue(hit + 1250f, "minecraft:entity.player.levelup", 0.7f, 1.5f)
-                list += Cue(hit + 1600f, "minecraft:entity.firework_rocket.twinkle_far", 0.8f, 1.4f)
+                list += Cue(reveal + 220f, "minecraft:ui.toast.challenge_complete", 1f, 1f)
+                list += Cue(reveal + 1400f, "minecraft:entity.player.levelup", 0.7f, 1.5f)
             }
         }
+        if (f.fanfare) {
+            // A rising arpeggio as the letters land, the last note held up high.
+            val notes = intArrayOf(12, 16, 19, 24)
+            val start = reveal + LETTERS_START + 40f
+            val step = (DropColors.label(show.tier).length * f.letterGap) / notes.size
+            notes.forEachIndexed { i, n ->
+                val pitch = 2f.pow((n - 12) / 12f)
+                list += Cue(start + i * step, "minecraft:block.note_block.chime", 0.8f, pitch)
+                list += Cue(start + i * step, "minecraft:block.note_block.bell", 0.5f, pitch)
+            }
+        }
+        if (f.aftershock) {
+            list += Cue(show.aftershockAt, "minecraft:item.mace.smash_ground_heavy", 0.9f, 1.2f)
+            list += Cue(show.aftershockAt, "minecraft:entity.generic.explode", 0.4f, 1.3f)
+        }
+        for (k in 0 until f.fireworks) {
+            val launch = reveal + fireworkLaunch(show, k)
+            list += Cue(launch, "minecraft:entity.firework_rocket.launch", 0.6f, 1f)
+            val burst = launch + FIREWORK_RISE
+            list += Cue(burst, if (k % 2 == 0) "minecraft:entity.firework_rocket.large_blast" else "minecraft:entity.firework_rocket.blast", 0.8f, 0.9f + WorldFx.hash(show.seed, k, 41) * 0.3f)
+            list += Cue(burst + 550f, "minecraft:entity.firework_rocket.twinkle", 0.6f, 1f + WorldFx.hash(show.seed, k, 42) * 0.3f)
+        }
+        // Out: it spins away into a point with a last bright ping.
+        list += Cue(show.outroAt + OUTRO_MS - 160f, "minecraft:entity.experience_orb.pickup", 0.8f, 1.6f)
+        list += Cue(show.outroAt + OUTRO_MS - 160f, "minecraft:block.amethyst_block.chime", 0.9f, 1.5f)
         return list.sortedBy { it.at }
     }
 
@@ -312,6 +397,9 @@ object DropCelebration {
     }
 
     const val IMPACT_MS = 55f
+    const val LETTERS_START = 120f
+    const val OUTRO_MS = 700f
+    const val FIREWORK_RISE = 380f
     private const val DEDUPE_MS = 5_000L
     private const val MAX_QUEUE = 6
 }
