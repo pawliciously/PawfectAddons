@@ -452,7 +452,7 @@ object PawfectSettings {
                 "0.48.0",
                 group(
                     "Hand Inspect",
-                    ToggleSetting("Hand Inspect", "Press the Inspect key (I by default, change it in Controls) to look over what you're holding: up to its face, down the edge, turned over to the other side, then back down. Swinging, using it or switching items stops it.", inspect::enabled),
+                    ToggleSetting("Hand Inspect", "Press the Inspect key (I by default, change it in Controls) to show off what you're holding: it turns to face you, flips over and twirls back. Swinging, using it or switching items stops it.", inspect::enabled),
                     FloatSliderSetting("Speed", "How quick the inspect plays.", inspect::speed, 0.5f, 2f, 0.05f)
                         .showIf { inspect.enabled },
                 ),
