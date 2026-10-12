@@ -59,6 +59,9 @@ object RngMeter {
     private val storedRegex = Regex("""^\s*RNG Meter - ([\d,]+) Stored XP""")
 
     private val titleRegex = Regex("""^(.+) RNG Meter$""")
+
+    /** How a menu marks the drop you've picked; the others say "Click to select!". */
+    private val selectedRegex = Regex("""\bSELECTED\b|deselect""", RegexOption.IGNORE_CASE)
     private val progressRegex = Regex("""(?:Dungeon Score|Slayer XP): ([\d,.]+[kKmM]?)/([\d,.]+[kKmM]?)""")
 
     /** The floor from the run summary's header, read just before its score. */
@@ -222,7 +225,7 @@ object RngMeter {
             val current = amount(progress.groupValues[1]) ?: continue
             // Cheaper drops can show a capped amount, so the biggest is the meter.
             stored = maxOf(stored ?: 0L, current)
-            if (lore.any { it.contains("SELECTED") }) {
+            if (lore.any { selectedRegex.containsMatchIn(it) }) {
                 val id = stack.skyblockId()?.takeIf { it in NeuRepo.rngDrops(meter) } ?: dropId(meter, stack.plainName()) ?: continue
                 selected = id to (amount(progress.groupValues[2]) ?: 0L)
             }
@@ -251,7 +254,7 @@ object RngMeter {
     /** Writes a menu whose selected drop couldn't be found to the log once, to see how it shows it. */
     private fun logMenuOnce(name: String, stacks: List<ItemStack>) {
         if (!logged.add(name)) return
-        val dump = stacks.filter { stack -> stack.loreLines().any { progressRegex.containsMatchIn(it.removeColor()) } }.take(6)
+        val dump = stacks.filter { stack -> stack.loreLines().any { progressRegex.containsMatchIn(it.removeColor()) } }.take(40)
             .joinToString("\n") { stack -> "  ${stack.hoverName.string} [${stack.skyblockId()}]: " + stack.loreLines().joinToString(" | ") }
         logger.info("RNG Meter menu '{}' had no selected drop I could find:\n{}", name, dump)
     }
@@ -289,11 +292,15 @@ object RngMeter {
 
     // ------------------------------------------------------------------ state
 
-    /** The meter that matters where you are: your floor in a dungeon, your slayer on a quest. */
+    /**
+     * The meter that matters where you are: your floor in a dungeon, the slayer on your quest, or
+     * else the slayer you were last on.
+     */
     fun activeMeter(): String? {
         if (!SkyBlockData.onSkyBlock) return null
         if (SkyBlockData.inDungeons) return if (config.dungeons) SkyBlockData.dungeonFloor?.takeIf { it != "E" } else null
-        return if (config.slayers) questBoss() else null
+        if (!config.slayers) return null
+        return questBoss() ?: profile()?.rngMeters?.filterKeys { it in SLAYER_BOSSES }?.maxByOrNull { it.value.touched }?.key
     }
 
     /** The boss of the slayer quest on your sidebar. */
@@ -307,7 +314,9 @@ object RngMeter {
 
     private fun update(meter: String, change: (RngMeterEntry) -> Unit) {
         val profile = profile() ?: return
-        change(profile.rngMeters.getOrPut(meter) { RngMeterEntry() })
+        val entry = profile.rngMeters.getOrPut(meter) { RngMeterEntry() }
+        change(entry)
+        entry.touched = System.currentTimeMillis()
         if (dirtySince == 0L) dirtySince = System.currentTimeMillis()
     }
 

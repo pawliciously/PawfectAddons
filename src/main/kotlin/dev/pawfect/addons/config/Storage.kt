@@ -96,4 +96,8 @@ class RngMeterEntry {
     /** Read from the meter's menu or the slayer's chat, not added up from runs. */
     @Expose
     var exact: Boolean = false
+
+    /** When it last changed, to show the slayer you were last on. */
+    @Expose
+    var touched: Long = 0
 }
