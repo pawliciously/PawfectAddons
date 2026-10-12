@@ -11,6 +11,8 @@ import dev.pawfect.addons.config.features.HandChamsConfig
 import dev.pawfect.addons.config.features.DevConfig
 import dev.pawfect.addons.config.features.HitsoundConfig
 import dev.pawfect.addons.config.features.InventoryConfig
+import dev.pawfect.addons.config.features.InvincibilityConfig
+import dev.pawfect.addons.config.features.RngMeterConfig
 import dev.pawfect.addons.config.features.MediaConfig
 import dev.pawfect.addons.config.features.MenuConfig
 import dev.pawfect.addons.config.features.ModulesConfig
@@ -59,6 +61,12 @@ class PawfectConfig {
 
     @Expose
     val dungeonHud: DungeonHudConfig = DungeonHudConfig()
+
+    @Expose
+    val invincibility: InvincibilityConfig = InvincibilityConfig()
+
+    @Expose
+    val rngMeter: RngMeterConfig = RngMeterConfig()
 
     @Expose
     val handChams: HandChamsConfig = HandChamsConfig()

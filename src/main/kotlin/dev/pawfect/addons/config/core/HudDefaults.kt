@@ -15,6 +15,8 @@ object HudDefaults {
     const val WATERMARK = "Watermark"
     const val ROOM_NAME = "Room Name"
     const val DUNGEON_MAP = "Dungeon Map"
+    const val INVINCIBILITY = "Invincibility"
+    const val RNG_METER = "RNG Meter"
 
     class Default(val x: Int, val y: Int, val scale: Float = Position.DEFAULT_SCALE)
 
@@ -32,6 +34,8 @@ object HudDefaults {
         WATERMARK to Default(6, 6),
         ROOM_NAME to Default(6, 30),
         DUNGEON_MAP to Default(-6, 6),
+        INVINCIBILITY to Default(10, 200),
+        RNG_METER to Default(-10, 140),
     )
 
     fun position(label: String): Position {

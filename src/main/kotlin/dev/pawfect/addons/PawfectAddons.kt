@@ -75,6 +75,9 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents
 import dev.pawfect.addons.ui.Watermark
 import dev.pawfect.addons.ui.Notifications
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
+import dev.pawfect.addons.features.dungeon.InvincibilityTimers
+import dev.pawfect.addons.features.rng.RngMeter
+import dev.pawfect.addons.features.rng.RngMeterOverlay
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements
@@ -136,6 +139,8 @@ object PawfectAddons : ClientModInitializer {
         SecretWaypointRenderer.register()
         SecretTracker.register()
         SecretRoutes.register()
+        RngMeter.register()
+        InvincibilityTimers.register()
         RouteRenderer.register()
         RouteRecorder.register()
         registerChat()
@@ -200,6 +205,8 @@ object PawfectAddons : ClientModInitializer {
                 RenderContext.withContext(graphics) {
                     RecipeTrackerOverlay.render()
                     SlayerOverlay.render()
+                    RngMeterOverlay.render()
+                    InvincibilityTimers.render()
                     StatsOverlay.render()
                     LowHealthAlert.render()
                     MediaOverlay.render()
@@ -248,6 +255,8 @@ object PawfectAddons : ClientModInitializer {
                 !ModuleSwitch.view("visuals", ConfigManager.features.stats).hideActionBar
             } else {
                 runCatching { Hitsound.onChat(message) }
+                runCatching { RngMeter.onChat(message) }
+                runCatching { InvincibilityTimers.onChat(message) }
                 runCatching { SackApi.handleChatMessage(message) }
                     .getOrElse {
                         logger.error("Error while handling a chat message", it)

@@ -44,7 +44,7 @@ object NeuRepo {
     private const val REPO_ZIP =
         "https://github.com/NotEnoughUpdates/NotEnoughUpdates-REPO/archive/refs/heads/master.zip"
     private const val CACHE_FILE = "neu-cache.json"
-    private const val CACHE_VERSION = 3
+    private const val CACHE_VERSION = 4
     private val CACHE_MAX_AGE: Duration = Duration.ofDays(7)
 
     private val gson: Gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
@@ -62,6 +62,8 @@ object NeuRepo {
         @field:Expose val items: List<RepoItem>,
         @field:Expose val sackContents: Map<String, List<String>>,
         @field:Expose val armorSets: Map<String, List<String>> = emptyMap(),
+        /** RNG Meter drops and what each needs: a floor ("F7") or slayer boss to drop id to amount. */
+        @field:Expose val rngScore: Map<String, Map<String, Long>> = emptyMap(),
     )
 
     class ArmorSet(
@@ -81,6 +83,7 @@ object NeuRepo {
     private var armorSets: Map<String, ArmorSet> = emptyMap()
     private var armorSetAliases: Map<String, String> = emptyMap()
     private var enchantBookNames: Map<String, String> = emptyMap()
+    private var rngScore: Map<String, Map<String, Long>> = emptyMap()
 
     private val stackCache = HashMap<String, ItemStack>()
 
@@ -91,6 +94,12 @@ object NeuRepo {
     fun sackItemIds(): Set<String> = sackItemIds
 
     fun allItemIds(): Set<String> = items.keys
+
+    /**
+     * The drops an RNG Meter can be set to, with the score or slayer XP each needs. [meter] is a
+     * floor like "F7" or "M3", or a slayer boss like "Voidgloom Seraph".
+     */
+    fun rngDrops(meter: String): Map<String, Long> = rngScore[meter].orEmpty()
 
     fun resolve(query: String): RepoItem? {
         val direct = query.trim().uppercase().replace(' ', '_')
@@ -241,6 +250,7 @@ object NeuRepo {
         sackItemIds = cache.sackContents.values.flatten().toSet()
         armorSets = buildArmorSets(cache.armorSets)
         armorSetAliases = buildArmorSetAliases(armorSets)
+        rngScore = cache.rngScore
         isLoaded = true
     }
 
@@ -309,6 +319,7 @@ object NeuRepo {
         val parsedItems = ArrayList<RepoItem>(6000)
         var sacks: Map<String, List<String>> = emptyMap()
         var sets: Map<String, List<String>> = emptyMap()
+        var rng: Map<String, Map<String, Long>> = emptyMap()
 
         ZipInputStream(response.body().buffered()).use { zip ->
             while (true) {
@@ -323,6 +334,8 @@ object NeuRepo {
                     name.endsWith("/constants/sacks.json") -> sacks = parseSacks(zip)
 
                     name.endsWith("/constants/museum.json") -> sets = parseArmorSets(zip)
+
+                    name.endsWith("/constants/rngscore.json") -> rng = parseRngScore(zip)
                 }
             }
         }
@@ -332,7 +345,7 @@ object NeuRepo {
             return null
         }
 
-        val cache = RepoCache(CACHE_VERSION, parsedItems, sacks, sets)
+        val cache = RepoCache(CACHE_VERSION, parsedItems, sacks, sets, rng)
         runCatching {
             path.parent.createDirectories()
             path.writeText(gson.toJson(cache))
@@ -391,6 +404,22 @@ object NeuRepo {
         }
     } catch (e: Exception) {
         logger.warn("Could not parse constants/museum.json", e)
+        emptyMap()
+    }
+
+    /** Floors and slayer bosses together: they never share a name. */
+    private fun parseRngScore(zip: ZipInputStream): Map<String, Map<String, Long>> = try {
+        val json = JsonParser.parseReader(InputStreamReader(NonClosingStream(zip))).asJsonObject
+        val result = HashMap<String, Map<String, Long>>()
+        for (section in listOf("catacombs", "slayer")) {
+            val meters = json.getAsJsonObject(section) ?: continue
+            meters.entrySet().forEach { (meter, drops) ->
+                result[meter] = drops.asJsonObject.entrySet().associate { it.key to it.value.asLong }
+            }
+        }
+        result
+    } catch (e: Exception) {
+        logger.warn("Could not parse constants/rngscore.json", e)
         emptyMap()
     }
 

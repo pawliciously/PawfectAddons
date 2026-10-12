@@ -1,6 +1,7 @@
 package dev.pawfect.addons.config.settings
 
 import dev.pawfect.addons.config.features.SecretRoutesConfig
+import dev.pawfect.addons.config.features.InvincibilityConfig
 import dev.pawfect.addons.features.dungeon.routes.RouteData
 import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
 import dev.pawfect.addons.PawfectAddons
@@ -97,6 +98,8 @@ object PawfectSettings {
         val inventory = config.inventory
         val tooltip = config.tooltip
         val motion = config.motionBlur
+        val invincibility = config.invincibility
+        val rngMeter = config.rngMeter
 
         return listOfNotNull(
             category(
@@ -401,6 +404,51 @@ object PawfectSettings {
                     ButtonSetting("Import File", "Add waypoints from pa-dw-import.json.", "Load") {
                         ChatUtils.chat(DungeonWaypoints.importFromFile())
                     },
+                ),
+                group(
+                    "Invincibility Timers",
+                    ToggleSetting("Invincibility Timers", "Show when Bonzo's Mask, the Spirit Mask and the Phoenix pet last saved you: their few seconds of invincibility, then their cooldown. The mask you're wearing is lit up.", invincibility::enabled),
+                    DropdownSetting("Show", "Always: every mask you carry, ready or not. While Used: only while invincible or cooling down.", invincibility::showWhen, InvincibilityConfig.ShowWhen.entries.toList())
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Only In Dungeons", "Only time them, and show them, inside a dungeon.", invincibility::onlyInDungeons)
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Bonzo's Mask", "Time Bonzo's Mask.", invincibility::bonzo)
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Spirit Mask", "Time the Spirit Mask.", invincibility::spirit)
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Phoenix", "Time the Phoenix pet. It shows once it has saved you, since a pet can't be seen in your inventory.", invincibility::phoenix)
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Cooldown On Item", "Slide the cooldown down the mask itself in your inventory and hotbar.", invincibility::onItem)
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Alert", "Flash a title when one saves you.", invincibility::alert)
+                        .showIf { invincibility.enabled },
+                    ToggleSetting("Sound", "Play a sound when one saves you.", invincibility::sound)
+                        .showIf { invincibility.enabled },
+                    SoundListSetting(
+                        "Proc Sound",
+                        "Sound played when one saves you.",
+                        invincibility::soundId,
+                        { HitsoundLibrary.ids() },
+                    ) { SoundCue.play(invincibility.soundId, 1f, 1f) }
+                        .showIf { invincibility.enabled && invincibility.sound },
+                    ToggleSetting("Tell Party", "Say in party chat when one saves you.", invincibility::announce)
+                        .showIf { invincibility.enabled },
+                    PositionSetting("Timers Position", "Drag the timers to reposition them.", invincibility.position) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { invincibility.enabled },
+                ),
+                group(
+                    "RNG Meter",
+                    ToggleSetting("RNG Meter", "Show the RNG Meter for the floor you're running or the slayer you're on: your selected drop, how full it is and about how many more runs or bosses it needs. A run adds its score on S+ and 70% of it on S. Open an RNG Meter menu once to read the exact total; until then it's marked with a ~.", rngMeter::enabled),
+                    ToggleSetting("Dungeons", "Show it in dungeons, for the floor you're on.", rngMeter::dungeons)
+                        .showIf { rngMeter.enabled },
+                    ToggleSetting("Slayers", "Show it while you have a slayer quest, for that slayer. Each kill's chat gives the exact total.", rngMeter::slayers)
+                        .showIf { rngMeter.enabled },
+                    ToggleSetting("Runs Left", "Show about how many more runs or bosses fill it, going by your last one.", rngMeter::showLeft)
+                        .showIf { rngMeter.enabled },
+                    PositionSetting("Meter Position", "Drag the meter to reposition it.", rngMeter.position) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { rngMeter.enabled },
                 ),
             ),
             category(
