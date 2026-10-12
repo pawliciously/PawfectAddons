@@ -8,14 +8,15 @@ import dev.pawfect.addons.utils.McCompat
 import net.minecraft.client.player.AbstractClientPlayer
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.HumanoidArm
-import kotlin.math.PI
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * A CS style inspect for whatever you're holding: it comes up and turns to face you, flips over
- * to show the other side, then twirls the rest of the way round and drops back into your hand.
- * All keyframes in code, smoothed through so it never stops dead between them. Swinging, using
+ * An inspect for whatever you're holding, like actually checking it out: brought up to look at its
+ * face, tipped to see down the edge, slowly turned over to look at the other side, a glance at the
+ * tip, then turned back and lowered. All keyframes in code, smoothed through so it never stops dead
+ * between them, with a slight unsteadiness on top like a real hand. Swinging, using
  * the item or switching off it eases it straight back.
  */
 object HandInspect {
@@ -27,13 +28,22 @@ object HandInspect {
 
     private val KEYS = arrayOf(
         //   time   x       y      z      roll  pitch  spin
+        // Resting in your hand.
         Key(0.00f, 0f, 0f, 0f, 0f, 0f, 0f),
-        Key(0.16f, -0.14f, 0.07f, 0.08f, 22f, 8f, 38f),
-        Key(0.40f, -0.16f, 0.08f, 0.09f, 26f, 14f, 50f),
-        Key(0.56f, -0.12f, 0.12f, 0.06f, 32f, 6f, 210f),
-        Key(0.62f, -0.12f, 0.11f, 0.06f, 28f, 10f, 225f),
-        Key(0.80f, -0.13f, 0.10f, 0.07f, 24f, 16f, 232f),
-        Key(1.00f, 0f, 0f, 0f, 0f, 0f, 360f),
+        // Brought up and turned to look at its face.
+        Key(0.12f, -0.12f, 0.06f, 0.07f, 18f, 6f, 35f),
+        // Looking it over, drifting a little.
+        Key(0.30f, -0.14f, 0.07f, 0.08f, 22f, 12f, 45f),
+        // Tipped to look down the edge.
+        Key(0.40f, -0.14f, 0.08f, 0.08f, 14f, 20f, 80f),
+        // Slowly turned over to the other side.
+        Key(0.55f, -0.13f, 0.08f, 0.08f, 20f, 10f, 160f),
+        // Looking that side over.
+        Key(0.72f, -0.14f, 0.07f, 0.09f, 26f, 14f, 170f),
+        // A glance up at the tip on the way back.
+        Key(0.82f, -0.12f, 0.10f, 0.06f, 10f, -6f, 130f),
+        // Turned back round and lowered.
+        Key(1.00f, 0f, 0f, 0f, 0f, 0f, 0f),
     )
     private const val CHANNELS = 6
     private const val SPIN = 5
@@ -81,7 +91,7 @@ object HandInspect {
                 startedAt = -1L
                 return
             }
-            evaluate(p)
+            evaluate(p, (now - startedAt) / 1_000_000_000f)
             if (swing > 0f || player.isUsingItem || player.inventory.selectedSlot != slot || player.mainHandItem.isEmpty) {
                 // Let go from wherever it is, spun the short way home.
                 stoppedAt = now
@@ -106,7 +116,7 @@ object HandInspect {
         stack.mulPose(Axis.YP.rotationDegrees(pose[5] * side))
     }
 
-    private fun evaluate(p: Float) {
+    private fun evaluate(p: Float, seconds: Float) {
         var i = 0
         while (i < KEYS.size - 2 && p >= KEYS[i + 1].t) i++
         val a = KEYS[i]
@@ -119,15 +129,23 @@ object HandInspect {
         val h10 = u3 - 2 * u2 + u
         val h01 = -2 * u3 + 3 * u2
         val h11 = u3 - u2
-        // A slow sway on top while it's up, so it never looks frozen in place.
-        val up = sin(p * PI.toFloat())
         for (c in 0 until CHANNELS) {
             pose[c] = h00 * a.v[c] + h10 * h * slopes[i][c] + h01 * b.v[c] + h11 * h * slopes[i + 1][c]
         }
-        pose[1] += sin(p * 9f) * 0.006f * up
-        pose[3] += sin(p * 7f + 1f) * 1.5f * up
+        // A hand never holds dead still: a slight unsteadiness while it's up, in real seconds so speed doesn't change it.
+        val up = smooth(min(p / 0.12f, (1f - p) / 0.15f))
+        pose[0] += (sin(seconds * 1.3f) * 0.003f + sin(seconds * 3.7f + 1f) * 0.0012f) * up
+        pose[1] += (sin(seconds * 2.3f) * 0.004f + sin(seconds * 5.1f + 2f) * 0.0015f) * up
+        pose[3] += sin(seconds * 1.7f + 0.5f) * 1.2f * up
+        pose[4] += sin(seconds * 2.9f + 2f) * 0.8f * up
+        pose[5] += sin(seconds * 1.1f + 4f) * 1.5f * up
     }
 
-    private const val DURATION = 2.4f
+    private fun smooth(x: Float): Float {
+        val t = x.coerceIn(0f, 1f)
+        return t * t * (3f - 2f * t)
+    }
+
+    private const val DURATION = 5f
     private const val LET_GO_MS = 160f
 }
