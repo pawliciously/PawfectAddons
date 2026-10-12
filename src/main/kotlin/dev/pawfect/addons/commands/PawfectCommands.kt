@@ -25,6 +25,9 @@ import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.features.FeatureRegistry
 import dev.pawfect.addons.features.recipetracker.RecipeTracker
 import dev.pawfect.addons.features.debug.ItemDump
+import dev.pawfect.addons.config.features.DropCelebrationConfig
+import dev.pawfect.addons.features.drops.DropCelebration
+import dev.pawfect.addons.features.drops.DropTable
 import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.chat.LevelPrestige
@@ -249,12 +252,52 @@ object PawfectCommands {
         )
     }
 
+    /** Plays the drop celebration without needing the drop. */
+    private fun dropNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
+        ClientCommands.literal("drop")
+            .executes {
+                ChatUtils.chat("§7/pa dev drop §f<1-4> §7| §fall §7| §fitem <name or id> §7| §fchat <line>")
+                ChatUtils.chat("§7In §fchat§7, a leading §f~ §7is the chest loot indent and §f{me} §7is your name, like")
+                ChatUtils.chat("§f/pa dev drop chat WOW! [MVP+] {me} found a Pearlescent Dye!")
+                SUCCESS
+            }
+            .then(
+                ClientCommands.argument("tier", IntegerArgumentType.integer(1, 4)).executes {
+                    DropCelebration.testTier(DropCelebrationConfig.Tier.entries[IntegerArgumentType.getInteger(it, "tier") - 1])
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("all").executes {
+                    DropCelebration.testAll()
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("item").then(
+                    ClientCommands.argument("item", StringArgumentType.greedyString())
+                        .suggests { _, builder -> SharedSuggestionProvider.suggest(DropTable.names, builder) }
+                        .executes {
+                            DropCelebration.testItem(StringArgumentType.getString(it, "item"))
+                            SUCCESS
+                        },
+                ),
+            )
+            .then(
+                ClientCommands.literal("chat").then(
+                    ClientCommands.argument("line", StringArgumentType.greedyString()).executes {
+                        DropCelebration.testChat(StringArgumentType.getString(it, "line"))
+                        SUCCESS
+                    },
+                ),
+            )
+
     /** Diagnostics and tools for building PA. Only registered for the pawliciously account. */
     private fun devNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
             .executes {
-                ChatUtils.chat("/pa dev item | blocks | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
+                ChatUtils.chat("/pa dev item | drop | blocks | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
                 SUCCESS
             }
             .then(
@@ -275,6 +318,7 @@ object PawfectCommands {
                     SUCCESS
                 },
             )
+            .then(dropNode())
             .then(entityInfoNode("entityinfo"))
             .then(entityInfoNode("einfo"))
             .then(

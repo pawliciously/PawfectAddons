@@ -76,6 +76,8 @@ import dev.pawfect.addons.ui.Watermark
 import dev.pawfect.addons.ui.Notifications
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import dev.pawfect.addons.features.dungeon.InvincibilityTimers
+import dev.pawfect.addons.features.drops.DropCelebration
+import dev.pawfect.addons.features.drops.DropCelebrationOverlay
 import dev.pawfect.addons.features.rng.RngMeter
 import dev.pawfect.addons.features.visual.AmbientMotes
 import dev.pawfect.addons.features.rng.RngMeterOverlay
@@ -141,6 +143,7 @@ object PawfectAddons : ClientModInitializer {
         SecretTracker.register()
         SecretRoutes.register()
         RngMeter.register()
+        DropCelebration.register()
         AmbientMotes.register()
         InvincibilityTimers.register()
         RouteRenderer.register()
@@ -218,6 +221,7 @@ object PawfectAddons : ClientModInitializer {
                     RoomNameOverlay.render()
                     DungeonMap.renderHud()
                     Notifications.render()
+                    DropCelebrationOverlay.renderHud()
                 }
             } catch (e: Exception) {
                 logger.error("Error while rendering the overlay", e)
@@ -259,6 +263,7 @@ object PawfectAddons : ClientModInitializer {
                 runCatching { Hitsound.onChat(message) }
                 runCatching { RngMeter.onChat(message) }
                 runCatching { InvincibilityTimers.onChat(message) }
+                runCatching { DropCelebration.onChat(message) }
                 runCatching { SackApi.handleChatMessage(message) }
                     .getOrElse {
                         logger.error("Error while handling a chat message", it)

@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.dev.PacketOverlay;
+import dev.pawfect.addons.features.drops.DropCelebrationOverlay;
 import dev.pawfect.addons.features.media.MediaOverlay;
 
 @Mixin(Screen.class)
@@ -18,6 +19,7 @@ public abstract class ScreenMixin {
         try {
             MediaOverlay.renderOverScreen(graphics);
             PacketOverlay.renderOverScreen(graphics);
+            DropCelebrationOverlay.INSTANCE.renderOverScreen(graphics);
         } catch (Throwable ignored) {
         }
     }

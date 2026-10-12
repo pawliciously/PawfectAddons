@@ -12,6 +12,7 @@
     "BakedSheetGlyphAccessor",
     "AvatarRendererMixin",
     "BufferBuilderAccessor",
+    "CameraShakeMixin",
     "CapeLayerMixin",
     "ChatComponentMixin",
     "ChatDrawingAccessMixin",

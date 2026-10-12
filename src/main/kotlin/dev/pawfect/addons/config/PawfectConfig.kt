@@ -3,6 +3,7 @@ package dev.pawfect.addons.config
 import com.google.gson.annotations.Expose
 import dev.pawfect.addons.config.features.AmbientMotesConfig
 import dev.pawfect.addons.config.features.ChatConfig
+import dev.pawfect.addons.config.features.DropCelebrationConfig
 import dev.pawfect.addons.config.features.CosmeticsConfig
 import dev.pawfect.addons.config.features.DiscordConfig
 import dev.pawfect.addons.config.features.DungeonWaypointsConfig
@@ -71,6 +72,9 @@ class PawfectConfig {
 
     @Expose
     val ambientMotes: AmbientMotesConfig = AmbientMotesConfig()
+
+    @Expose
+    val dropCelebration: DropCelebrationConfig = DropCelebrationConfig()
 
     @Expose
     val handChams: HandChamsConfig = HandChamsConfig()

@@ -2,6 +2,7 @@ package dev.pawfect.addons.config.settings
 
 import dev.pawfect.addons.config.features.SecretRoutesConfig
 import dev.pawfect.addons.config.features.InvincibilityConfig
+import dev.pawfect.addons.config.features.DropCelebrationConfig
 import dev.pawfect.addons.config.features.AmbientMotesConfig
 import dev.pawfect.addons.features.dungeon.routes.RouteData
 import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
@@ -101,6 +102,7 @@ object PawfectSettings {
         val motion = config.motionBlur
         val invincibility = config.invincibility
         val rngMeter = config.rngMeter
+        val dropFx = config.dropCelebration
         val ambient = config.ambientMotes
 
         return listOfNotNull(
@@ -1037,6 +1039,32 @@ object PawfectSettings {
                 ),
             ),
             category(
+                "dropfx",
+                "Drop Celebration",
+                Icons.PACKAGE,
+                "0.82.0",
+                group(
+                    "Drop Celebration",
+                    ToggleSetting("Drop Celebration", "Your own rare drops get a proper moment: the item lands with impact frames, then sits in a burst of light, sparks and confetti with its rarity slammed in under it. The rarer the drop, the harder it hits, from a quick pop for a Fuming Potato Book to the full show for a Handle or a dye.", dropFx::enabled),
+                    ToggleSetting("Dungeon Loot", "Rare rewards from your dungeon chests.", dropFx::dungeonLoot)
+                        .showIf { dropFx.enabled },
+                    ToggleSetting("Dyes", "Any dye you find.", dropFx::dyes)
+                        .showIf { dropFx.enabled },
+                    ToggleSetting("Slayer Drops", "The rarest slayer and boss drops, like a Judgement Core or a Warden Heart.", dropFx::slayerDrops)
+                        .showIf { dropFx.enabled },
+                    DropdownSetting("From", "The least rare drop that still gets one.", dropFx::minTier, DropCelebrationConfig.Tier.entries.toList())
+                        .showIf { dropFx.enabled },
+                    ToggleSetting("Impact Frames", "The hard black and white frames when it lands. Turn these off if flashing bothers you; it gets a softer flash instead.", dropFx::impactFrames)
+                        .showIf { dropFx.enabled },
+                    ToggleSetting("Screen Shake", "Shake the camera when it lands.", dropFx::shake)
+                        .showIf { dropFx.enabled },
+                    ToggleSetting("World Effects", "Rings across the ground and lights rising round you, for Crazy Rare drops and up.", dropFx::worldEffects)
+                        .showIf { dropFx.enabled },
+                    FloatSliderSetting("Volume", "How loud it is.", dropFx::volume, 0f, 1f, 0.05f)
+                        .showIf { dropFx.enabled },
+                ),
+            ),
+            category(
                 "rngmeter",
                 "RNG Meter",
                 Icons.TAG,
@@ -1265,7 +1293,7 @@ object PawfectSettings {
         Triple("interface", "Interface", listOf("chat", "scoreboard", "inventory", "theme")),
         Triple("effects", "Effects", listOf("visuals", "chams", "skybox")),
         Triple("social", "Social", listOf("cosmetics", "discord")),
-        Triple("misc", "Misc", listOf("rngmeter", "experiments", "media", "hitsounds", "recipetracker")),
+        Triple("misc", "Misc", listOf("rngmeter", "dropfx", "experiments", "media", "hitsounds", "recipetracker")),
         Triple("dev", "Dev", listOf("dev")),
     )
 
