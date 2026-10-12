@@ -437,19 +437,6 @@ object PawfectSettings {
                         PawfectAddons.queueScreen { GuiEditManager.openEditor() }
                     }.showIf { invincibility.enabled },
                 ),
-                group(
-                    "RNG Meter",
-                    ToggleSetting("RNG Meter", "Show the RNG Meter for the floor you're running or the slayer you're on: your selected drop, how full it is and about how many more runs or bosses it needs. A run adds its score on S+ and 70% of it on S. Open an RNG Meter menu once to read the exact total; until then it's marked with a ~.", rngMeter::enabled),
-                    ToggleSetting("Dungeons", "Show it in dungeons, for the floor you're on.", rngMeter::dungeons)
-                        .showIf { rngMeter.enabled },
-                    ToggleSetting("Slayers", "Show it while you have a slayer quest, for that slayer. Each kill's chat gives the exact total.", rngMeter::slayers)
-                        .showIf { rngMeter.enabled },
-                    ToggleSetting("Runs Left", "Show about how many more runs or bosses fill it, going by your last one.", rngMeter::showLeft)
-                        .showIf { rngMeter.enabled },
-                    PositionSetting("Meter Position", "Drag the meter to reposition it.", rngMeter.position) {
-                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
-                    }.showIf { rngMeter.enabled },
-                ),
             ),
             category(
                 "visuals",
@@ -1022,6 +1009,25 @@ object PawfectSettings {
                 ),
             ),
             category(
+                "rngmeter",
+                "RNG Meter",
+                Icons.TAG,
+                "0.82.0",
+                group(
+                    "RNG Meter",
+                    ToggleSetting("RNG Meter", "Show the RNG Meter for the floor you're running or the slayer you're on: your selected drop, how full it is and about how many more runs or bosses it needs. A run adds its score on S+ and 70% of it on S. Open an RNG Meter menu once to read the exact total; until then it's marked with a ~.", rngMeter::enabled),
+                    ToggleSetting("Dungeons", "Show it in dungeons, for the floor you're on.", rngMeter::dungeons)
+                        .showIf { rngMeter.enabled },
+                    ToggleSetting("Slayers", "Show it while you have a slayer quest, for that slayer. Each kill's chat gives the exact total.", rngMeter::slayers)
+                        .showIf { rngMeter.enabled },
+                    ToggleSetting("Runs Left", "Show about how many more runs or bosses fill it, going by your last one.", rngMeter::showLeft)
+                        .showIf { rngMeter.enabled },
+                    PositionSetting("Meter Position", "Drag the meter to reposition it.", rngMeter.position) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { rngMeter.enabled },
+                ),
+            ),
+            category(
                 "experiments",
                 "Experiments",
                 Icons.CLOCK,
@@ -1229,7 +1235,7 @@ object PawfectSettings {
         Triple("interface", "Interface", listOf("chat", "scoreboard", "inventory", "theme")),
         Triple("effects", "Effects", listOf("visuals", "chams", "skybox")),
         Triple("social", "Social", listOf("cosmetics", "discord")),
-        Triple("misc", "Misc", listOf("experiments", "media", "hitsounds", "recipetracker")),
+        Triple("misc", "Misc", listOf("rngmeter", "experiments", "media", "hitsounds", "recipetracker")),
         Triple("dev", "Dev", listOf("dev")),
     )
 

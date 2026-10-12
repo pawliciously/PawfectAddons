@@ -29,7 +29,7 @@ import kotlin.math.ceil
  */
 object RngMeterOverlay {
 
-    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.rngMeter)
+    private val config get() = ModuleSwitch.view("rngmeter", ConfigManager.features.rngMeter)
 
     fun render() {
         if (!config.enabled || !RenderContext.isActive) return

@@ -30,7 +30,7 @@ import net.minecraft.network.chat.Component
  */
 object RngMeter {
 
-    private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.rngMeter)
+    private val config get() = ModuleSwitch.view("rngmeter", ConfigManager.features.rngMeter)
 
     /** Slayer chat names the boss by its mob; the meters go by the boss. */
     private val SLAYER_BY_MOB = mapOf(
