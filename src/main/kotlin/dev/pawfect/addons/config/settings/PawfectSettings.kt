@@ -2,6 +2,7 @@ package dev.pawfect.addons.config.settings
 
 import dev.pawfect.addons.config.features.SecretRoutesConfig
 import dev.pawfect.addons.config.features.InvincibilityConfig
+import dev.pawfect.addons.config.features.AmbientMotesConfig
 import dev.pawfect.addons.features.dungeon.routes.RouteData
 import dev.pawfect.addons.features.dungeon.routes.SecretRoutes
 import dev.pawfect.addons.PawfectAddons
@@ -100,6 +101,7 @@ object PawfectSettings {
         val motion = config.motionBlur
         val invincibility = config.invincibility
         val rngMeter = config.rngMeter
+        val ambient = config.ambientMotes
 
         return listOfNotNull(
             category(
@@ -447,6 +449,28 @@ object PawfectSettings {
                 "Visuals",
                 Icons.EYE,
                 "0.48.0",
+                group(
+                    "Ambient Motes",
+                    ToggleSetting("Ambient Motes", "Little lights that lift off the blocks around you and drift about however they like: wandering, circling, darting like fireflies or rising away. Only spawned where you're looking and can see.", ambient::enabled),
+                    IntSliderSetting("Distance", "How far out they spawn. Capped by your render distance, since unloaded chunks have no blocks to rise from.", ambient::distance, 8, 1024, 8, " blocks")
+                        .showIf { ambient.enabled },
+                    IntSliderSetting("Amount", "How many are around at once.", ambient::count, 20, 800, 10)
+                        .showIf { ambient.enabled },
+                    DropdownSetting("Colours", "Their colours: your theme, a celestial set's, or your own.", ambient::palette, AmbientMotesConfig.Palette.entries.toList())
+                        .showIf { ambient.enabled },
+                    ColorSetting("Custom Colour", "Their colour with Custom picked.", ambient::customColor, supportsAlpha = false)
+                        .showIf { ambient.enabled && ambient.palette == AmbientMotesConfig.Palette.CUSTOM },
+                    DropdownSetting("Look", "Soft glows, four pointed sparks, or some of each.", ambient::look, AmbientMotesConfig.Look.entries.toList())
+                        .showIf { ambient.enabled },
+                    FloatSliderSetting("Size", "How big they are.", ambient::size, 0.3f, 3f, 0.05f)
+                        .showIf { ambient.enabled },
+                    FloatSliderSetting("Brightness", "How bright they glow.", ambient::brightness, 0.2f, 2f, 0.05f)
+                        .showIf { ambient.enabled },
+                    FloatSliderSetting("Speed", "How fast they move.", ambient::speed, 0.2f, 3f, 0.05f)
+                        .showIf { ambient.enabled },
+                    ToggleSetting("In Dungeons", "Show them in dungeons too.", ambient::inDungeons)
+                        .showIf { ambient.enabled },
+                ),
                 group(
                     "Motion Blur",
                     ToggleSetting("Motion Blur", "Smear the world along the camera's movement, the way a real shutter does.", motion::enabled),

@@ -4,7 +4,7 @@ package dev.pawfect.addons.features.cosmetics
  * The themes the new motes, trails and ripples come in, each loosely matching a celestial set
  * and carrying the colours it was made with. Ids match the website's.
  */
-enum class Form(val id: String, vararg colors: Int) {
+enum class Form(val id: String, vararg val colors: Int) {
     /** Cut crystal, with Prism wings and the Facet halo. */
     PRISM("prism", 0x9BE8FF, 0xC9A8FF, 0xFFFFFF, 0x7FD6FF),
 

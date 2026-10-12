@@ -77,6 +77,7 @@ import dev.pawfect.addons.ui.Notifications
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import dev.pawfect.addons.features.dungeon.InvincibilityTimers
 import dev.pawfect.addons.features.rng.RngMeter
+import dev.pawfect.addons.features.visual.AmbientMotes
 import dev.pawfect.addons.features.rng.RngMeterOverlay
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents
@@ -140,6 +141,7 @@ object PawfectAddons : ClientModInitializer {
         SecretTracker.register()
         SecretRoutes.register()
         RngMeter.register()
+        AmbientMotes.register()
         InvincibilityTimers.register()
         RouteRenderer.register()
         RouteRecorder.register()
