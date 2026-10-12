@@ -27,7 +27,11 @@ import dev.pawfect.addons.features.recipetracker.RecipeTracker
 import dev.pawfect.addons.features.debug.ItemDump
 import dev.pawfect.addons.config.features.DropCelebrationConfig
 import dev.pawfect.addons.features.drops.DropCelebration
+import dev.pawfect.addons.features.drops.DropSignatures
 import dev.pawfect.addons.features.drops.DropTable
+import dev.pawfect.addons.features.drops.ItemGet
+import dev.pawfect.addons.features.drops.Signature
+import com.mojang.brigadier.arguments.FloatArgumentType
 import dev.pawfect.addons.features.debug.ActionBarDebug
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.chat.LevelPrestige
@@ -256,11 +260,115 @@ object PawfectCommands {
     private fun dropNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal("drop")
             .executes {
-                ChatUtils.chat("§7/pa dev drop §f<1-4> §7| §fall §7| §fstop §7| §fitem <name or id> §7| §fchat <line>")
+                ChatUtils.chat("§7/pa dev drop §f<1-4> §7| §fall §7| §fitem <name or id> §7| §fchat <line> §7| §flist")
+                ChatUtils.chat("§7Signatures: §fsig <name> [1-4] §7| §fdye <name> §7| §fstar <1-5>")
+                ChatUtils.chat("§7Playback: §fpause §7| §fat <ms> §7| §fspeed [x] §7| §freplay §7| §finfo §7| §fstop")
+                ChatUtils.chat("§7Item get test: §fzelda [item]")
                 ChatUtils.chat("§7In §fchat§7, a leading §f~ §7is the chest loot indent and §f{me} §7is your name, like")
                 ChatUtils.chat("§f/pa dev drop chat WOW! [MVP+] {me} found a Pearlescent Dye!")
                 SUCCESS
             }
+            .then(
+                ClientCommands.literal("sig").executes {
+                    ChatUtils.chat("§7Signatures: §f${Signature.entries.joinToString("§7, §f") { it.id }}")
+                    SUCCESS
+                }.then(
+                    ClientCommands.argument("signature", StringArgumentType.word())
+                        .suggests { _, builder -> SharedSuggestionProvider.suggest(Signature.entries.map { it.id }, builder) }
+                        .executes {
+                            val sig = signatureArg(StringArgumentType.getString(it, "signature")) ?: return@executes SUCCESS
+                            DropCelebration.testSignature(sig, null)
+                            SUCCESS
+                        }
+                        .then(
+                            ClientCommands.argument("tier", IntegerArgumentType.integer(1, 4)).executes {
+                                val sig = signatureArg(StringArgumentType.getString(it, "signature")) ?: return@executes SUCCESS
+                                DropCelebration.testSignature(sig, DropCelebrationConfig.Tier.entries[IntegerArgumentType.getInteger(it, "tier") - 1])
+                                SUCCESS
+                            },
+                        ),
+                ),
+            )
+            .then(
+                ClientCommands.literal("dye").then(
+                    ClientCommands.argument("dye", StringArgumentType.greedyString())
+                        .suggests { _, builder -> SharedSuggestionProvider.suggest(DropSignatures.dyeNames, builder) }
+                        .executes {
+                            DropCelebration.testDye(StringArgumentType.getString(it, "dye"))
+                            SUCCESS
+                        },
+                ),
+            )
+            .then(
+                ClientCommands.literal("star").then(
+                    ClientCommands.argument("stars", IntegerArgumentType.integer(1, 5)).executes {
+                        DropCelebration.testStars(IntegerArgumentType.getInteger(it, "stars"))
+                        SUCCESS
+                    },
+                ),
+            )
+            .then(
+                ClientCommands.literal("list").executes {
+                    DropCelebration.list()
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("pause").executes {
+                    DropCelebration.togglePause()
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("at").then(
+                    ClientCommands.argument("ms", IntegerArgumentType.integer(0, 20_000)).executes {
+                        DropCelebration.seek(IntegerArgumentType.getInteger(it, "ms").toFloat())
+                        SUCCESS
+                    },
+                ),
+            )
+            .then(
+                ClientCommands.literal("speed")
+                    .executes {
+                        DropCelebration.setSpeed(null)
+                        SUCCESS
+                    }
+                    .then(
+                        ClientCommands.argument("speed", FloatArgumentType.floatArg(0.05f, 3f)).executes {
+                            DropCelebration.setSpeed(FloatArgumentType.getFloat(it, "speed"))
+                            SUCCESS
+                        },
+                    ),
+            )
+            .then(
+                ClientCommands.literal("replay").executes {
+                    DropCelebration.replay()
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("info").executes {
+                    DropCelebration.info()
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("zelda")
+                    .executes {
+                        ItemGet.start("Necron's Handle", "NECRON_HANDLE")
+                        SUCCESS
+                    }
+                    .then(
+                        ClientCommands.argument("item", StringArgumentType.greedyString())
+                            .suggests { _, builder -> SharedSuggestionProvider.suggest(DropTable.names, builder) }
+                            .executes {
+                                val query = StringArgumentType.getString(it, "item")
+                                val drop = DropTable.find(query) ?: DropTable.findId(query)
+                                ItemGet.start(drop?.name ?: query, drop?.id)
+                                SUCCESS
+                            },
+                    ),
+            )
             .then(
                 ClientCommands.argument("tier", IntegerArgumentType.integer(1, 4)).executes {
                     DropCelebration.testTier(DropCelebrationConfig.Tier.entries[IntegerArgumentType.getInteger(it, "tier") - 1])
@@ -297,6 +405,12 @@ object PawfectCommands {
                     },
                 ),
             )
+
+    private fun signatureArg(id: String): Signature? {
+        val sig = Signature.entries.firstOrNull { it.id.equals(id, ignoreCase = true) }
+        if (sig == null) ChatUtils.chat("§cNo signature called §f$id§c. Try §f${Signature.entries.joinToString(", ") { it.id }}§c.")
+        return sig
+    }
 
     /** Diagnostics and tools for building PA. Only registered for the pawliciously account. */
     private fun devNode(): LiteralArgumentBuilder<FabricClientCommandSource> =

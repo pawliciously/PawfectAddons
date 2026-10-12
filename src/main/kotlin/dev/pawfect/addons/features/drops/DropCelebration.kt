@@ -8,6 +8,7 @@ import dev.pawfect.addons.config.features.DropCelebrationConfig.Tier
 import dev.pawfect.addons.data.NeuRepo
 import dev.pawfect.addons.features.cosmetics.WorldFx
 import dev.pawfect.addons.features.drops.DropParser.Source
+import dev.pawfect.addons.ui.Theme
 import dev.pawfect.addons.utils.ChatUtils
 import dev.pawfect.addons.utils.McCompat
 import dev.pawfect.addons.utils.SoundCue
@@ -61,12 +62,35 @@ object DropCelebration {
         val fanfare: Boolean,
     )
 
-    class Show(val stack: ItemStack, val name: String, val tier: Tier, val feel: Feel, val seed: Int) {
-        var startedAt = 0L
+    class Show(
+        val stack: ItemStack,
+        val name: String,
+        val tier: Tier,
+        val feel: Feel,
+        val seed: Int,
+        val signature: Signature,
+        /** The signature's own number, like how many stars a Master Star draws. */
+        val extra: Int,
+        val color: Int,
+        val glow: Int,
+    ) {
+        /** Where it's got to, in milliseconds, advanced by however fast it's set to play. */
+        var clock = 0f
+        private var lastNanos = 0L
         var nextCue = 0
         val cues = DropCelebration.cues(this)
 
-        fun elapsed(now: Long = System.nanoTime()): Float = (now - startedAt) / 1_000_000f * DropCelebration.speed()
+        fun elapsed(now: Long = System.nanoTime()): Float {
+            if (lastNanos != 0L && !DropCelebration.paused) clock += (now - lastNanos) / 1_000_000f * DropCelebration.speed()
+            lastNanos = now
+            return clock
+        }
+
+        /** Jumps to [ms], skipping the sounds before it. */
+        fun seek(ms: Float) {
+            clock = ms.coerceIn(0f, feel.length - 1f)
+            nextCue = cues.indexOfFirst { it.at >= clock }.let { if (it < 0) cues.size else it }
+        }
 
         /** When it lands, after the wind up. */
         val impactAt: Float get() = feel.windup
@@ -95,7 +119,14 @@ object DropCelebration {
         }
     }
 
-    fun speed(): Float = config.speed.coerceIn(0.25f, 3f)
+    fun speed(): Float = devSpeed ?: config.speed.coerceIn(0.25f, 3f)
+
+    /** Dev controls, for looking at it frame by frame. Not saved. */
+    var devSpeed: Float? = null
+    var paused = false
+    private var last: Triple<String, String?, Tier>? = null
+    private var lastSignature: Signature? = null
+    private var lastExtra = 0
 
     // ------------------------------------------------------------------ triggers
 
@@ -116,18 +147,109 @@ object DropCelebration {
         celebrate(found.name, found.id, found.tier)
     }
 
-    fun celebrate(name: String, id: String?, tier: Tier) {
+    /** Queues a drop's celebration. [signature] and [extra] are worked out from the item unless given. */
+    fun celebrate(name: String, id: String?, tier: Tier, signature: Signature? = null, extra: Int? = null) {
         val repoId = id?.takeIf { NeuRepo.item(it) != null } ?: NeuRepo.resolve(name)?.internalName
         val stack = repoId?.let { NeuRepo.itemStack(it) }?.takeIf { !it.isEmpty } ?: ItemStack(Items.NETHER_STAR)
         val display = repoId?.let { NeuRepo.displayName(it) }?.takeIf { it.removeColor().isNotBlank() } ?: "§f$name"
+        val sig = signature ?: DropSignatures.of(name, repoId ?: id)
+        val count = extra ?: DropSignatures.starCount(repoId ?: id)
+        // A dye's whole moment takes its colour.
+        val color = if (sig == Signature.DYE) DropSignatures.dyeColor(name, stack) else DropColors.of(tier)
+        val glow = if (sig == Signature.DYE) Theme.mix(color, 0xFFFFFF, 0.5f) and 0xFFFFFF else DropColors.glowOf(tier)
+        last = Triple(name, id, tier)
+        lastSignature = signature
+        lastExtra = count
         if (queue.size >= MAX_QUEUE) queue.removeFirst()
-        queue.addLast(Show(stack, display, tier, feel(tier), random.nextInt()))
+        queue.addLast(Show(stack, display, tier, feel(tier), random.nextInt(), sig, count, color, glow))
     }
 
     /** Ends what's playing and anything queued. */
     fun skip() {
         playing = null
         queue.clear()
+        paused = false
+    }
+
+    // ------------------------------------------------------------------ dev controls
+
+    fun replay() {
+        val (name, id, tier) = last ?: return ChatUtils.chat("§cNothing's played yet.")
+        skip()
+        celebrate(name, id, tier, lastSignature, lastExtra)
+    }
+
+    fun togglePause() {
+        paused = !paused
+        ChatUtils.chat(if (paused) "§7Paused at §f${playing?.clock?.toInt() ?: 0}ms§7." else "§7Playing.")
+    }
+
+    fun seek(ms: Float) {
+        val show = playing ?: current() ?: return ChatUtils.chat("§cNothing's playing.")
+        show.seek(ms)
+        paused = true
+        ChatUtils.chat("§7Paused at §f${show.clock.toInt()}ms §7(${phase(show, show.clock)}).")
+    }
+
+    fun setSpeed(speed: Float?) {
+        devSpeed = speed
+        ChatUtils.chat(if (speed == null) "§7Back to the setting's speed." else "§7Playing at §f${speed}x§7 until you reset it.")
+    }
+
+    fun info() {
+        val show = playing ?: return ChatUtils.chat("§cNothing's playing.")
+        ChatUtils.chat("§f${show.name.removeColor()} §7as §f${show.tier}§7, signature §f${show.signature.id}§7${if (show.signature == Signature.STARS) " (${show.extra})" else ""}.")
+        ChatUtils.chat("§7Now §f${show.clock.toInt()}ms §7(${phase(show, show.clock)}) of §f${show.feel.length.toInt()}ms§7.")
+        ChatUtils.chat("§7Lands §f${show.impactAt.toInt()} §7· reveal §f${show.revealAt.toInt()} §7· second hit §f${if (show.feel.aftershock) show.aftershockAt.toInt() else "-"} §7· outro §f${show.outroAt.toInt()}")
+    }
+
+    private fun phase(show: Show, t: Float): String = when {
+        t < show.impactAt -> "wind up"
+        t < show.revealAt -> "impact frames"
+        t < show.outroAt -> "reveal"
+        else -> "outro"
+    }
+
+    /** Plays [signature] on the item it's made for, at that item's tier unless [tier] is given. */
+    fun testSignature(signature: Signature, tier: Tier?) {
+        val (name, id) = when (signature) {
+            Signature.NONE -> "Spirit Bone" to "SPIRIT_BONE"
+            Signature.DYE -> "Necron Dye" to "NECRON_DYE"
+            Signature.GIANT -> "Giant's Sword" to "GIANTS_SWORD"
+            Signature.RECOMB -> "Recombobulator 3000" to "RECOMBOBULATOR_3000"
+            Signature.STARS -> "Fifth Master Star" to "FIFTH_MASTER_STAR"
+            Signature.NECRON -> "Necron's Handle" to "NECRON_HANDLE"
+        }
+        val playAs = tier ?: DropTable.find(name)?.tier ?: if (signature == Signature.DYE) Tier.INSANE else Tier.RARE
+        celebrate(name, id, playAs, signature)
+        ChatUtils.chat("§7Playing §f${signature.id} §7on §f$name §7as §f$playAs§7.")
+    }
+
+    /** A dye by name, in its own colour. */
+    fun testDye(name: String) {
+        val full = if (name.trim().endsWith(" Dye", ignoreCase = true)) name.trim() else name.trim() + " Dye"
+        val id = NeuRepo.resolve(full)?.internalName
+        celebrate(full, id, Tier.INSANE, Signature.DYE)
+        val stack = id?.let { NeuRepo.itemStack(it) } ?: ItemStack(Items.NETHER_STAR)
+        ChatUtils.chat("§7Playing §f$full §7in §f#%06X§7.".format(DropSignatures.dyeColor(full, stack)))
+    }
+
+    /** A Master Star with [count] stars, at the tier that star drops as. */
+    fun testStars(count: Int) {
+        val names = arrayOf("First", "Second", "Third", "Fourth", "Fifth")
+        val name = names[count - 1] + " Master Star"
+        val drop = DropTable.find(name) ?: return
+        celebrate(drop.name, drop.id, drop.tier, Signature.STARS, count)
+    }
+
+    fun list() {
+        ChatUtils.chat("§7Drops and their signatures:")
+        for (name in DropTable.names) {
+            val drop = DropTable.find(name) ?: continue
+            val sig = DropSignatures.of(drop.name, drop.id)
+            ChatUtils.chat("  §f${drop.name} §7${drop.tier}${if (sig != Signature.NONE) " §d${sig.id}" else ""}")
+        }
+        ChatUtils.chat("  §7Any dye: §fInsane §ddye")
     }
 
     // ------------------------------------------------------------------ dev tests
@@ -182,7 +304,7 @@ object DropCelebration {
         }
         if (show == null) {
             show = queue.removeFirstOrNull() ?: return null
-            show.startedAt = now
+            show.elapsed(now)
             playing = show
         }
         return show
@@ -264,8 +386,8 @@ object DropCelebration {
         val z = (feet.z - eye.z).toFloat()
         val left = show.feel.length - show.revealAt
         val out = 1f - smooth((r - (left - 800f)) / 800f)
-        val color = DropColors.of(show.tier)
-        val glow = DropColors.glowOf(show.tier)
+        val color = show.color
+        val glow = show.glow
         WorldFx.submit(poseStack, collector, 1f, solids = {}, lights = { fx ->
             for (j in 0 until 3) {
                 val q = ((r + j * 420f) % 1260f) / 1260f
@@ -361,7 +483,8 @@ object DropCelebration {
                 list += Cue(reveal + 1400f, "minecraft:entity.player.levelup", 0.7f, 1.5f)
             }
         }
-        if (f.fanfare) {
+        list += DropSignatures.cues(show)
+        if (f.fanfare && !show.signature.ownMusic) {
             // A rising arpeggio as the letters land, the last note held up high.
             val notes = intArrayOf(12, 16, 19, 24)
             val start = reveal + LETTERS_START + 40f

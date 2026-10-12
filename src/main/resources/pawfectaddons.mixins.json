@@ -40,6 +40,7 @@
     "SoundManagerAccessor",
     "InventoryPreviewMixin",
     "ItemDecorationsMixin",
+    "ItemGetPoseMixin",
     "ItemStackFoilMixin",
     "LavaFogEnvironmentMixin",
     "LeapMenuMixin",

@@ -78,6 +78,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import dev.pawfect.addons.features.dungeon.InvincibilityTimers
 import dev.pawfect.addons.features.drops.DropCelebration
 import dev.pawfect.addons.features.drops.DropCelebrationOverlay
+import dev.pawfect.addons.features.drops.ItemGet
 import dev.pawfect.addons.features.rng.RngMeter
 import dev.pawfect.addons.features.visual.AmbientMotes
 import dev.pawfect.addons.features.rng.RngMeterOverlay
@@ -144,6 +145,7 @@ object PawfectAddons : ClientModInitializer {
         SecretRoutes.register()
         RngMeter.register()
         DropCelebration.register()
+        ItemGet.register()
         AmbientMotes.register()
         InvincibilityTimers.register()
         RouteRenderer.register()
@@ -221,6 +223,7 @@ object PawfectAddons : ClientModInitializer {
                     RoomNameOverlay.render()
                     DungeonMap.renderHud()
                     Notifications.render()
+                    ItemGet.renderHud()
                     DropCelebrationOverlay.renderHud()
                 }
             } catch (e: Exception) {
