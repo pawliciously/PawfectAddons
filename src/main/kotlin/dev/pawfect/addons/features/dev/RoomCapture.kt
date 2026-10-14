@@ -84,7 +84,8 @@ object RoomCapture {
         val key: Pair<Int, Int> get() = x to z
     }
 
-    private class IndexEntry(val clean: Boolean, val floor: String?, val capturedAt: String, val missRate: Double)
+    /** [source] is "dungeondata" for rooms imported by DungeonSim's tools; any real capture replaces those. */
+    private class IndexEntry(val clean: Boolean, val floor: String?, val capturedAt: String, val missRate: Double, val source: String? = null)
 
     /** Saved captures by "shape/room" (water board layouts as "puzzle/water-puzzle#layout-N"). Only touched on [worker]. */
     private var index: MutableMap<String, IndexEntry>? = null
@@ -663,11 +664,12 @@ object RoomCapture {
                 }
             }
             val existing = index[key]
-            if (existing != null && (existing.clean || !result.clean)) continue
+            val imported = existing?.source != null
+            if (existing != null && !imported && (existing.clean || !result.clean)) continue
             write(file, result, key)
             index[key] = IndexEntry(result.clean, result.floor, Instant.now().toString(), result.missRate)
             val label = label(key)
-            if (existing == null) added.add(label) else improved.add(label)
+            if (existing == null || imported) added.add(label) else improved.add(label)
         }
         saveIndex(index)
         if (held.isNotEmpty()) synchronized(results) { results.addAll(held) }
@@ -679,15 +681,17 @@ object RoomCapture {
         Files.write(dir.resolve("missing.txt"), missing.map { it.replace(Regex("§."), "") })
         val total = catalogue().size
         val have = total - missingCount(index)
+        val imported = index.values.count { it.source != null }
+        val importedNote = if (imported == 0) "" else " §8($imported imported)"
 
         McCompat.mc.execute {
             if (final) {
                 val gui = McCompat.mc.gui.hud
                 gui.setTimes(10, 80, 20)
-                gui.setSubtitle(Component.literal("§f$have§7/§f$total §7rooms saved, §a${added.size} new §7this run"))
+                gui.setSubtitle(Component.literal("§f$have§7/§f$total §7rooms saved$importedNote, §a${added.size} new §7this run"))
                 gui.setTitle(Component.literal("§d§l${have * 100 / total.coerceAtLeast(1)}% §7of rooms"))
             }
-            ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §f${improved.size} §7cleaner, §f$unknown §7unmatched${if (held.isEmpty()) "" else ", §f${held.size} §7held until the run ends"}. §f$have§7/§f$total §7rooms saved.")
+            ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §f${improved.size} §7cleaner, §f$unknown §7unmatched${if (held.isEmpty()) "" else ", §f${held.size} §7held until the run ends"}. §f$have§7/§f$total §7rooms saved$importedNote§7.")
             if (rematched.isNotEmpty()) ChatUtils.chat("§7Matched §f${rematched.size} §7saved unknown rooms again: §f${rematched.joinToString(", ") { SecretRoomData.displayName(it.first.room ?: "?") }}")
             if (added.isNotEmpty()) ChatUtils.chat("§aNew: §f${added.joinToString(", ")}")
             if (missing.isEmpty()) ChatUtils.chat("§aEvery room is saved.") else missing.forEach { ChatUtils.chat(it) }
