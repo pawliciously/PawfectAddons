@@ -153,7 +153,7 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
         if (matchState != MatchState.MATCHING && matchState != MatchState.DOUBLE_CHECKING) return
         if (!SecretRoomData.loaded) return
         val at = probes.getOrNull(probed % probes.size.coerceAtLeast(1)) ?: return
-        if (!level.hasChunkAt(at)) return
+        if (!loaded(level, at)) return
         probed++
         scan(level, at)
     }
@@ -165,7 +165,7 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
             if (!segments.contains(physical.x() to physical.y())) continue
             if (!notInDoorway(immutable)) continue
             // Unloaded blocks read as air; leave them to be checked once they've loaded.
-            if (!level.hasChunkAt(immutable)) continue
+            if (!loaded(level, immutable)) continue
             if (!checked.add(immutable)) continue
             if (checkBlock(level, immutable)) break
         }
@@ -209,6 +209,9 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
         }
         return false
     }
+
+    /** ClientLevel.hasChunkAt always says yes; the chunk cache knows which chunks have actually arrived. */
+    private fun loaded(level: ClientLevel, pos: BlockPos): Boolean = level.chunkSource.hasChunk(pos.x shr 4, pos.z shr 4)
 
     private fun notInDoorway(pos: BlockPos): Boolean {
         if (pos.y < 66 || pos.y > 73) return true

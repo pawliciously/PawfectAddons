@@ -167,7 +167,7 @@ object RoomCapture {
         val waiting = grid.count { exists[it] == true && it !in started }
         ChatUtils.chat("§7Grab done. §f$unloaded §7cells weren't loaded, §f$waiting §7room cells are waiting on them. Saving...")
         val types = HashMap(mapTypes)
-        worker.execute { runCatching { save(types) }.onFailure { logger.error("Saving room captures failed", it) } }
+        worker.execute { runCatching { save(types, final = false) }.onFailure { logger.error("Saving room captures failed", it) } }
     }
 
     /** Mort stands in the entrance room from the start, before the map shows anything. */
@@ -249,8 +249,13 @@ object RoomCapture {
     private fun joinedBetween(a: Cell, b: Cell): Boolean? =
         if (a.cx < b.cx || a.cz < b.cz) joined[a to b] else joined[b to a]
 
-    private fun loaded(level: ClientLevel, minX: Int, minZ: Int, maxX: Int, maxZ: Int): Boolean =
-        level.hasChunksAt(minX, minZ, maxX, maxZ)
+    /** ClientLevel.hasChunksAt always says yes, and unarrived chunks read as air; the chunk cache knows what has arrived. */
+    private fun loaded(level: ClientLevel, minX: Int, minZ: Int, maxX: Int, maxZ: Int): Boolean {
+        for (cx in (minX shr 4)..(maxX shr 4)) for (cz in (minZ shr 4)..(maxZ shr 4)) {
+            if (!level.chunkSource.hasChunk(cx, cz)) return false
+        }
+        return true
+    }
 
     private fun hasRoom(level: ClientLevel, cell: Cell): Boolean {
         val spots = intArrayOf(5, 15, 25)
@@ -291,7 +296,7 @@ object RoomCapture {
 
         /** Reads up to the budget; false when part of the room has unloaded. */
         fun step(level: ClientLevel, budget: Int): Boolean {
-            if (!level.hasChunksAt(minX, minZ, maxX, maxZ)) return false
+            if (!loaded(level, minX, minZ, maxX, maxZ)) return false
             val air = Blocks.AIR.defaultBlockState()
             val pos = BlockPos.MutableBlockPos()
             var read = 0
@@ -552,7 +557,7 @@ object RoomCapture {
         val types = HashMap(mapTypes)
         reset()
         // Queued behind any rooms still being processed
-        worker.execute { runCatching { save(types) }.onFailure { logger.error("Saving room captures failed", it) } }
+        worker.execute { runCatching { save(types, final = true) }.onFailure { logger.error("Saving room captures failed", it) } }
     }
 
     private fun reset() {
@@ -563,11 +568,16 @@ object RoomCapture {
         ticks = 0
     }
 
-    private fun save(types: Map<Pair<Int, Int>, DungeonRoom.Type>) {
+    /**
+     * Writes what's been copied. Before the run ends ([final] false, from a grab) rooms that didn't match are held
+     * back, since the map may still turn out to show them as the blood or fairy room.
+     */
+    private fun save(types: Map<Pair<Int, Int>, DungeonRoom.Type>, final: Boolean) {
         val captured = synchronized(results) { results.toList().also { results.clear() } }
         val index = loadIndex()
         val added = ArrayList<String>()
         val improved = ArrayList<String>()
+        val held = ArrayList<Result>()
         var unknown = 0
 
         for (result in captured) {
@@ -579,6 +589,9 @@ object RoomCapture {
                     val special = result.cells.firstNotNullOfOrNull { types[it] }?.name?.lowercase()
                     if (special != null) {
                         "special/$special" to dir.resolve("special").resolve("$special.json")
+                    } else if (!final) {
+                        held.add(result)
+                        continue
                     } else {
                         unknown++
                         val stamp = Instant.now().toString().replace(':', '-')
@@ -596,6 +609,7 @@ object RoomCapture {
             if (existing == null) added.add(label) else improved.add(label)
         }
         saveIndex(index)
+        if (held.isNotEmpty()) synchronized(results) { results.addAll(held) }
 
         val missing = missing(index)
         lastMissing = missing
@@ -604,7 +618,7 @@ object RoomCapture {
         val have = total - missingCount(index)
 
         McCompat.mc.execute {
-            ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §f${improved.size} §7cleaner, §f$unknown §7unmatched. §f$have§7/§f$total §7rooms saved.")
+            ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §f${improved.size} §7cleaner, §f$unknown §7unmatched${if (held.isEmpty()) "" else ", §f${held.size} §7held until the run ends"}. §f$have§7/§f$total §7rooms saved.")
             if (added.isNotEmpty()) ChatUtils.chat("§aNew: §f${added.joinToString(", ")}")
             if (missing.isEmpty()) ChatUtils.chat("§aEvery room is saved.") else missing.forEach { ChatUtils.chat(it) }
         }
