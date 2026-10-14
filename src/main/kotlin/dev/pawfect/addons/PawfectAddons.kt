@@ -14,6 +14,7 @@ import dev.pawfect.addons.features.combat.Hitmarker
 import dev.pawfect.addons.features.combat.Hitsound
 import dev.pawfect.addons.features.dev.PacketLog
 import dev.pawfect.addons.features.dev.PacketOverlay
+import dev.pawfect.addons.features.dev.RoomCapture
 import dev.pawfect.addons.data.BazaarApi
 import dev.pawfect.addons.data.ItemSources
 import dev.pawfect.addons.data.NeuRepo
@@ -340,6 +341,7 @@ object PawfectAddons : ClientModInitializer {
                 SecretRoomData.load()
                 DungeonScanner.onTick()
             }
+            RoomCapture.onTick()
         }.onFailure { logger.error("Error during tick", it) }
 
         if (++secondTicker >= TICKS_PER_SECOND) {

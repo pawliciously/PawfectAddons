@@ -22,6 +22,7 @@ import dev.pawfect.addons.features.visual.menu.hub.WalkerPoints
 import dev.pawfect.addons.features.discord.HypixelLocation
 import dev.pawfect.addons.features.dungeon.DungeonWaypoints
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
+import dev.pawfect.addons.features.dev.RoomCapture
 import dev.pawfect.addons.features.FeatureRegistry
 import dev.pawfect.addons.features.recipetracker.RecipeTracker
 import dev.pawfect.addons.features.debug.ItemDump
@@ -256,6 +257,28 @@ object PawfectCommands {
         )
     }
 
+    /** Dungeon room capture for DungeonSim: what's saved and what's still missing, or switch it on and off. */
+    private fun roomsNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
+        ClientCommands.literal("rooms")
+            .executes {
+                RoomCapture.status()
+                SUCCESS
+            }
+            .then(
+                ClientCommands.literal("on").executes {
+                    RoomCapture.enabled = true
+                    ChatUtils.chat("§aRoom capture on.")
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("off").executes {
+                    RoomCapture.enabled = false
+                    ChatUtils.chat("§7Room capture off.")
+                    SUCCESS
+                },
+            )
+
     /** Plays the drop celebration without needing the drop. */
     private fun dropNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal("drop")
@@ -417,7 +440,7 @@ object PawfectCommands {
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
             .executes {
-                ChatUtils.chat("/pa dev item | drop | blocks | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
+                ChatUtils.chat("/pa dev item | drop | blocks | rooms [on|off] | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
                 SUCCESS
             }
             .then(
@@ -439,6 +462,7 @@ object PawfectCommands {
                 },
             )
             .then(dropNode())
+            .then(roomsNode())
             .then(entityInfoNode("entityinfo"))
             .then(entityInfoNode("einfo"))
             .then(
