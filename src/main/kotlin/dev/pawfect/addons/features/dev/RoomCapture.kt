@@ -15,6 +15,7 @@ import net.minecraft.client.multiplayer.ClientLevel
 import net.minecraft.commands.arguments.blocks.BlockStateParser
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.Rotation
@@ -47,9 +48,22 @@ object RoomCapture {
     /** Blocks read per tick while copying a room, so a 2x2 takes about a second. */
     private const val READ_BUDGET = 60_000
 
-    /** A room matches when under 2% of its matchable blocks disagree with the data (blown walls, broken blocks). */
-    private const val MAX_MISS_RATE = 0.02
+    /**
+     * A room matches when under 5% of its matchable blocks disagree with the data (blown walls, broken blocks,
+     * puzzle layouts: a water board is 1.4% off its data) and the next best room is well behind.
+     */
+    private const val MAX_MISS_RATE = 0.05
     private const val MIN_HITS = 50
+
+    /** The closest two rooms in the data (Banners and Sloth) are 5.5% apart, so the runner up must trail by this, or by the winner's own rate. */
+    private const val MIN_LEAD = 0.02
+
+    /**
+     * Wrong rooms are dropped part way once they're clearly off. Kept loose, since the blocks that differ (a
+     * puzzle's layout) can bunch up in a few layers and push a right room's running rate up for a while.
+     */
+    private const val DROP_MISS_RATE = 0.2
+    private const val DROP_MIN_MISSES = 200
 
     private const val WATER_BOARD = "water-puzzle"
     private const val WATER_BOARD_LAYOUTS = 4
@@ -143,7 +157,7 @@ object RoomCapture {
                 job = null
                 val floor = SkyBlockData.dungeonFloor
                 val opened = current.cells.any { DungeonScanner.knownRooms().any { room -> it.key in room.segments } }
-                worker.execute { runCatching { process(current, floor, opened) }.onFailure { logger.error("Room capture failed", it) } }
+                worker.execute { runCatching { process(current, floor, opened)?.let { synchronized(results) { results.add(it) } } }.onFailure { logger.error("Room capture failed", it) } }
             }
             return
         }
@@ -277,16 +291,16 @@ object RoomCapture {
 
     // Copying a room
 
-    /** Reads a room's blocks a slice at a time on the client thread. */
-    private class ReadJob(val cells: Set<Cell>, level: ClientLevel) {
+    /** Reads a room's blocks a slice at a time on the client thread, or holds a saved unmatched room to match again. */
+    private class ReadJob(val cells: Set<Cell>, val minY: Int, val maxY: Int) {
+        constructor(cells: Set<Cell>, level: ClientLevel) : this(cells, maxOf(level.minY, 0), minOf(level.maxY, 255))
+
         val minX = cells.minOf { it.x }
         val minZ = cells.minOf { it.z }
         val maxX = cells.maxOf { it.x } + 30
         val maxZ = cells.maxOf { it.z } + 30
         val sizeX = maxX - minX + 1
         val sizeZ = maxZ - minZ + 1
-        val minY = maxOf(level.minY, 0)
-        val maxY = minOf(level.maxY, 255)
         val sizeY = maxY - minY + 1
         val states = arrayOfNulls<BlockState>(sizeX * sizeY * sizeZ)
         val blockEntities = HashMap<BlockPos, String>()
@@ -340,7 +354,7 @@ object RoomCapture {
     private class Match(val room: String, val shape: String, val facing: DungeonRoom.Facing, val missRate: Double)
 
     /** Matches, unrotates and packs a copied room. Runs on [worker]. */
-    private fun process(job: ReadJob, floor: String?, opened: Boolean) {
+    private fun process(job: ReadJob, floor: String?, opened: Boolean): Result? {
         val shape = shapeOf(job.cells)
         val match = match(job, shape)
         val facing = match?.facing ?: DungeonRoom.Facing.NW
@@ -373,7 +387,7 @@ object RoomCapture {
         }
         if (high < 0) {
             logger.warn("Room at {} was empty", job.cells)
-            return
+            return null
         }
         val sizeY = high - low + 1
 
@@ -412,8 +426,49 @@ object RoomCapture {
             data = data,
             blockEntities = blockEntities,
         )
-        synchronized(results) { results.add(result) }
         logger.info("Copied room at {}: {} ({}) facing {}, miss rate {}", job.cells.map { it.key }, match?.room ?: "unmatched", result.shape, facing, "%.4f".format(result.missRate))
+        return result
+    }
+
+    /**
+     * Matches the saved unmatched rooms again, for when the matcher has improved since. Rooms that match now are
+     * returned with the files they came from, to delete once they're saved properly. Runs on [worker].
+     */
+    private fun rematchUnknowns(): List<Pair<Result, Path>> {
+        val folder = dir.resolve("unknown")
+        if (!Files.isDirectory(folder)) return emptyList()
+        val matched = ArrayList<Pair<Result, Path>>()
+        Files.list(folder).use { it.toList() }.filter { it.toString().endsWith(".json") }.forEach { file ->
+            runCatching {
+                val json = Files.newBufferedReader(file).use { com.google.gson.JsonParser.parseReader(it).asJsonObject }
+                val cells = json.getAsJsonArray("cells").map { cell ->
+                    val pair = cell.asJsonArray
+                    Cell(Math.floorDiv(pair[0].asInt - GRID, CELL), Math.floorDiv(pair[1].asInt - GRID, CELL))
+                }.toSet()
+                val origin = json.getAsJsonArray("origin").map { it.asInt }
+                val size = json.getAsJsonArray("size").map { it.asInt }
+                val job = ReadJob(cells, origin[1], origin[1] + size[1] - 1)
+                // Unmatched rooms are saved the way they lay in the world, from the room's north west corner
+                if (origin[0] != 0 || origin[2] != 0 || size[0] != job.sizeX || size[2] != job.sizeZ) return@runCatching
+
+                val palette = json.getAsJsonArray("palette").map {
+                    BlockStateParser.parseForBlock(BuiltInRegistries.BLOCK, it.asString, false).blockState()
+                }
+                val data = json.getAsJsonArray("data")
+                for (i in 0 until data.size()) job.states[i] = palette[data[i].asInt]
+                json.getAsJsonArray("blockEntities").forEach { entry ->
+                    val pos = entry.asJsonObject.getAsJsonArray("pos").map { it.asInt }
+                    job.blockEntities[BlockPos(job.minX + pos[0], pos[1], job.minZ + pos[2])] = entry.asJsonObject.get("nbt").asString
+                }
+
+                val floor = json.get("floor")?.takeIf { !it.isJsonNull }?.asString
+                val clean = json.get("clean")?.asBoolean ?: false
+                val result = process(job, floor, !clean) ?: return@runCatching
+                if (result.room != null) matched.add(result to file)
+            }.onFailure { logger.warn("Could not match {} again", file.fileName, it) }
+        }
+        if (matched.isNotEmpty()) logger.info("Matched {} saved unknown rooms: {}", matched.size, matched.joinToString { it.first.room ?: "?" })
+        return matched
     }
 
     private fun shapeOf(cells: Set<Cell>): String {
@@ -472,7 +527,7 @@ object RoomCapture {
     private class Candidate(val room: String, val shape: String, val facing: DungeonRoom.Facing, val corner: Vector2i, val skeleton: IntArray) {
         var hits = 0
         var misses = 0
-        val alive: Boolean get() = misses <= 20 || misses <= (hits + misses) * MAX_MISS_RATE
+        val alive: Boolean get() = misses <= DROP_MIN_MISSES || misses <= (hits + misses) * DROP_MISS_RATE
         val missRate: Double get() = if (hits + misses == 0) 1.0 else misses.toDouble() / (hits + misses)
     }
 
@@ -507,9 +562,13 @@ object RoomCapture {
             }
         }
 
-        val best = alive.filter { it.hits >= MIN_HITS && it.missRate <= MAX_MISS_RATE }.minByOrNull { it.missRate } ?: return null
-        val rivals = alive.filter { it !== best && it.hits >= MIN_HITS && it.missRate <= MAX_MISS_RATE && it.room != best.room }
-        if (rivals.isNotEmpty()) logger.info("Room {} beat {}", best.room, rivals.joinToString { "${it.room} ${it.facing} %.4f".format(it.missRate) })
+        val ranked = alive.filter { it.hits >= MIN_HITS }.sortedBy { it.missRate }
+        val best = ranked.firstOrNull()?.takeIf { it.missRate <= MAX_MISS_RATE } ?: return null
+        val runnerUp = ranked.firstOrNull { it.room != best.room }
+        if (runnerUp != null && runnerUp.missRate - best.missRate < maxOf(MIN_LEAD, best.missRate)) {
+            logger.warn("Room {} {} %.4f too close to {} {} %.4f, leaving it unmatched".format(best.room, best.facing, best.missRate, runnerUp.room, runnerUp.facing, runnerUp.missRate))
+            return null
+        }
         return Match(best.room, best.shape, best.facing, best.missRate)
     }
 
@@ -573,7 +632,9 @@ object RoomCapture {
      * back, since the map may still turn out to show them as the blood or fairy room.
      */
     private fun save(types: Map<Pair<Int, Int>, DungeonRoom.Type>, final: Boolean) {
-        val captured = synchronized(results) { results.toList().also { results.clear() } }
+        // At the end of a run, saved unmatched rooms get another go at matching
+        val rematched = if (final) rematchUnknowns() else emptyList()
+        val captured = synchronized(results) { results.toList().also { results.clear() } } + rematched.map { it.first }
         val index = loadIndex()
         val added = ArrayList<String>()
         val improved = ArrayList<String>()
@@ -610,6 +671,8 @@ object RoomCapture {
         }
         saveIndex(index)
         if (held.isNotEmpty()) synchronized(results) { results.addAll(held) }
+        // Saved properly above, or already had a cleaner copy
+        rematched.forEach { (_, file) -> runCatching { Files.deleteIfExists(file) } }
 
         val missing = missing(index)
         lastMissing = missing
@@ -618,7 +681,14 @@ object RoomCapture {
         val have = total - missingCount(index)
 
         McCompat.mc.execute {
+            if (final) {
+                val gui = McCompat.mc.gui.hud
+                gui.setTimes(10, 80, 20)
+                gui.setSubtitle(Component.literal("§f$have§7/§f$total §7rooms saved, §a${added.size} new §7this run"))
+                gui.setTitle(Component.literal("§d§l${have * 100 / total.coerceAtLeast(1)}% §7of rooms"))
+            }
             ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §f${improved.size} §7cleaner, §f$unknown §7unmatched${if (held.isEmpty()) "" else ", §f${held.size} §7held until the run ends"}. §f$have§7/§f$total §7rooms saved.")
+            if (rematched.isNotEmpty()) ChatUtils.chat("§7Matched §f${rematched.size} §7saved unknown rooms again: §f${rematched.joinToString(", ") { SecretRoomData.displayName(it.first.room ?: "?") }}")
             if (added.isNotEmpty()) ChatUtils.chat("§aNew: §f${added.joinToString(", ")}")
             if (missing.isEmpty()) ChatUtils.chat("§aEvery room is saved.") else missing.forEach { ChatUtils.chat(it) }
         }
