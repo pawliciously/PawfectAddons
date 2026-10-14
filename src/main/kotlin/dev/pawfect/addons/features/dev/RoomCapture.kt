@@ -15,6 +15,7 @@ import net.minecraft.client.multiplayer.ClientLevel
 import net.minecraft.commands.arguments.blocks.BlockStateParser
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.state.BlockState
@@ -92,13 +93,30 @@ object RoomCapture {
     /** Map room types seen this run by cell, to name the entrance, blood and fairy rooms, which have no data to match. */
     private val mapTypes = HashMap<Pair<Int, Int>, DungeonRoom.Type>()
 
+    /** Set by /pa dev rooms grab: copy everything loaded right now, a whole room per tick, then save straight away. */
+    private var grabbing = false
+
+    fun grab() {
+        if (!SkyBlockData.inDungeons) {
+            ChatUtils.chat("§cYou're not in a dungeon.")
+            return
+        }
+        grabbing = true
+        ChatUtils.chat("§7Grabbing every loaded room...")
+    }
+
     fun onTick() {
-        if (!enabled || !DevAccount.isDev()) return
+        if ((!enabled && !grabbing) || !DevAccount.isDev()) return
         val level = McCompat.mc.level
         val key = System.identityHashCode(level)
         if (key != levelKey) {
             levelKey = key
-            finishRun()
+            // The start countdown warps you to another server, so a new world isn't the end of the run.
+            // Only the scoreboard saying you've left the dungeon is.
+            job = null
+            exists.clear()
+            joined.clear()
+            started.clear()
         }
         if (level == null) return
 
@@ -117,7 +135,7 @@ object RoomCapture {
         rememberMapTypes()
 
         job?.let { current ->
-            if (!current.step(level)) {
+            if (!current.step(level, if (grabbing) Int.MAX_VALUE else READ_BUDGET)) {
                 logger.info("Room at {} unloaded mid copy, will retry", current.cells)
                 started.removeAll(current.cells)
                 job = null
@@ -130,11 +148,36 @@ object RoomCapture {
             return
         }
 
-        if (ticks++ % SCAN_EVERY != 0) return
+        if (!grabbing && ticks++ % SCAN_EVERY != 0) return
+        findMort(level)
         surveyCells(level)
-        nextRoom()?.let { cells ->
-            started.addAll(cells)
-            job = ReadJob(cells, level)
+        val next = nextRoom()
+        if (next != null) {
+            started.addAll(next)
+            job = ReadJob(next, level)
+        } else if (grabbing) {
+            finishGrab()
+        }
+    }
+
+    private fun finishGrab() {
+        grabbing = false
+        val grid = (0 until CELLS).flatMap { cx -> (0 until CELLS).map { cz -> Cell(cx, cz) } }
+        val unloaded = grid.count { it !in exists }
+        val waiting = grid.count { exists[it] == true && it !in started }
+        ChatUtils.chat("§7Grab done. §f$unloaded §7cells weren't loaded, §f$waiting §7room cells are waiting on them. Saving...")
+        val types = HashMap(mapTypes)
+        worker.execute { runCatching { save(types) }.onFailure { logger.error("Saving room captures failed", it) } }
+    }
+
+    /** Mort stands in the entrance room from the start, before the map shows anything. */
+    private fun findMort(level: ClientLevel) {
+        if (DungeonRoom.Type.ENTRANCE in mapTypes.values) return
+        for (entity in level.entitiesForRendering()) {
+            if (entity !is ArmorStand || entity.customName?.string?.contains("Mort") != true) continue
+            val cell = DungeonMapUtils.getPhysicalRoomPos(entity.x, entity.z)
+            mapTypes[cell.x() to cell.y()] = DungeonRoom.Type.ENTRANCE
+            return
         }
     }
 
@@ -247,12 +290,12 @@ object RoomCapture {
         val finished: Boolean get() = y > maxY
 
         /** Reads up to the budget; false when part of the room has unloaded. */
-        fun step(level: ClientLevel): Boolean {
+        fun step(level: ClientLevel, budget: Int): Boolean {
             if (!level.hasChunksAt(minX, minZ, maxX, maxZ)) return false
             val air = Blocks.AIR.defaultBlockState()
             val pos = BlockPos.MutableBlockPos()
             var read = 0
-            while (y <= maxY && read < READ_BUDGET) {
+            while (y <= maxY && read < budget) {
                 for (dz in 0 until sizeZ) for (dx in 0 until sizeX) {
                     val x = minX + dx
                     val z = minZ + dz

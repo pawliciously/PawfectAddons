@@ -265,6 +265,12 @@ object PawfectCommands {
                 SUCCESS
             }
             .then(
+                ClientCommands.literal("grab").executes {
+                    RoomCapture.grab()
+                    SUCCESS
+                },
+            )
+            .then(
                 ClientCommands.literal("on").executes {
                     RoomCapture.enabled = true
                     ChatUtils.chat("§aRoom capture on.")
@@ -440,7 +446,7 @@ object PawfectCommands {
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
             .executes {
-                ChatUtils.chat("/pa dev item | drop | blocks | rooms [on|off] | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
+                ChatUtils.chat("/pa dev item | drop | blocks | rooms [grab|on|off] | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
                 SUCCESS
             }
             .then(
