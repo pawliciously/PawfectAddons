@@ -639,6 +639,7 @@ object RoomCapture {
         val index = loadIndex()
         val added = ArrayList<String>()
         val improved = ArrayList<String>()
+        val replaced = ArrayList<String>()
         val held = ArrayList<Result>()
         var unknown = 0
 
@@ -669,7 +670,11 @@ object RoomCapture {
             write(file, result, key)
             index[key] = IndexEntry(result.clean, result.floor, Instant.now().toString(), result.missRate)
             val label = label(key)
-            if (existing == null || imported) added.add(label) else improved.add(label)
+            when {
+                existing == null -> added.add(label)
+                imported -> replaced.add(label)
+                else -> improved.add(label)
+            }
         }
         saveIndex(index)
         if (held.isNotEmpty()) synchronized(results) { results.addAll(held) }
@@ -688,12 +693,13 @@ object RoomCapture {
             if (final) {
                 val gui = McCompat.mc.gui.hud
                 gui.setTimes(10, 80, 20)
-                gui.setSubtitle(Component.literal("§f$have§7/§f$total §7rooms saved$importedNote, §a${added.size} new §7this run"))
+                gui.setSubtitle(Component.literal("§f$have§7/§f$total §7rooms saved$importedNote, §a${added.size} new§7, §b${replaced.size} replaced §7this run"))
                 gui.setTitle(Component.literal("§d§l${have * 100 / total.coerceAtLeast(1)}% §7of rooms"))
             }
-            ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §f${improved.size} §7cleaner, §f$unknown §7unmatched${if (held.isEmpty()) "" else ", §f${held.size} §7held until the run ends"}. §f$have§7/§f$total §7rooms saved$importedNote§7.")
+            ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §b${replaced.size} §7replaced imported copies, §f${improved.size} §7cleaner, §f$unknown §7unmatched${if (held.isEmpty()) "" else ", §f${held.size} §7held until the run ends"}. §f$have§7/§f$total §7rooms saved$importedNote§7.")
             if (rematched.isNotEmpty()) ChatUtils.chat("§7Matched §f${rematched.size} §7saved unknown rooms again: §f${rematched.joinToString(", ") { SecretRoomData.displayName(it.first.room ?: "?") }}")
             if (added.isNotEmpty()) ChatUtils.chat("§aNew: §f${added.joinToString(", ")}")
+            if (replaced.isNotEmpty()) ChatUtils.chat("§bReal copies of imported rooms: §f${replaced.joinToString(", ")}")
             if (missing.isEmpty()) ChatUtils.chat("§aEvery room is saved.") else missing.forEach { ChatUtils.chat(it) }
         }
     }
