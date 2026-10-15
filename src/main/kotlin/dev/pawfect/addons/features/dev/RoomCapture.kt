@@ -42,8 +42,21 @@ object RoomCapture {
     private const val GRID = -200
     private const val CELL = 32
     private const val CELLS = 6
+
+    /**
+     * Cells across this floor's grid; beyond it is boss and lobby build, not rooms. F1 (4x5) and F4 (6x5) get their
+     * longer side both ways.
+     */
+    private fun gridFor(floor: String?): Int = when (floor?.drop(1)) {
+        "" -> 4
+        "1", "2", "3" -> 5
+        else -> CELLS
+    }
+
     private const val SCAN_EVERY = 10
     private const val ABSENT_GRACE = 60
+
+    private var cells = CELLS
 
     /** Blocks read per tick while copying a room, so a 2x2 takes about a second. */
     private const val READ_BUDGET = 60_000
@@ -144,6 +157,7 @@ object RoomCapture {
             inRun = true
             logger.info("Room capture started for {}", SkyBlockData.dungeonFloor)
         }
+        cells = gridFor(SkyBlockData.dungeonFloor)
         SecretRoomData.load()
         if (!SecretRoomData.loaded) return
 
@@ -177,7 +191,7 @@ object RoomCapture {
 
     private fun finishGrab() {
         grabbing = false
-        val grid = (0 until CELLS).flatMap { cx -> (0 until CELLS).map { cz -> Cell(cx, cz) } }
+        val grid = (0 until cells).flatMap { cx -> (0 until cells).map { cz -> Cell(cx, cz) } }
         val unloaded = grid.count { it !in exists }
         val waiting = grid.count { exists[it] == true && it !in started }
         ChatUtils.chat("§7Grab done. §f$unloaded §7cells weren't loaded, §f$waiting §7room cells are waiting on them. Saving...")
@@ -207,16 +221,16 @@ object RoomCapture {
     // Finding rooms
 
     private fun surveyCells(level: ClientLevel) {
-        for (cx in 0 until CELLS) for (cz in 0 until CELLS) {
+        for (cx in 0 until cells) for (cz in 0 until cells) {
             val cell = Cell(cx, cz)
             if (cell !in exists && loaded(level, cell.x, cell.z, cell.x + 30, cell.z + 30)) exists[cell] = hasRoom(level, cell)
         }
         // Each gap is read once, from the west or north cell, whether or not the far side has a room
-        for (cx in 0 until CELLS) for (cz in 0 until CELLS) {
+        for (cx in 0 until cells) for (cz in 0 until cells) {
             val cell = Cell(cx, cz)
             for (eastward in booleanArrayOf(true, false)) {
                 val neighbour = if (eastward) Cell(cx + 1, cz) else Cell(cx, cz + 1)
-                if (neighbour.cx >= CELLS || neighbour.cz >= CELLS || (cell to neighbour) in joined) continue
+                if (neighbour.cx >= cells || neighbour.cz >= cells || (cell to neighbour) in joined) continue
                 if (exists[cell] != true && exists[neighbour] != true) continue
                 val gapLoaded = if (eastward) loaded(level, cell.x + 31, cell.z, cell.x + 31, cell.z + 30)
                 else loaded(level, cell.x, cell.z + 31, cell.x + 30, cell.z + 31)
@@ -237,7 +251,7 @@ object RoomCapture {
                 val at = queue.removeFirst()
                 if (!group.add(at)) continue
                 for (neighbour in neighbours(at)) {
-                    if (neighbour.cx !in 0 until CELLS || neighbour.cz !in 0 until CELLS) continue
+                    if (neighbour.cx !in 0 until cells || neighbour.cz !in 0 until cells) continue
                     when (joinedBetween(at, neighbour)) {
                         null -> complete = false
                         true -> if (exists[neighbour] == true) queue.add(neighbour) else complete = false
