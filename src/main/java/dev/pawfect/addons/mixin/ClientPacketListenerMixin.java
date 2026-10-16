@@ -9,6 +9,8 @@ import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTimePacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
@@ -19,6 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.data.ServerTps;
 import dev.pawfect.addons.features.combat.Hitsound;
+import dev.pawfect.addons.features.debug.ChatRecorder;
 import dev.pawfect.addons.features.dungeon.secrets.SecretTracker;
 import dev.pawfect.addons.features.experiments.ExperimentManager;
 import dev.pawfect.addons.features.visual.StarMobGlow;
@@ -126,6 +129,23 @@ public abstract class ClientPacketListenerMixin {
             for (int i = 0; i < items.size(); i++) {
                 ExperimentManager.onSlotChanged(packet.containerId(), i, items.get(i));
             }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    // TAIL so it runs once, on the main thread
+    @Inject(method = "setTitleText", at = @At("TAIL"))
+    private void pawfectaddons$title(ClientboundSetTitleTextPacket packet, CallbackInfo callback) {
+        try {
+            ChatRecorder.INSTANCE.onTitle(packet.text(), false);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @Inject(method = "setSubtitleText", at = @At("TAIL"))
+    private void pawfectaddons$subtitle(ClientboundSetSubtitleTextPacket packet, CallbackInfo callback) {
+        try {
+            ChatRecorder.INSTANCE.onTitle(packet.text(), true);
         } catch (Throwable ignored) {
         }
     }

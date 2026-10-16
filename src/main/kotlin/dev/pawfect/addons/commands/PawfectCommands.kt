@@ -34,6 +34,8 @@ import dev.pawfect.addons.features.drops.ItemGet
 import dev.pawfect.addons.features.drops.Signature
 import com.mojang.brigadier.arguments.FloatArgumentType
 import dev.pawfect.addons.features.debug.ActionBarDebug
+import dev.pawfect.addons.features.debug.ChatRecorder
+import dev.pawfect.addons.features.debug.DungeonDump
 import dev.pawfect.addons.features.chat.Emojis
 import dev.pawfect.addons.features.chat.LevelPrestige
 import dev.pawfect.addons.features.profile.ProfileViewerScreen
@@ -446,7 +448,7 @@ object PawfectCommands {
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
             .executes {
-                ChatUtils.chat("/pa dev item | drop | blocks | rooms [grab|on|off] | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar")
+                ChatUtils.chat("/pa dev item | drop | blocks | rooms [grab|on|off] | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar | chatrecord | dungeondump [label]")
                 SUCCESS
             }
             .then(
@@ -561,6 +563,28 @@ object PawfectCommands {
                     SUCCESS
                 },
             )
+            .then(
+                ClientCommands.literal("chatrecord").executes {
+                    ChatUtils.chat(ChatRecorder.toggle())
+                    SUCCESS
+                },
+            )
+            .then(
+                ClientCommands.literal("dungeondump")
+                    .executes { dungeonDump(null) }
+                    .then(
+                        ClientCommands.argument("label", StringArgumentType.greedyString())
+                            .executes { dungeonDump(StringArgumentType.getString(it, "label")) },
+                    ),
+            )
+
+    private fun dungeonDump(label: String?): Int {
+        val file = runCatching { DungeonDump.save(label) }
+            .onFailure { ChatUtils.error("Dungeon dump failed: ${it.javaClass.simpleName}: ${it.message}") }
+            .getOrNull() ?: return SUCCESS
+        ChatUtils.success("Dungeon dump saved to ${file.fileName}")
+        return SUCCESS
+    }
 
     /** Saves the NBT of every entity within a radius of the player, and lists the nearest. */
     private fun entityInfoNode(name: String): LiteralArgumentBuilder<FabricClientCommandSource> =

@@ -15,6 +15,8 @@ internal object ModApiBridge {
                 type?.name,
                 packet.lobbyName.orElse(null),
                 packet.mode.orElse(null),
+                packet.serverName,
+                packet.map.orElse(null),
             )
         }
     }

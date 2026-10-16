@@ -24,6 +24,15 @@ object HypixelLocation {
     var mode: String? = null
         private set
 
+    /** The rest of the last location packet (server name like mini123A, map like "The Catacombs"), for dev dumps. */
+    @Volatile
+    var serverName: String? = null
+        private set
+
+    @Volatile
+    var map: String? = null
+        private set
+
     val known: Boolean get() = serverType != null
 
     fun register() {
@@ -33,7 +42,9 @@ object HypixelLocation {
             .onFailure { logger.warn("Could not subscribe to Hypixel location events.", it) }
     }
 
-    internal fun update(serverType: String?, gameName: String?, lobby: String?, mode: String?) {
+    internal fun update(serverType: String?, gameName: String?, lobby: String?, mode: String?, serverName: String? = null, map: String? = null) {
+        this.serverName = serverName
+        this.map = map
         this.serverType = serverType
         this.gameName = gameName
         this.lobby = lobby

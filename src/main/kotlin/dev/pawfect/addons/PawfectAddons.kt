@@ -36,6 +36,7 @@ import dev.pawfect.addons.features.cosmetics.Cosmetics
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.data.UpdateCheck
 import dev.pawfect.addons.features.debug.ActionBarDebug
+import dev.pawfect.addons.features.debug.ChatRecorder
 import dev.pawfect.addons.features.stats.ActionBarStats
 import dev.pawfect.addons.features.stats.LowHealthAlert
 import dev.pawfect.addons.features.stats.StatsOverlay
@@ -246,6 +247,16 @@ object PawfectAddons : ClientModInitializer {
     }
 
     private fun registerChat() {
+        // First, so the recorder sees every line even if something later hides it
+        ClientReceiveMessageEvents.ALLOW_GAME.register { message, overlay ->
+            runCatching { ChatRecorder.onMessage(message, overlay) }
+            true
+        }
+        ClientReceiveMessageEvents.ALLOW_CHAT.register { message, _, _, _, _ ->
+            runCatching { ChatRecorder.onPlayerChat(message) }
+            true
+        }
+
         ClientReceiveMessageEvents.MODIFY_GAME.register { message, overlay ->
             if (!overlay) runCatching {
                 val prestiged = LevelPrestige.restyle(message, LevelPrestige.Where.CHAT) ?: message
