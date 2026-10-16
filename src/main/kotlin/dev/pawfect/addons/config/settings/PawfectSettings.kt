@@ -1,5 +1,6 @@
 package dev.pawfect.addons.config.settings
 
+import dev.pawfect.addons.features.dev.DevClickSounds
 import dev.pawfect.addons.config.features.SecretRoutesConfig
 import dev.pawfect.addons.config.features.InvincibilityConfig
 import dev.pawfect.addons.config.features.DropCelebrationConfig
@@ -1239,6 +1240,11 @@ object PawfectSettings {
                 "Open the Chroma menu instead of the click GUI. Turn it off to go back to the click GUI.",
                 ConfigManager.features.theme::classicMenu,
             ).onChange { PawfectAddons.queueScreen { ConfigGuiManager.open("dev") } },
+            ToggleSetting(
+                "Dev Click Sounds",
+                "Menu clicks from the sound pack in config/pawfectaddons/dev/sounds: on and off for toggles, open and close for windows, tick for sliders and picks, pluck for groups, tap for the rest. Needs Click Sounds on.",
+                dev::devClickSounds,
+            ).onChange { DevClickSounds.reload() },
         ),
         group(
             "Recording",

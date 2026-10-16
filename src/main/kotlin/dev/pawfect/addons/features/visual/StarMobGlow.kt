@@ -6,8 +6,10 @@ import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.features.dungeon.rooms.DungeonMapUtils
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.utils.McCompat
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntList
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import net.minecraft.client.multiplayer.ClientLevel
 import net.minecraft.network.chat.Component
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket
 import net.minecraft.util.ARGB
@@ -18,8 +20,17 @@ import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.entity.monster.EnderMan
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow
+import net.minecraft.world.phys.AABB
 import java.util.Optional
 
+/**
+ * Outlines starred dungeon mobs. Hypixel puts a mob's name on a separate armor stand above it, so each starred
+ * stand is bound to the mob under it. A stand whose mob hasn't arrived yet waits and is tried again every few
+ * ticks, and a binding is checked so it moves on if its mob leaves, dies or turns out to be somewhere else.
+ *
+ * Everything here runs on the client thread: entity packets are handled there, and the remove hook also fires
+ * once on the network thread before Minecraft hands the packet over, which is ignored.
+ */
 object StarMobGlow {
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.visuals)
@@ -27,24 +38,49 @@ object StarMobGlow {
     private const val HEART = "❤"
     private const val STAR = "✯"
     private const val MAX_RANGE_SQ = 96.0 * 96.0
+    private const val RECHECK_EVERY = 5
+    private val DEAD_PLATE = Regex("\\s0$HEART$")
     private val MINIBOSSES = setOf("Shadow Assassin", "Lost Adventurer", "Diamond Guy", "King Midas")
 
+    /** Starred name stand id to the mob it labels. */
+    private val BOUND = Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
+
+    /** Starred stands still looking for their mob. */
+    private val PENDING = IntOpenHashSet()
+
+    /** Mobs to outline: bound mobs and minibosses. */
     private val STARRED = IntOpenHashSet()
-    private val CHECKED = IntOpenHashSet()
+    private val MINIBOSS_IDS = IntOpenHashSet()
+
+    private var ticks = 0
 
     @JvmStatic
     fun reset() {
+        BOUND.clear()
+        PENDING.clear()
         STARRED.clear()
-        CHECKED.clear()
+        MINIBOSS_IDS.clear()
     }
 
     @JvmStatic
     fun onRemoveEntities(ids: IntList) {
+        if (!McCompat.mc.isSameThread) return
         for (i in 0 until ids.size) {
             val id = ids.getInt(i)
-            STARRED.remove(id)
-            CHECKED.remove(id)
+            PENDING.remove(id)
+            MINIBOSS_IDS.remove(id)
+            val mob = BOUND.remove(id)
+            if (mob >= 0) STARRED.remove(mob)
+            if (STARRED.remove(id)) {
+                // The mob went away (out of range, or died) but its stand may stay: let the stand find it again
+                val stands = BOUND.int2IntEntrySet().filter { it.intValue == id }.map { it.intKey }
+                stands.forEach {
+                    BOUND.remove(it)
+                    PENDING.add(it)
+                }
+            }
         }
+        rebuild()
     }
 
     @JvmStatic
@@ -59,10 +95,53 @@ object StarMobGlow {
                 val current = custom.string
                 if (name.isEmpty() || starredPlate(current)) name = current
             }
-            if (starredPlate(name)) bindStand(entity, name)
+            if (starredPlate(name)) {
+                if (BOUND.get(entity.id) < 0) tryBind(level, entity)
+            } else if (name.isNotEmpty() && (BOUND.containsKey(entity.id) || PENDING.contains(entity.id))) {
+                // Renamed to something without a star: not a starred plate any more
+                BOUND.remove(entity.id)
+                PENDING.remove(entity.id)
+                rebuild()
+            }
             return
         }
-        if (entity is Player && config.starMinibosses && miniboss(entity)) STARRED.add(entity.id)
+        if (entity is Player && config.starMinibosses && miniboss(entity) && MINIBOSS_IDS.add(entity.id)) rebuild()
+    }
+
+    /** Retries waiting stands and checks bindings are still right. */
+    @JvmStatic
+    fun onTick() {
+        if (!config.starGlow || !SkyBlockData.inDungeons) return
+        if (ticks++ % RECHECK_EVERY != 0) return
+        val level = McCompat.mc.level ?: return
+        var changed = false
+        val bound = BOUND.int2IntEntrySet().map { it.intKey to it.intValue }
+        for ((standId, mobId) in bound) {
+            val stand = level.getEntity(standId)
+            if (stand == null) {
+                BOUND.remove(standId)
+                changed = true
+                continue
+            }
+            val mob = level.getEntity(mobId)
+            if (mob == null || !mob.isAlive || !under(stand, mob)) {
+                BOUND.remove(standId)
+                PENDING.add(standId)
+                changed = true
+            }
+        }
+        if (PENDING.isNotEmpty()) {
+            for (standId in PENDING.toIntArray()) {
+                val stand = level.getEntity(standId)
+                if (stand == null) {
+                    PENDING.remove(standId)
+                    continue
+                }
+                tryBind(level, stand, rebuildAfter = false)
+            }
+            changed = true
+        }
+        if (changed) rebuild()
     }
 
     @JvmStatic
@@ -103,21 +182,51 @@ object StarMobGlow {
     private fun starredPlate(name: String): Boolean =
         name.contains(STAR) && (name.endsWith(HEART) || name.endsWith("§c$HEART"))
 
-    private fun bindStand(stand: Entity, name: String) {
-        if (!CHECKED.add(stand.id)) return
-        val plain = name.replace(Regex("§."), "").uppercase()
-        val offset = if (plain.contains("WITHERMANCER")) 3 else 1
-        val guessId = stand.id - offset
-        val guess = stand.level().getEntity(guessId)
-        if (guess != null && guess !is ArmorStand && STARRED.add(guessId)) return
-        val box = stand.boundingBox.move(0.0, -1.0, 0.0)
-        val nearby = stand.level().getEntities(stand, box) { it !is ArmorStand && it !is ExperienceOrb }
-        val self = McCompat.player
-        for (mob in nearby) {
-            if (STARRED.contains(mob.id) || !realMob(mob, self)) continue
-            STARRED.add(mob.id)
+    /** Binds the stand to its mob if the mob is here yet, otherwise leaves it waiting. */
+    private fun tryBind(level: ClientLevel, stand: Entity, rebuildAfter: Boolean = true) {
+        // A dead mob's plate hangs around for a moment at 0 health; don't hand it to the mob next to it
+        val plain = (stand.customName?.string ?: "").replace(Regex("§."), "")
+        if (DEAD_PLATE.containsMatchIn(plain)) {
+            PENDING.remove(stand.id)
             return
         }
+        val mob = findMob(level, stand)
+        if (mob < 0) {
+            PENDING.add(stand.id)
+            return
+        }
+        PENDING.remove(stand.id)
+        BOUND.put(stand.id, mob)
+        if (rebuildAfter) rebuild()
+    }
+
+    private fun findMob(level: ClientLevel, stand: Entity): Int {
+        val self = McCompat.player
+        val taken = IntOpenHashSet(BOUND.values)
+        // Hypixel spawns the mob just before its stand; Withermancers have two more stands in between
+        val plain = (stand.customName?.string ?: "").replace(Regex("§."), "").uppercase()
+        val offset = if (plain.contains("WITHERMANCER")) 3 else 1
+        val guess = level.getEntity(stand.id - offset)
+        if (guess != null && guess !is ArmorStand && guess.id !in taken && realMob(guess, self) && under(stand, guess)) return guess.id
+        val box = AABB(stand.x - 1.2, stand.y - 4.0, stand.z - 1.2, stand.x + 1.2, stand.y + 0.5, stand.z + 1.2)
+        return level.getEntities(stand, box) { it !is ArmorStand && it !is ExperienceOrb }
+            .filter { it.id !in taken && it.isAlive && realMob(it, self) && under(stand, it) }
+            .minByOrNull { (it.x - stand.x) * (it.x - stand.x) + (it.z - stand.z) * (it.z - stand.z) }
+            ?.id ?: -1
+    }
+
+    /** The stand floats over its mob: close sideways, somewhere above its feet. */
+    private fun under(stand: Entity, mob: Entity): Boolean {
+        val dx = stand.x - mob.x
+        val dz = stand.z - mob.z
+        val dy = stand.y - mob.y
+        return dx * dx + dz * dz <= 2.25 && dy in -0.5..4.5
+    }
+
+    private fun rebuild() {
+        STARRED.clear()
+        STARRED.addAll(BOUND.values)
+        STARRED.addAll(MINIBOSS_IDS)
     }
 
     private fun realMob(entity: Entity, self: Player?): Boolean {

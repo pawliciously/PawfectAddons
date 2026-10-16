@@ -44,4 +44,7 @@ class DevConfig {
 
     @Expose
     var roomRecording: Boolean = false
+
+    @Expose
+    var devClickSounds: Boolean = false
 }

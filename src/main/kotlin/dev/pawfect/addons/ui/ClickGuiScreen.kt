@@ -431,8 +431,9 @@ class ClickGuiScreen(
 
     private fun flip(module: Module) {
         dropFocus()
-        ModuleSwitch.set(module.category, !module.enabled)
-        UiSound.click()
+        val on = !module.enabled
+        ModuleSwitch.set(module.category, on)
+        UiSound.toggle(on)
     }
 
     private fun drawHit(graphics: GuiGraphicsExtractor, panel: Panel, label: String, key: String, y: Float, mouseX: Float, mouseY: Float, marked: Boolean) {
@@ -467,7 +468,7 @@ class ClickGuiScreen(
         val current = config
         if (current != null && current.module === module && jumpTo == null) {
             config = null
-            if (!quiet) UiSound.click()
+            if (!quiet) UiSound.close()
             return
         }
         val window = Config(module, panel)
@@ -489,7 +490,7 @@ class ClickGuiScreen(
             flashKey = jumpTo
             flashUntil = System.currentTimeMillis() + FLASH_MS
         }
-        if (!quiet) UiSound.click()
+        if (!quiet) UiSound.open()
     }
 
     private fun lineKey(module: Module, line: Line): String? = when (line) {
@@ -837,7 +838,7 @@ class ClickGuiScreen(
         val c = closeBounds(window)
         if (button == 0 && Draw.inside(mx, my, c[0], c[1], c[2], c[3])) {
             closeConfig()
-            UiSound.click()
+            UiSound.close()
             return
         }
         if (window.module.switchable && button == 0 && switchHit(mx, my, window.x, window.y, HEADER, c[0] - 6f)) {
@@ -875,7 +876,7 @@ class ClickGuiScreen(
                 if (button == 0 && Draw.inside(mx, my, window.x, ly, window.width, GROUP_LABEL)) {
                     dropFocus()
                     setFolded(window.module, line.group, !folded(window.module, line.group))
-                    UiSound.click()
+                    UiSound.pluck()
                     return
                 }
                 continue

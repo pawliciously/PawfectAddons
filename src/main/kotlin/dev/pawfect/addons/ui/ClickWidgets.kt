@@ -116,7 +116,7 @@ class ClickToggle(private val toggle: ToggleSetting) : Widget(toggle) {
     override fun mouseClicked(mouseX: Float, mouseY: Float, button: Int): Boolean {
         if (button != 0 || !Draw.inside(mouseX, mouseY, x, y, width, height)) return false
         toggle.value = !toggle.value
-        UiSound.click()
+        UiSound.toggle(toggle.value)
         return true
     }
 
@@ -157,7 +157,7 @@ class ClickSlider(
         if (button != 0 || !Draw.inside(mouseX, mouseY, x - 2f, y, width + 4f, height)) return false
         dragging = true
         applyFrom(mouseX)
-        UiSound.click()
+        UiSound.tick()
         return true
     }
 
@@ -252,7 +252,7 @@ class ClickChoice(private val dropdown: DropdownSetting<*>) : Widget(dropdown) {
             (!stacked && Draw.inside(mouseX, mouseY, x, y, width, ClickWidgets.ROW))
         ) {
             open = !open
-            UiSound.click()
+            if (open) UiSound.open() else UiSound.close()
             return true
         }
         if (!open) return false
@@ -261,7 +261,7 @@ class ClickChoice(private val dropdown: DropdownSetting<*>) : Widget(dropdown) {
             if (Draw.inside(mouseX, mouseY, x, ly + 2f + index * OPTION, width, OPTION)) {
                 dropdown.selectIndex(index)
                 open = false
-                UiSound.click()
+                UiSound.tick()
                 return true
             }
         }
@@ -712,7 +712,7 @@ class ClickColor(private val color: ColorSetting) : Widget(color) {
         if (Draw.inside(mouseX, mouseY, x, y, width, ClickWidgets.ROW)) {
             commitHex()
             open = !open
-            UiSound.click()
+            if (open) UiSound.open() else UiSound.close()
             return true
         }
         if (!open) return false

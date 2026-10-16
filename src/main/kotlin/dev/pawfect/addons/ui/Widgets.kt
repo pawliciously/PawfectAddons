@@ -143,7 +143,7 @@ class ToggleWidget(private val toggle: ToggleSetting) : Widget(toggle) {
     override fun mouseClicked(mouseX: Float, mouseY: Float, button: Int): Boolean {
         if (button != 0 || !hovered(mouseX, mouseY)) return false
         toggle.value = !toggle.value
-        UiSound.click()
+        UiSound.toggle(toggle.value)
         return true
     }
 }
@@ -221,7 +221,7 @@ abstract class SliderWidget(setting: Setting<*>) : Widget(setting) {
         if (button != 0 || !rowHovered(mouseX, mouseY)) return false
         dragging = true
         applyFromMouse(mouseX)
-        UiSound.click()
+        UiSound.tick()
         return true
     }
 
@@ -337,7 +337,7 @@ class DropdownWidget(private val dropdown: DropdownSetting<*>) : Widget(dropdown
 
         if (hovered(mouseX, mouseY)) {
             dropdown.expanded = !dropdown.expanded
-            UiSound.click()
+            if (dropdown.expanded) UiSound.open() else UiSound.close()
             return true
         }
 
@@ -348,7 +348,7 @@ class DropdownWidget(private val dropdown: DropdownSetting<*>) : Widget(dropdown
             if (Draw.inside(mouseX, mouseY, x + 6f, optionY, width - 12f, OPTION_HEIGHT)) {
                 dropdown.selectIndex(index)
                 dropdown.expanded = false
-                UiSound.click()
+                UiSound.tick()
                 return true
             }
             optionY += OPTION_HEIGHT
@@ -645,7 +645,7 @@ class ColorWidget(private val color: ColorSetting) : Widget(color) {
         if (hovered(mouseX, mouseY)) {
             commitHex()
             expanded = !expanded
-            UiSound.click()
+            if (expanded) UiSound.open() else UiSound.close()
             return true
         }
 
