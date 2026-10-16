@@ -509,6 +509,7 @@ object PawfectCommands {
                 ClientCommands.literal("stands").executes {
                     ChatUtils.chat("Named armour stands nearby:")
                     StandDebug.dump().forEach { ChatUtils.chat("  $it") }
+                    StandDebug.save()?.let { (count, file) -> ChatUtils.chat("§7All §f$count §7stands with NBT and head textures saved to §f$file") }
                     SUCCESS
                 },
             )
