@@ -15,6 +15,7 @@ import dev.pawfect.addons.features.combat.Hitsound
 import dev.pawfect.addons.features.dev.PacketLog
 import dev.pawfect.addons.features.dev.PacketOverlay
 import dev.pawfect.addons.features.dev.RoomCapture
+import dev.pawfect.addons.features.dev.RoomRecorder
 import dev.pawfect.addons.data.BazaarApi
 import dev.pawfect.addons.data.ItemSources
 import dev.pawfect.addons.data.NeuRepo
@@ -144,6 +145,7 @@ object PawfectAddons : ClientModInitializer {
         Celestial.register()
         SecretWaypointRenderer.register()
         SecretTracker.register()
+        RoomRecorder.register()
         SecretRoutes.register()
         RngMeter.register()
         DropCelebration.register()
@@ -347,12 +349,14 @@ object PawfectAddons : ClientModInitializer {
 
             val needsRooms = ModuleSwitch.view("dungeon", ConfigManager.features.secretWaypoints).enabled ||
                 ModuleSwitch.view("dungeon", ConfigManager.features.dungeonWaypoints).enabled ||
-                ModuleSwitch.view("dungeon", ConfigManager.features.visuals).starGlow
+                ModuleSwitch.view("dungeon", ConfigManager.features.visuals).starGlow ||
+                RoomRecorder.enabled
             if (needsRooms) {
                 SecretRoomData.load()
                 DungeonScanner.onTick()
             }
             RoomCapture.onTick()
+            RoomRecorder.onTick()
         }.onFailure { logger.error("Error during tick", it) }
 
         if (++secondTicker >= TICKS_PER_SECOND) {

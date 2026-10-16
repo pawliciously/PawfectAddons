@@ -1254,6 +1254,14 @@ object PawfectSettings {
             ).showIf { dev.recordingMode },
         ),
         group(
+            "DungeonSim",
+            ToggleSetting(
+                "Record Mobs And Levers",
+                "Saves every dungeon mob you see (Fels, minibosses and the keys they drop too) and what each lever opens, per room, for DungeonSim. Chat tells you when the room you walk into still needs recording. /pa dev record lists what's left.",
+                dev::roomRecording,
+            ),
+        ),
+        group(
             "Packets",
             PacketLogSetting(
                 "Packet Log",

@@ -41,4 +41,7 @@ class DevConfig {
 
     @Expose
     var recordingHideChat: Boolean = true
+
+    @Expose
+    var roomRecording: Boolean = false
 }

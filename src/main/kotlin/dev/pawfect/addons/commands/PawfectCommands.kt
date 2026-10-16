@@ -23,6 +23,7 @@ import dev.pawfect.addons.features.discord.HypixelLocation
 import dev.pawfect.addons.features.dungeon.DungeonWaypoints
 import dev.pawfect.addons.features.dungeon.secrets.DungeonScanner
 import dev.pawfect.addons.features.dev.RoomCapture
+import dev.pawfect.addons.features.dev.RoomRecorder
 import dev.pawfect.addons.features.FeatureRegistry
 import dev.pawfect.addons.features.recipetracker.RecipeTracker
 import dev.pawfect.addons.features.debug.ItemDump
@@ -448,7 +449,7 @@ object PawfectCommands {
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
             .executes {
-                ChatUtils.chat("/pa dev item | drop | blocks | rooms [grab|on|off] | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar | chatrecord | dungeondump [label]")
+                ChatUtils.chat("/pa dev item | drop | blocks | rooms [grab|on|off] | entityinfo [radius] | point | heads | stands | room | chams | exp | media | levels | actionbar | chatrecord | dungeondump [label] | record [on|off]")
                 SUCCESS
             }
             .then(
@@ -562,6 +563,29 @@ object PawfectCommands {
                     else ChatUtils.chat("Action bar logging off.")
                     SUCCESS
                 },
+            )
+            .then(
+                ClientCommands.literal("record")
+                    .executes {
+                        RoomRecorder.status()
+                        SUCCESS
+                    }
+                    .then(
+                        ClientCommands.literal("on").executes {
+                            ConfigManager.features.dev.roomRecording = true
+                            ConfigManager.save(ConfigFileType.FEATURES, "room recording on")
+                            ChatUtils.chat("§aRecording mobs and levers.")
+                            SUCCESS
+                        },
+                    )
+                    .then(
+                        ClientCommands.literal("off").executes {
+                            ConfigManager.features.dev.roomRecording = false
+                            ConfigManager.save(ConfigFileType.FEATURES, "room recording off")
+                            ChatUtils.chat("§7Mob and lever recording off.")
+                            SUCCESS
+                        },
+                    ),
             )
             .then(
                 ClientCommands.literal("chatrecord").executes {
