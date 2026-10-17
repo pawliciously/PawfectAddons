@@ -1245,6 +1245,11 @@ object PawfectSettings {
                 "Menu clicks from the sound pack in config/pawfectaddons/dev/sounds: on and off for toggles, open and close for windows, tick for sliders and picks, pluck for groups, tap for the rest. Needs Click Sounds on.",
                 dev::devClickSounds,
             ).onChange { DevClickSounds.reload() },
+            ToggleSetting(
+                "Menu Gif",
+                "Plays config/pawfectaddons/dev/menu.gif in the bottom left corner of the screen in every menu. Swap the file to change it.",
+                dev::menuGif,
+            ),
         ),
         group(
             "Recording",

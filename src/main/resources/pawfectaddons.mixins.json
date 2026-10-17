@@ -59,6 +59,7 @@
     "RenderTypeInvoker",
     "RenderTypeMixin",
     "ScoreboardSidebarMixin",
+    "ScreenBackgroundMixin",
     "ScreenMixin",
     "SkyRendererMixin",
     "SlotMixin",
