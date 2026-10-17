@@ -97,6 +97,8 @@ object RoomRecorder {
         val skin: String?,
     ) {
         var lastPos: Vec3 = firstPos
+        /** Entity id of the name tag stand tied to this mob, while both are loaded. */
+        var standId: Int? = null
         var name: String? = null
         var firstName: String? = null
         var ownName: String? = null
@@ -252,6 +254,7 @@ object RoomRecorder {
                 if (again != null) {
                     again.id = entity.id
                     again.gone = false
+                    again.standId = null
                     again.events.add("back in range ${rel(now)} player %.1f".format(entity.distanceTo(self)))
                     again
                 } else {
@@ -266,21 +269,47 @@ object RoomRecorder {
             if (mob.diedAt == null) mob.events.add("out of range ${rel(now)}")
         }
         tracked.values.removeIf { it.gone }
-        // Name tags float above their mob as separate stands
-        for (mob in tracked.values) {
+        nameMobs(stands)
+    }
+
+    /**
+     * Name tags float above their mob as separate stands. Each stand is tied to one mob for good, the way Star
+     * Mob ESP does it: Hypixel spawns the mob just before its stand, so the entity one id lower (three for a
+     * Withermancer) is the mob; failing that, the nearest mob under it that has no stand yet. Going by distance
+     * alone gave a Fels in the wall the name of the zombie next to it. Only stands with a ❤ count, so damage
+     * numbers never become a name.
+     */
+    private fun nameMobs(stands: List<ArmorStand>) {
+        val owner = HashMap<Int, Mob>()
+        for (mob in tracked.values) mob.standId?.let { owner[it] = mob }
+        for (stand in stands) {
+            val name = DebugText.legacy(stand.customName)
+            if ('❤' !in name) continue
+            val mob = owner[stand.id] ?: findMob(stand, name, owner)?.also {
+                it.standId = stand.id
+                owner[stand.id] = it
+            } ?: continue
             if (mob.diedAt != null) continue
-            val tag = stands.filter { stand ->
-                val dx = stand.x - mob.lastPos.x
-                val dz = stand.z - mob.lastPos.z
-                val dy = stand.y - mob.lastPos.y
-                dx * dx + dz * dz < 1.5 && dy in -0.5..4.0
-            }.minByOrNull { it.y - mob.lastPos.y }
-            if (tag != null) {
-                val name = DebugText.legacy(tag.customName)
-                if (mob.firstName == null) mob.firstName = name
-                mob.name = name
-            }
+            if (mob.firstName == null) mob.firstName = name
+            mob.name = name
         }
+    }
+
+    private fun findMob(stand: ArmorStand, name: String, owner: Map<Int, Mob>): Mob? {
+        val taken = owner.values.toSet()
+        val offset = if ("WITHERMANCER" in name.replace(Regex("§."), "").uppercase()) 3 else 1
+        val guess = tracked[stand.id - offset]
+        if (guess != null && guess !in taken && guess.standId == null && under(stand, guess)) return guess
+        return tracked.values
+            .filter { it !in taken && it.standId == null && it.diedAt == null && under(stand, it) }
+            .minByOrNull { (it.lastPos.x - stand.x) * (it.lastPos.x - stand.x) + (it.lastPos.z - stand.z) * (it.lastPos.z - stand.z) }
+    }
+
+    private fun under(stand: ArmorStand, mob: Mob): Boolean {
+        val dx = stand.x - mob.lastPos.x
+        val dz = stand.z - mob.lastPos.z
+        val dy = stand.y - mob.lastPos.y
+        return dx * dx + dz * dz <= 2.25 && dy in -0.5..4.5
     }
 
     private fun newMob(entity: LivingEntity, now: Long, self: Player): Mob {
