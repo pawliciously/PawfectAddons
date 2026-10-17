@@ -3,6 +3,9 @@ package dev.pawfect.addons.features.dev
 import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.utils.McCompat
 import net.fabricmc.loader.api.FabricLoader
+import net.minecraft.client.gui.components.AbstractSliderButton
+import net.minecraft.client.gui.components.Checkbox
+import net.minecraft.client.gui.components.CycleButton
 import net.minecraft.sounds.SoundSource
 import org.lwjgl.openal.AL10
 import org.lwjgl.openal.ALC10
@@ -15,7 +18,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Dev only: menu clicks from a local sound pack instead of the vanilla button click. The files live in
+ * Dev only: menu clicks from a local sound pack instead of the vanilla button click, in PA's menus and every
+ * other menu (AbstractWidgetMixin, SoundManagerMixin). The files live in
  * config/pawfectaddons/dev/sounds as <kind><n>.ogg (tap, on, off, open, close, tick, pluck...) and are not part
  * of the mod. Played straight through OpenAL in Minecraft's own context, at the UI volume.
  */
@@ -58,6 +62,27 @@ object DevClickSounds {
         playing.add(source to buffer)
         return true
     }
+
+    /**
+     * A vanilla (or other mod's) widget about to play the button click. Checkboxes and on/off cycle buttons play
+     * the toggle sound for the state they're about to switch to, sliders tick, everything else taps. True if a dev
+     * sound played, so the vanilla click is skipped.
+     */
+    @JvmStatic
+    fun widgetClick(widget: Any): Boolean {
+        if (!active) return false
+        val kind = when (widget) {
+            is Checkbox -> if (widget.selected()) "off" else "on"
+            is CycleButton<*> -> (widget.value as? Boolean)?.let { if (it) "off" else "on" } ?: "tap"
+            is AbstractSliderButton -> "tick"
+            else -> "tap"
+        }
+        return runCatching { play(kind) || (kind != "tap" && play("tap")) }.getOrDefault(false)
+    }
+
+    /** Any other UI button click (tabs, world list, options keys, crafter slots, other mods): a tap. */
+    @JvmStatic
+    fun uiClick(): Boolean = active && runCatching { play("tap") }.getOrDefault(false)
 
     /** Forgets loaded files, for after swapping them in the folder. */
     fun reload() = clips.clear()
