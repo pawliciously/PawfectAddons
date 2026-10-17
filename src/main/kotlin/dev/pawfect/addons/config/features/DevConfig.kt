@@ -47,7 +47,4 @@ class DevConfig {
 
     @Expose
     var devClickSounds: Boolean = false
-
-    @Expose
-    var menuGif: Boolean = true
 }

@@ -17,6 +17,7 @@ object HudDefaults {
     const val DUNGEON_MAP = "Dungeon Map"
     const val INVINCIBILITY = "Invincibility"
     const val RNG_METER = "RNG Meter"
+    const val MENU_IMAGE = "Menu Image"
 
     class Default(val x: Int, val y: Int, val scale: Float = Position.DEFAULT_SCALE)
 
@@ -36,6 +37,7 @@ object HudDefaults {
         DUNGEON_MAP to Default(-6, 6),
         INVINCIBILITY to Default(10, 200),
         RNG_METER to Default(-10, 140),
+        MENU_IMAGE to Default(0, -1),
     )
 
     fun position(label: String): Position {

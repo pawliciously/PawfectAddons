@@ -3,6 +3,7 @@ package dev.pawfect.addons.config.core
 import com.mojang.blaze3d.platform.InputConstants
 import dev.pawfect.addons.config.ConfigFileType
 import dev.pawfect.addons.config.ConfigManager
+import dev.pawfect.addons.features.visual.menu.MenuImage
 import dev.pawfect.addons.ui.Draw.border
 import dev.pawfect.addons.ui.Draw.rect
 import dev.pawfect.addons.ui.Draw.string
@@ -60,6 +61,7 @@ class GuiPositionEditorScreen : Screen(Component.literal("PawfectAddons Position
 
     override fun extractBackground(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, deltaTicks: Float) {
         graphics.fill(0, 0, width, height, BACKDROP_COLOR)
+        runCatching { MenuImage.renderInEditor(graphics) }
     }
 
     override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {

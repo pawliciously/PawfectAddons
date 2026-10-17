@@ -1,6 +1,7 @@
 package dev.pawfect.addons.config.settings
 
 import dev.pawfect.addons.features.dev.DevClickSounds
+import dev.pawfect.addons.features.visual.menu.MenuImage
 import dev.pawfect.addons.config.features.SecretRoutesConfig
 import dev.pawfect.addons.config.features.InvincibilityConfig
 import dev.pawfect.addons.config.features.DropCelebrationConfig
@@ -1160,6 +1161,30 @@ object PawfectSettings {
                     ColorSetting("Accent", "Colour of the drifting glow.", menu::colorAccent)
                         .showIf { menu.enabled && menu.customColors }.onChange { menu.customColors = true },
                 ),
+                group(
+                    "Menu Image",
+                    ToggleSetting("Menu Image", "Show a picture or gif in every menu, behind the menu's window. Starts out as dancing Zelda.", menu::imageEnabled),
+                    TextSetting("Image", "A link to a gif or picture, or the name of a file in the menu-images folder. Leave it empty for Zelda.", menu::imageSource, "zelda")
+                        .showIf { menu.imageEnabled },
+                    GuideSetting("Status", "Whether the picture loaded.", lines = { listOf(MenuImage.status) })
+                        .showIf { menu.imageEnabled },
+                    ButtonSetting("Images Folder", "Open the folder to drop your own gifs and pictures into.", "Open") {
+                        MenuImage.openFolder().onFailure { ChatUtils.error("Could not open the menu-images folder.") }
+                    }.showIf { menu.imageEnabled },
+                    ButtonSetting("Next From Folder", "Switch to the next picture in the menu-images folder.", "Next") {
+                        if (!MenuImage.nextFromFolder()) ChatUtils.error("The menu-images folder is empty. Drop a gif, png or jpg in it first.")
+                    }.showIf { menu.imageEnabled },
+                    ButtonSetting("Back To Zelda", "Go back to the default gif.", "Reset") {
+                        menu.imageSource = ""
+                    }.showIf { menu.imageEnabled && menu.imageSource.isNotBlank() },
+                    ToggleSetting("Cut Out Background", "Clear a plain white background around the picture, and a stray line along its top.", menu::imageCutWhite)
+                        .showIf { menu.imageEnabled },
+                    FloatSliderSetting("Opacity", "How solid the picture is.", menu::imageOpacity, 0.05f, 1f, 0.05f)
+                        .showIf { menu.imageEnabled },
+                    PositionSetting("Image Position", "Drag it to move, scroll on it to resize.", menu.imagePosition) {
+                        PawfectAddons.queueScreen { GuiEditManager.openEditor() }
+                    }.showIf { menu.imageEnabled },
+                ),
             ),
             category(
                 "theme",
@@ -1245,11 +1270,6 @@ object PawfectSettings {
                 "Menu clicks from the sound pack in config/pawfectaddons/dev/sounds: on and off for toggles, open and close for windows, tick for sliders and picks, pluck for groups, tap for the rest. Needs Click Sounds on.",
                 dev::devClickSounds,
             ).onChange { DevClickSounds.reload() },
-            ToggleSetting(
-                "Menu Gif",
-                "Plays config/pawfectaddons/dev/menu.gif in the bottom left corner of the screen in every menu. Swap the file to change it.",
-                dev::menuGif,
-            ),
         ),
         group(
             "Recording",

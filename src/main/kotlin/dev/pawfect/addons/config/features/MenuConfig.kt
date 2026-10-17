@@ -1,6 +1,8 @@
 package dev.pawfect.addons.config.features
 
 import com.google.gson.annotations.Expose
+import dev.pawfect.addons.config.core.HudDefaults
+import dev.pawfect.addons.config.core.Position
 
 class MenuConfig {
 
@@ -39,6 +41,22 @@ class MenuConfig {
 
     @Expose
     var colorAccent: Int = 0x6C5CE7
+
+    @Expose
+    var imageEnabled: Boolean = false
+
+    /** A link, a file name in config/pawfectaddons/menu-images, or empty for the default gif. */
+    @Expose
+    var imageSource: String = ""
+
+    @Expose
+    var imageCutWhite: Boolean = true
+
+    @Expose
+    var imageOpacity: Float = 1f
+
+    @Expose
+    val imagePosition: Position = HudDefaults.position(HudDefaults.MENU_IMAGE)
 
     /** Always on; no longer a setting. */
     val hubScene: Boolean = true
