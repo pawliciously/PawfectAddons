@@ -73,8 +73,8 @@ object MenuGif {
                 McCompat.mc.textureManager.register(id, texture)
                 Frame(id, texture, delay)
             }
-            width = decoded.first().first.width
-            height = decoded.first().first.height
+            width = decoded.first().first.width + 2
+            height = decoded.first().first.height + 2
             totalMs = frames.sumOf { it.delayMs }.coerceAtLeast(1)
             true
         }.onFailure { logger.warn("Couldn't load {}", file, it) }.getOrDefault(false)
@@ -186,10 +186,14 @@ object MenuGif {
         return out
     }
 
+    /**
+     * With a clear 1 px border: scaled drawing samples past the edge and wraps around, which put a line of the
+     * bottom row (her collar) along the top.
+     */
     private fun toNative(image: BufferedImage): NativeImage {
-        val native = NativeImage(image.width, image.height, false)
+        val native = NativeImage(image.width + 2, image.height + 2, true)
         for (y in 0 until image.height) {
-            for (x in 0 until image.width) native.setPixel(x, y, image.getRGB(x, y))
+            for (x in 0 until image.width) native.setPixel(x + 1, y + 1, image.getRGB(x, y))
         }
         return native
     }
