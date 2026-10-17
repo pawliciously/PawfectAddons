@@ -103,7 +103,7 @@ object MenuGif {
                     val info = frameInfo(reader.getImageMetadata(i))
                     val before = if (info.disposal == "restoreToPrevious") copy(canvas) else null
                     canvas.createGraphics().apply { drawImage(image, info.x, info.y, null); dispose() }
-                    out.add(shrunk(cutWhite(copy(canvas))) to (if (info.delayCs <= 1) 100 else info.delayCs * 10))
+                    out.add(shrunk(cutWhite(trimTopLine(copy(canvas)))) to (if (info.delayCs <= 1) 100 else info.delayCs * 10))
                     when (info.disposal) {
                         "restoreToBackgroundColor" -> canvas.createGraphics().apply {
                             composite = java.awt.AlphaComposite.Clear
@@ -131,6 +131,28 @@ object MenuGif {
             control?.getAttribute("delayTime")?.toIntOrNull() ?: 10,
             control?.getAttribute("disposalMethod") ?: "none",
         )
+    }
+
+    /**
+     * Some gifs carry a thin line along the very top (the Zelda one does, 2 px across nearly the whole width in
+     * most frames). Any of the first few rows that runs across more than 60% of the picture is cleared.
+     */
+    private fun trimTopLine(image: BufferedImage): BufferedImage {
+        for (y in 0 until minOf(4, image.height)) {
+            var minX = -1
+            var maxX = -1
+            for (x in 0 until image.width) {
+                val argb = image.getRGB(x, y)
+                val background = (argb ushr 24) < 16 || ((argb shr 16 and 0xFF) >= 235 && (argb shr 8 and 0xFF) >= 235 && (argb and 0xFF) >= 235)
+                if (background) continue
+                if (minX < 0) minX = x
+                maxX = x
+            }
+            if (minX >= 0 && maxX - minX > image.width * 0.6) {
+                for (x in 0 until image.width) image.setRGB(x, y, 0)
+            }
+        }
+        return image
     }
 
     /** Clears near-white pixels joined to the edge of the picture: the background, not white bits inside it. */
