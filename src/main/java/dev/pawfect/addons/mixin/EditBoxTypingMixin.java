@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.pawfect.addons.features.dev.DevClickSounds;
 
-/** Dev typing sounds: a sound for every character that lands in the chat box, and for backspace. */
 @Mixin(EditBox.class)
 public abstract class EditBoxTypingMixin {
 

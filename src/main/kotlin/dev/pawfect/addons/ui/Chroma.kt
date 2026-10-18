@@ -9,10 +9,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import kotlin.math.PI
 import kotlin.math.sin
 
-/**
- * What the Chroma menu shares with the watermark: its tabs, and the moving gradient along the
- * top edge, in the theme's accent.
- */
 object Chroma {
 
     class TabDef(val id: String, val title: String, val icon: String, val categories: List<String>)
@@ -43,35 +39,23 @@ object Chroma {
 
     private fun light(): Int = Theme.mix(Theme.accent, 0xFFFFFF, 0.5f)
 
-    /** The accent and a lighter shade of it, flowing past at [at] along a line, 0 to 1. */
     private fun flow(at: Float): Int {
         val wave = 0.5f + 0.5f * sin((2.0 * PI * (at - time())).toFloat())
         return Theme.lerp(Theme.opaque(Theme.accent), Theme.opaque(light()), wave)
     }
 
-    /**
-     * The gradient edge: a rim along the top of a panel, drawn over it with the panel's own
-     * bounds. It is [thickness] deep in the middle and follows the rounded corners down to
-     * nothing. The two ends trade colours slowly.
-     */
     fun drawEdge(graphics: GuiGraphicsExtractor, x: Float, y: Float, width: Float, height: Float, radius: Float, thickness: Float) {
         Shapes.rimTop(graphics, x, y, width, height, radius, thickness, flow(0f), flow(0.5f))
     }
 
-    /**
-     * A soft rounded-square glow for the selected tab, in the same flowing accent as the edge:
-     * a wide faint halo with a brighter, tighter core behind the icon.
-     */
     fun drawGlow(graphics: GuiGraphicsExtractor, x: Float, y: Float, size: Float, radius: Float) {
         val color = flow(0.25f)
         Shapes.shadow(graphics, x, y, size, size, radius, GLOW_SPREAD, Theme.withAlpha(color, 70))
         Shapes.shadow(graphics, x + GLOW_INSET, y + GLOW_INSET, size - GLOW_INSET * 2f, size - GLOW_INSET * 2f, radius, GLOW_CORE, Theme.withAlpha(color, 60))
     }
 
-    /** The selected tab's icon colour: the accent lifted so it reads over [drawGlow]. */
     fun onGlow(): Int = Theme.opaque(Theme.mix(Theme.accent, 0xFFFFFF, 0.35f))
 
-    /** Text with the same flowing gradient running through it, one letter at a time. */
     fun drawGradientText(graphics: GuiGraphicsExtractor, text: String, x: Float, y: Float, bold: Boolean = true): Float {
         var cursor = x
         val total = width(text, bold).coerceAtLeast(1f)

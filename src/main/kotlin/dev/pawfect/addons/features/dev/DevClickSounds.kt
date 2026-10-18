@@ -20,12 +20,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 // special stuff only for me because i like it and you wouldnt + im autistic
-/**
- * Dev only: menu clicks from a local sound pack instead of the vanilla button click, in PA's menus and every
- * other menu (AbstractWidgetMixin, SoundManagerMixin). The files live in
- * config/pawfectaddons/dev/sounds as <kind><n>.ogg (tap, on, off, open, close, tick, pluck...) and are not part
- * of the mod. Played straight through OpenAL in Minecraft's own context, at the UI volume.
- */
 object DevClickSounds {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/DevClickSounds")
@@ -39,10 +33,6 @@ object DevClickSounds {
 
     val active: Boolean get() = ConfigManager.features.dev.devClickSounds && DevAccount.isDev()
 
-    /**
-     * Plays a file of this kind, random unless [seed] picks it. False if there's none or OpenAL isn't up, so the
-     * caller can fall back.
-     */
     fun play(kind: String, seed: Long? = null, pitch: Float = 1f): Boolean {
         if (ALC10.alcGetCurrentContext() == 0L) return false
         val options = clips.getOrPut(kind) { load(kind) }
@@ -70,11 +60,6 @@ object DevClickSounds {
         return true
     }
 
-    /**
-     * A vanilla (or other mod's) widget about to play the button click. Checkboxes and on/off cycle buttons play
-     * the toggle sound for the state they're about to switch to, sliders tick, everything else taps. True if a dev
-     * sound played, so the vanilla click is skipped.
-     */
     @JvmStatic
     fun widgetClick(widget: Any): Boolean {
         if (!active) return false
@@ -87,17 +72,11 @@ object DevClickSounds {
         return runCatching { play(kind) || (kind != "tap" && play("tap")) }.getOrDefault(false)
     }
 
-    /** Any other UI button click (tabs, world list, options keys, crafter slots, other mods): a tap. */
     @JvmStatic
     fun uiClick(): Boolean = active && runCatching { play("tap") }.getOrDefault(false)
 
-    /** Same key, same sound every time: the clip and pitch come from the character, not chance. */
     private const val TYPING_SEED = 0x2F6B_C1D9_A53E_7741L
 
-    /**
-     * A character landed in the chat box (or backspace, as '\b'). Plays type<n>.ogg, or the soft set if there are
-     * no typing sounds in the pack, picked and pitched by the character so each key keeps its own sound.
-     */
     @JvmStatic
     fun chatKey(box: EditBox, codepoint: Int) {
         if (!active || !ConfigManager.features.dev.devTypingSounds) return
@@ -108,7 +87,6 @@ object DevClickSounds {
         if (!play("type", hash, pitch)) play("soft", hash, pitch)
     }
 
-    /** SplitMix64's finaliser: spreads neighbouring characters far apart. */
     private fun mix(value: Long): Long {
         var z = value + -0x61c8864680b583ebL
         z = (z xor (z ushr 30)) * -0x40a7b892e31b1a47L
@@ -116,7 +94,6 @@ object DevClickSounds {
         return z xor (z ushr 31)
     }
 
-    /** Forgets loaded files, for after swapping them in the folder. */
     fun reload() = clips.clear()
 
     private fun cleanup() {

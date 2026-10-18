@@ -108,7 +108,6 @@ object UiFont {
         Component.literal(glyph).withStyle(largeIconStyle)
     }
 
-    /** The ink box of a large icon from its draw point: left, right, top, bottom. */
     fun largeIconInk(glyph: String): FloatArray? {
         largeInkCache[glyph]?.let { return it }
         val baked = (McCompat.font as FontAccessor).`pawfectaddons$getGlyph`(glyph.codePointAt(0), largeIconStyle)

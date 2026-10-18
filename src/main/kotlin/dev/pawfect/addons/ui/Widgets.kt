@@ -47,7 +47,6 @@ abstract class Widget(val setting: Setting<*>) {
 
     open fun charTyped(character: Char): Boolean = false
 
-    /** Ctrl+V while this widget has focus; returns true when it took the text. */
     open fun paste(text: String): Boolean = false
 
     open fun loseFocus() {}
@@ -721,7 +720,6 @@ class ColorWidget(private val color: ColorSetting) : Widget(color) {
         return true
     }
 
-    // Takes "#FF00AA", "0xff00aa" or "ff00aa"; a complete code applies straight away.
     override fun paste(text: String): Boolean {
         if (!editingHex) return false
         val limit = if (color.supportsAlpha) 8 else 6

@@ -20,9 +20,6 @@ public abstract class GuiRendererMixin {
         if (!HubSceneRenderer.draw()) original.call(cubeMap, alpha, spin);
     }
 
-    // The render pass throws on a scissor past the left or top edge, or one with no size, but the
-    // GUI only trims the right and bottom. Anything clipped against those edges (chat backdrops
-    // at x 0, a list scrolled past the top) would crash the game, so the rest is trimmed here.
     @WrapOperation(
             method = "enableScissor(Lnet/minecraft/client/gui/navigation/ScreenRectangle;Lcom/mojang/blaze3d/systems/RenderPass;)V",
             at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderPass;enableScissor(IIII)V")
@@ -33,7 +30,6 @@ public abstract class GuiRendererMixin {
         int top = Math.max(y, 0);
         int right = Math.min(x + width, window.width);
         int bottom = Math.min(y + height, window.height);
-        // Nothing is left on screen: a single corner pixel stands in, as nothing drawn there is visible.
         if (right <= left || bottom <= top) {
             original.call(pass, 0, 0, 1, 1);
             return;

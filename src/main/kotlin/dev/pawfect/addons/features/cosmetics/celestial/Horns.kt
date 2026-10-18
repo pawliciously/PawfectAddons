@@ -15,10 +15,6 @@ import kotlin.math.sin
 private const val TAU = Motion.TAU
 private const val PI_F = PI.toFloat()
 
-/**
- * A mirrored pair of horns rooted on the head at [root] (model space, right side). Inside a horn
- * x points out from the head, y up and z back.
- */
 abstract class HornStyle(id: String, private val root: Vector3f) : Piece(id, Anchor.HEAD, 2) {
 
     override fun matrices(state: AvatarRenderState, motion: Motion, t: Float, size: Float): Array<Matrix4f> = Motion.mirrored { side ->
@@ -28,7 +24,6 @@ abstract class HornStyle(id: String, private val root: Vector3f) : Piece(id, Anc
 
     protected fun v(x: Float, y: Float, z: Float) = Vector3f(x, y, z)
 
-    /** Gold bands around a horn between rings [from] and [to], with a glint running round them. */
     protected fun goldBand(fill: MeshBuilder, glow: MeshBuilder, f: Solid.Frames, from: Int, to: Int) {
         Solid.tube(fill, 0, f, 10, 0, 0f, from, to, shell = 1.12f, ambient = 0.5f, gloss = 1f) { _, _ -> 0xFFFFC85A.toInt() }
         Solid.tube(glow, 0, f, 10, 1, 0f, from, to, shell = 1.18f, light = false) { _, _ -> 0xFFFFE6A0.toInt() }
@@ -39,7 +34,6 @@ abstract class HornStyle(id: String, private val root: Vector3f) : Piece(id, Anc
         return exp(-d * d)
     }
 
-    /** A pulse climbing the horn from root to tip. */
     protected fun climb(v: Float, t: Float) = max(0f, sin((v * 1.4f - t * 0.55f) * TAU)).pow(4f)
 }
 
@@ -47,7 +41,6 @@ object Horns {
     val ALL: List<HornStyle> = listOf(Ram, Demon, Elder, Oni, Crystal, VoidHorns)
 }
 
-/** Ivory ram horns curling round the ears, ridged all the way, bound in gold. */
 object Ram : HornStyle("ram", Vector3f(0.22f, -0.42f, 0.02f)) {
     override val baseHue = 0.11f
 
@@ -82,7 +75,6 @@ object Ram : HornStyle("ram", Vector3f(0.22f, -0.42f, 0.02f)) {
     }
 }
 
-/** Glossy black horns sweeping back, lava cracks pulsing up them to a burning tip. */
 object Demon : HornStyle("demon", Vector3f(0.14f, -0.47f, -0.09f)) {
     override val baseHue = 0.06f
 
@@ -117,7 +109,6 @@ object Demon : HornStyle("demon", Vector3f(0.14f, -0.47f, -0.09f)) {
     }
 }
 
-/** Pale antlers with glowing moss, little blossoms on every tine and fireflies drifting round them. */
 object Elder : HornStyle("elder", Vector3f(0.12f, -0.49f, 0f)) {
     override val baseHue = 0.45f
 
@@ -173,7 +164,6 @@ object Elder : HornStyle("elder", Vector3f(0.12f, -0.49f, 0f)) {
     }
 }
 
-/** Short crimson oni horns fading to bone at the tip, gold rings at the base and heat round them. */
 object Oni : HornStyle("oni", Vector3f(0.11f, -0.5f, -0.13f)) {
     override val baseHue = 0.97f
 
@@ -196,7 +186,6 @@ object Oni : HornStyle("oni", Vector3f(0.11f, -0.5f, -0.13f)) {
         else -> color
     }
 
-    /** Sparks spiral up around the horn. */
     override fun spark(s: Spark, t: Float, out: SparkOut): Boolean {
         val life = frac(t * 0.45f + s.seed)
         val a = s.seed * TAU + life * 6f
@@ -210,7 +199,6 @@ object Oni : HornStyle("oni", Vector3f(0.11f, -0.5f, -0.13f)) {
     }
 }
 
-/** Cut crystal horns: flat facets in shifting colour, lit edges and gems floating off them. */
 object Crystal : HornStyle("crystal", Vector3f(0.13f, -0.48f, -0.07f)) {
     override fun build(fill: MeshBuilder, glow: MeshBuilder, sparks: MutableList<Spark>) {
         val path = Solid.bezier(v(0f, 0f, 0f), v(0.03f, 0.15f, 0.02f), v(0.08f, 0.3f, 0.08f), v(0.1f, 0.46f, 0.2f))
@@ -257,7 +245,6 @@ object Crystal : HornStyle("crystal", Vector3f(0.13f, -0.48f, -0.07f)) {
     }
 }
 
-/** Twisted obsidian horns, violet veins spiralling up them to a tip that motes circle. */
 object VoidHorns : HornStyle("void", Vector3f(0.13f, -0.48f, -0.04f)) {
     override val baseHue = 0.76f
 

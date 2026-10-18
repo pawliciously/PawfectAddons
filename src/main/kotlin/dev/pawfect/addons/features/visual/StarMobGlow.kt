@@ -23,14 +23,6 @@ import net.minecraft.world.entity.projectile.arrow.AbstractArrow
 import net.minecraft.world.phys.AABB
 import java.util.Optional
 
-/**
- * Outlines starred dungeon mobs. Hypixel puts a mob's name on a separate armor stand above it, so each starred
- * stand is bound to the mob under it. A stand whose mob hasn't arrived yet waits and is tried again every few
- * ticks, and a binding is checked so it moves on if its mob leaves, dies or turns out to be somewhere else.
- *
- * Everything here runs on the client thread: entity packets are handled there, and the remove hook also fires
- * once on the network thread before Minecraft hands the packet over, which is ignored.
- */
 object StarMobGlow {
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.visuals)
@@ -42,13 +34,10 @@ object StarMobGlow {
     private val DEAD_PLATE = Regex("\\s0$HEART$")
     private val MINIBOSSES = setOf("Shadow Assassin", "Lost Adventurer", "Diamond Guy", "King Midas")
 
-    /** Starred name stand id to the mob it labels. */
     private val BOUND = Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
 
-    /** Starred stands still looking for their mob. */
     private val PENDING = IntOpenHashSet()
 
-    /** Mobs to outline: bound mobs and minibosses. */
     private val STARRED = IntOpenHashSet()
     private val MINIBOSS_IDS = IntOpenHashSet()
 
@@ -72,7 +61,6 @@ object StarMobGlow {
             val mob = BOUND.remove(id)
             if (mob >= 0) STARRED.remove(mob)
             if (STARRED.remove(id)) {
-                // The mob went away (out of range, or died) but its stand may stay: let the stand find it again
                 val stands = BOUND.int2IntEntrySet().filter { it.intValue == id }.map { it.intKey }
                 stands.forEach {
                     BOUND.remove(it)
@@ -98,7 +86,6 @@ object StarMobGlow {
             if (starredPlate(name)) {
                 if (BOUND.get(entity.id) < 0) tryBind(level, entity)
             } else if (name.isNotEmpty() && (BOUND.containsKey(entity.id) || PENDING.contains(entity.id))) {
-                // Renamed to something without a star: not a starred plate any more
                 BOUND.remove(entity.id)
                 PENDING.remove(entity.id)
                 rebuild()
@@ -108,7 +95,6 @@ object StarMobGlow {
         if (entity is Player && config.starMinibosses && miniboss(entity) && MINIBOSS_IDS.add(entity.id)) rebuild()
     }
 
-    /** Retries waiting stands and checks bindings are still right. */
     @JvmStatic
     fun onTick() {
         if (!config.starGlow || !SkyBlockData.inDungeons) return
@@ -182,9 +168,7 @@ object StarMobGlow {
     private fun starredPlate(name: String): Boolean =
         name.contains(STAR) && (name.endsWith(HEART) || name.endsWith("§c$HEART"))
 
-    /** Binds the stand to its mob if the mob is here yet, otherwise leaves it waiting. */
     private fun tryBind(level: ClientLevel, stand: Entity, rebuildAfter: Boolean = true) {
-        // A dead mob's plate hangs around for a moment at 0 health; don't hand it to the mob next to it
         val plain = (stand.customName?.string ?: "").replace(Regex("§."), "")
         if (DEAD_PLATE.containsMatchIn(plain)) {
             PENDING.remove(stand.id)
@@ -203,7 +187,6 @@ object StarMobGlow {
     private fun findMob(level: ClientLevel, stand: Entity): Int {
         val self = McCompat.player
         val taken = IntOpenHashSet(BOUND.values)
-        // Hypixel spawns the mob just before its stand; Withermancers have two more stands in between
         val plain = (stand.customName?.string ?: "").replace(Regex("§."), "").uppercase()
         val offset = if (plain.contains("WITHERMANCER")) 3 else 1
         val guess = level.getEntity(stand.id - offset)
@@ -215,7 +198,6 @@ object StarMobGlow {
             ?.id ?: -1
     }
 
-    /** The stand floats over its mob: close sideways, somewhere above its feet. */
     private fun under(stand: Entity, mob: Entity): Boolean {
         val dx = stand.x - mob.x
         val dz = stand.z - mob.z

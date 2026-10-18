@@ -35,12 +35,10 @@ object HubScene {
     const val RADIUS_CHUNKS = 8
     const val HUB = "hub"
 
-    /** The saved blocks of one area's scene. The hub keeps the file name it always had. */
     fun file(area: String): Path = ConfigManager.configDirectory.resolve(
         if (area == HUB) "hub_scene.nbt" else "menu_scene_${area.lowercase().replace(Regex("[^a-z0-9_]"), "_")}.nbt",
     )
 
-    /** The spots set with /pa menu here. One saved before scenes were kept per area carries over as the hub's. */
     fun configSpots(): MutableList<MenuSpot> {
         val config = ConfigManager.features.menu
         if (config.anchorSet && config.spots.none { it.area == HUB }) {
@@ -58,7 +56,6 @@ object HubScene {
         return config.spots
     }
 
-    /** Every scene's spot: a scripted scene's own, otherwise the one set in game. */
     fun spots(): List<MenuSpot> {
         val scripted = listOf(HUB, "combat_3").mapNotNull { area -> MenuScenes.forArea(area)?.spot?.also { it.area = area } }
         return scripted + configSpots().filter { spot -> scripted.none { it.area == spot.area } }
@@ -86,7 +83,6 @@ object HubCapture {
     private var lastSave = 0L
     private var ticker = 0
 
-    // The area whose blocks are held in memory, or null while not capturing anywhere.
     private var area: String? = null
 
     @Volatile
@@ -97,7 +93,6 @@ object HubCapture {
     val columnCount: Int
         get() = sections.keys.mapTo(HashSet()) { SectionPos.x(it).toLong() shl 32 or (SectionPos.z(it).toLong() and 0xFFFFFFFFL) }.size
 
-    /** The SkyBlock area the player is in now, as Hypixel names it. */
     val currentArea: String? get() = HypixelLocation.mode
 
     fun onTick() {
@@ -122,7 +117,6 @@ object HubCapture {
         save(async = false, force = true)
     }
 
-    // Writes out the area being left and lets its blocks go, so the next area starts clean.
     private fun leave() {
         save(async = false, force = true)
         sections.clear()
@@ -132,7 +126,6 @@ object HubCapture {
         area = null
     }
 
-    /** Saves [area]'s camera spot, returning true if it moved far enough to start its capture over. */
     fun setAnchor(area: String, x: Double, y: Double, z: Double, yaw: Float, pitch: Float): Boolean {
         val spots = HubScene.configSpots()
         val old = spots.firstOrNull { it.area == area }
@@ -152,7 +145,6 @@ object HubCapture {
         return moved
     }
 
-    /** Throws away [area]'s captured blocks; they are captured again on the next visit. */
     fun clear(area: String) {
         if (this.area == area) {
             sections.clear()
@@ -164,7 +156,6 @@ object HubCapture {
         runCatching { Files.deleteIfExists(HubScene.file(area)) }
     }
 
-    /** Forgets [area]'s camera spot and its blocks, taking it out of the menu's rotation. */
     fun remove(area: String): Boolean {
         clear(area)
         val removed = HubScene.configSpots().removeIf { it.area == area }
@@ -184,8 +175,6 @@ object HubCapture {
                 val key = SectionPos.asLong(cx, 0, cz)
                 if (key in doneThisVisit) continue
                 val chunk = level.chunkSource.getChunk(cx, cz, ChunkStatus.FULL, false) ?: continue
-                // Light arrives from the server after the blocks; capturing before it lands saves the
-                // chunk pitch dark, so it waits and is picked up on a later scan.
                 if (!level.lightEngine.lightOnInColumn(SectionPos.getZeroNode(cx, cz))) continue
                 capture(level, chunk, cx, cz, spot)
                 doneThisVisit += key
@@ -211,8 +200,6 @@ object HubCapture {
         columns[SectionPos.asLong(cx, 0, cz)] = tints(level, cx, cz, spot.y)
     }
 
-    // Biome colours come from server data the title screen doesn't have, so each column's
-    // finished grass, foliage and water colours are stored with the blocks.
     private fun tints(level: ClientLevel, cx: Int, cz: Int, height: Double): CompoundTag {
         val y = floor(height).toInt()
         val pos = BlockPos.MutableBlockPos()

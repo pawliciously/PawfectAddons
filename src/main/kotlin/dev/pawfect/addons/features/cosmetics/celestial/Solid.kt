@@ -6,15 +6,10 @@ import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sin
 
-/** Round 3D parts: tubes along a path, rings and crystals, with light baked into their colours. */
 object Solid {
     private val LIGHT = Vector3f(0.35f, 0.75f, -0.55f).normalize()
     private const val TAU = Motion.TAU
 
-    /**
-     * Shades a colour by a fixed light from above and in front. Baked once, so it costs nothing
-     * per frame and turns with the part.
-     */
     fun lit(color: Int, n: Vector3f, ambient: Float = 0.5f, gloss: Float = 0f): Int {
         val d = max(0f, n.dot(LIGHT))
         val k = ambient + (1f - ambient) * d
@@ -23,7 +18,6 @@ object Solid {
         return (color and 0xFF000000.toInt()) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
     }
 
-    /** A path sampled into rings, each with a twist-free frame and a radius. */
     class Frames(val p: Array<Vector3f>, val n: Array<Vector3f>, val b: Array<Vector3f>, val r: FloatArray) {
         val size get() = p.size
 
@@ -35,7 +29,6 @@ object Solid {
         fun point(i: Int, a: Float, scale: Float = 1f, out: Vector3f = Vector3f()): Vector3f =
             normal(i, a, out).mul(r[i] * scale).add(p[i])
 
-        /** Sideways along the surface at angle [a], for lines drawn on the tube. */
         fun across(i: Int, a: Float, out: Vector3f = Vector3f()): Vector3f =
             out.set(n[i]).mul(-sin(a)).add(b[i].x * cos(a), b[i].y * cos(a), b[i].z * cos(a))
     }
@@ -48,7 +41,6 @@ object Solid {
             .add(Vector3f(d).mul(s * s * s))
     }
 
-    /** Samples [path] into frames. [up] pins the frame for flat loops like a halo ring. */
     fun frames(rings: Int, radius: (Float) -> Float, up: Vector3f? = null, path: (Float) -> Vector3f): Frames {
         val p = Array(rings + 1) { path(it / rings.toFloat()) }
         val t = Array(rings + 1) {
@@ -68,10 +60,6 @@ object Solid {
         return Frames(p, ns, b, FloatArray(rings + 1) { radius(it / rings.toFloat()) })
     }
 
-    /**
-     * Skins frames [from]..[to] with [sides] faces. [twist] turns the faces along the path for
-     * spiral grooves, [flat] shades each face as one plane for cut crystal.
-     */
     fun tube(
         b: MeshBuilder, seg: Int, f: Frames, sides: Int, kind: Int, seed: Float,
         from: Int = 0, to: Int = f.size - 1, shell: Float = 1f, twist: Float = 0f,
@@ -104,7 +92,6 @@ object Solid {
         }
     }
 
-    /** A thin line drawn on a tube's surface, winding around it as [angle] changes along it. */
     fun surfaceLine(
         b: MeshBuilder, seg: Int, f: Frames, from: Int, to: Int, angle: (Float) -> Float, width: Float,
         kind: Int, seed: Float, shell: Float = 1.03f, color: (Float) -> Int,
@@ -133,7 +120,6 @@ object Solid {
         }
     }
 
-    /** A flat band around the y axis at height [y], coloured [c0] inside to [c1] outside. u runs around it. */
     fun band(b: MeshBuilder, seg: Int, r0: Float, r1: Float, c0: Int, c1: Int, steps: Int, kind: Int, seed: Float, y: Float = 0f) {
         for (i in 0 until steps) {
             val a0 = i / steps.toFloat() * TAU
@@ -149,7 +135,6 @@ object Solid {
         }
     }
 
-    /** A tapered ray in the y = 0 plane at angle [a], from radius [r0] to [r1]. v runs out along it. */
     fun ray(b: MeshBuilder, seg: Int, a: Float, r0: Float, r1: Float, w0: Float, w1: Float, c0: Int, c1: Int, kind: Int, seed: Float, y: Float = 0f) {
         val dx = cos(a)
         val dz = sin(a)
@@ -162,7 +147,6 @@ object Solid {
         )
     }
 
-    /** A cut gem: four sided, pointed top and bottom, each face shaded flat. */
     fun gem(b: MeshBuilder, seg: Int, c: Vector3f, height: Float, width: Float, color: Int, kind: Int, seed: Float, u: Float, light: Boolean = true, turn: Float = 0f) {
         val top = Vector3f(c.x, c.y + height, c.z)
         val bottom = Vector3f(c.x, c.y - height * 0.8f, c.z)
@@ -188,14 +172,12 @@ object Solid {
         }
     }
 
-    /** Diamonds in all three planes, a soft point of light that reads from any side. */
     fun glint(b: MeshBuilder, seg: Int, x: Float, y: Float, z: Float, r: Float, color: Int, u: Float, v: Float, kind: Int, seed: Float) {
         b.quad(Vtx(seg, x, y + r, z, color, u, v, kind, seed), Vtx(seg, x + r, y, z, color, u, v, kind, seed), Vtx(seg, x, y - r, z, color, u, v, kind, seed), Vtx(seg, x - r, y, z, color, u, v, kind, seed))
         b.quad(Vtx(seg, x, y + r, z, color, u, v, kind, seed), Vtx(seg, x, y, z + r, color, u, v, kind, seed), Vtx(seg, x, y - r, z, color, u, v, kind, seed), Vtx(seg, x, y, z - r, color, u, v, kind, seed))
         b.quad(Vtx(seg, x + r, y, z, color, u, v, kind, seed), Vtx(seg, x, y, z + r, color, u, v, kind, seed), Vtx(seg, x - r, y, z, color, u, v, kind, seed), Vtx(seg, x, y, z - r, color, u, v, kind, seed))
     }
 
-    /** A flame tongue standing up from [x], [z] as two crossed blades. v runs up it. */
     fun flame(b: MeshBuilder, seg: Int, x: Float, y: Float, z: Float, height: Float, width: Float, facing: Float, c0: Int, c1: Int, kind: Int, seed: Float, u: Float) {
         val profile = Shapes.FLAME
         for (a in floatArrayOf(facing, facing + TAU / 4f)) {

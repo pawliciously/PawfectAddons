@@ -16,10 +16,6 @@ import net.minecraft.network.chat.MutableComponent
 import net.minecraft.world.entity.decoration.ArmorStand
 import java.util.WeakHashMap
 
-/**
- * The dungeon room you're in as one line of text: its name, how many of its secrets you've
- * found, and whether its starred mobs are all dead. Moves with the HUD editor.
- */
 object RoomNameOverlay {
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.dungeonHud)
@@ -32,13 +28,11 @@ object RoomNameOverlay {
 
     private val SECRETS = Regex("""(\d+)/(\d+) Secrets""")
 
-    /** Secrets found in each room this run, as the action bar last said while you were in it. */
     private val found = WeakHashMap<DungeonRoom, Int>()
 
     private var room: DungeonRoom? = null
     private var enteredAt = 0L
 
-    /** Whether starred mobs were left in the room at the last look, and when that was. */
     private var starred = false
     private var starredAt = 0L
 
@@ -68,7 +62,6 @@ object RoomNameOverlay {
         val match = SECRETS.find(message.string.replace(Regex("§."), "")) ?: return
         val current = DungeonScanner.current ?: return
         track(current)
-        // The bar lags a moment behind walking in, still counting the room you came from.
         if (current !== room || System.currentTimeMillis() - enteredAt < ENTER_LAG_MS) return
         found[current] = match.groupValues[1].toInt()
     }
@@ -95,7 +88,6 @@ object RoomNameOverlay {
         return compose(title, secrets, total, cleared(current))
     }
 
-    /** Notes walking into a new room, so the action bar isn't read as the old one's for a moment. */
     private fun track(current: DungeonRoom) {
         if (current === room) return
         room = current
@@ -103,7 +95,6 @@ object RoomNameOverlay {
         starredAt = 0L
     }
 
-    /** Secrets found and the room's total, for a room you've been in that has secrets; else null. */
     fun secretsIn(room: DungeonRoom): Pair<Int, Int>? {
         val total = room.name?.takeIf { room.matched }?.substringAfterLast('-')?.toIntOrNull() ?: return null
         if (total <= 0) return null
@@ -113,7 +104,6 @@ object RoomNameOverlay {
 
     private fun preview(): Component = compose("Room Name", 2, 5, false)
 
-    /** Joins whichever parts are on into one line; null [cleared] leaves the status off. */
     private fun compose(title: String, secrets: Int, total: Int, cleared: Boolean?): Component {
         val parts = ArrayList<MutableComponent>()
         if (config.roomNameShowName) parts += Component.literal(title).withColor(GRAY)
@@ -130,7 +120,6 @@ object RoomNameOverlay {
         return line
     }
 
-    /** Red under a quarter, yellow under 65%, green under all of them, lime once they're all found. */
     private fun secretColor(secrets: Int, total: Int): Int {
         val share = secrets.toFloat() / total
         return when {
@@ -141,10 +130,6 @@ object RoomNameOverlay {
         }
     }
 
-    /**
-     * Whether the room's mobs are done: the map gives it a checkmark, or (for rooms with
-     * starred mobs to kill) none are left standing. Null for rooms with nothing to clear.
-     */
     private fun cleared(current: DungeonRoom): Boolean? = when (current.type) {
         DungeonRoom.Type.ENTRANCE, DungeonRoom.Type.FAIRY, DungeonRoom.Type.BLOOD -> null
         DungeonRoom.Type.PUZZLE, DungeonRoom.Type.MINIBOSS -> current.mapCleared

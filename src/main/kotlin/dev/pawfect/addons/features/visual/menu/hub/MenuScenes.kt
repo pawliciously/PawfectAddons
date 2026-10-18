@@ -3,24 +3,15 @@ package dev.pawfect.addons.features.visual.menu.hub
 import dev.pawfect.addons.config.features.MenuSpot
 import dev.pawfect.addons.features.visual.menu.hub.WalkPlanner.Waypoint
 
-/**
- * What happens in each area's menu scene: an optional camera path that replaces the default
- * fly-in, and the walk pawliciously takes through it. Positions are feet positions recorded in
- * game with /pa dev point.
- */
 internal object MenuScenes {
 
-    /** A point the camera passes through, facing the way it was recorded. */
     class Shot(val x: Double, val y: Double, val z: Double, val yaw: Float, val pitch: Float)
 
     class Script(
-        /** The camera's path in, ending on the settled view; empty keeps the default fly-in. */
         val camera: List<Shot>,
         val walk: List<Waypoint>,
-        /** The walk's stop where the walker greets the camera. */
         val greeting: Int,
     ) {
-        /** A scene with its own path settles where the path ends, which also centres its capture. */
         val spot: MenuSpot?
             get() = camera.lastOrNull()?.let { end ->
                 MenuSpot().apply {
@@ -33,7 +24,6 @@ internal object MenuScenes {
             }
     }
 
-    // In from off screen, a greeting to the camera, then up the hill and into the castle.
     private val HUB = Script(
         camera = emptyList(),
         walk = listOf(
@@ -51,9 +41,6 @@ internal object MenuScenes {
         greeting = 1,
     )
 
-    // The camera dives off the island's edge and down into the hollow, where the walker comes
-    // round to greet it and heads back out of view. The two shots partway down the dive were
-    // found by searching the captured blocks for open air, so the drop clears the island's rim.
     private val END = Script(
         camera = listOf(
             Shot(-500.14, 101.0, -275.14, 78.13f, -0.94f),
@@ -82,6 +69,5 @@ internal object MenuScenes {
 
     private val titles = mapOf(HubScene.HUB to "SkyBlock Hub", "combat_3" to "The End")
 
-    /** The name shown for an area's scene on the menu. */
     fun title(area: String): String = titles[area] ?: area.split('_').joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) }
 }

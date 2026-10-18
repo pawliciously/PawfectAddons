@@ -5,11 +5,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
-/**
- * A picked colour for one cosmetic. Matches paintFor on the website: near-grey drains the colour
- * for a silver look, anything else turns the style's base hue onto the pick and dark picks darken
- * it. Styles with no base hue cycle colours themselves and get narrowed to the picked hue instead.
- */
 class Paint private constructor(private val matrix: FloatArray?, val hue: Float?) {
 
     fun apply(rgb: Int): Int {
@@ -24,10 +19,8 @@ class Paint private constructor(private val matrix: FloatArray?, val hue: Float?
     companion object {
         private val cache = HashMap<String, Paint?>()
 
-        /** The paint the frame is drawing with, set per cosmetic before it draws. */
         var active: Paint? = null
 
-        /** Hue for styles that cycle colours: theirs, or swaying around the picked one. */
         fun hue(h: Float): Float {
             val target = active?.hue ?: return h
             return target + 0.06f * sin(h * Motion.TAU)

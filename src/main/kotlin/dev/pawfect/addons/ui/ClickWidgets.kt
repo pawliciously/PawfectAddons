@@ -27,11 +27,6 @@ import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.sin
 
-/**
- * The click GUI's compact settings: a dim label with its control on the right, sized for a
- * narrow panel. Lists that need room (waypoints, presets, the packet log, guides) keep the
- * widgets the classic menu uses.
- */
 object ClickWidgets {
 
     const val ROW = 13f
@@ -52,13 +47,10 @@ object ClickWidgets {
         else -> WidgetFactory.create(setting)
     }
 
-    // ------------------------------------------------------------------ shared drawing
-
     fun label(graphics: GuiGraphicsExtractor, text: String, x: Float, y: Float, maxWidth: Float, color: Int = Theme.opaque(Theme.textDim)) {
         graphics.string(Draw.truncate(text, maxWidth), x, y, color)
     }
 
-    /** Text that reads on the accent: dark on a light accent, white on a dark one. */
     fun onAccent(): Int {
         val rgb = Theme.accent
         val luma = 0.299f * (rgb shr 16 and 0xFF) + 0.587f * (rgb shr 8 and 0xFF) + 0.114f * (rgb and 0xFF)
@@ -73,7 +65,6 @@ object ClickWidgets {
         )
     }
 
-    /** A straight stroke between two points, as a rotated pill. */
     fun line(graphics: GuiGraphicsExtractor, x1: Float, y1: Float, x2: Float, y2: Float, thickness: Float, color: Int) {
         val length = hypot(x2 - x1, y2 - y1)
         if (length <= 0f) return
@@ -93,8 +84,6 @@ object ClickWidgets {
 
     fun textY(top: Float, height: Float): Float = top + (height - Draw.LINE_HEIGHT) / 2f
 }
-
-// -------------------------------------------------------------------------- toggle
 
 class ClickToggle(private val toggle: ToggleSetting) : Widget(toggle) {
 
@@ -125,8 +114,6 @@ class ClickToggle(private val toggle: ToggleSetting) : Widget(toggle) {
         private const val TRACK_H = 9f
     }
 }
-
-// -------------------------------------------------------------------------- slider
 
 class ClickSlider(
     setting: Setting<*>,
@@ -181,9 +168,6 @@ class ClickSlider(
     }
 }
 
-// -------------------------------------------------------------------------- dropdown
-
-/** A choice: the value in a box on the right, with its options opening underneath. */
 class ClickChoice(private val dropdown: DropdownSetting<*>) : Widget(dropdown) {
 
     private var open = false
@@ -194,7 +178,6 @@ class ClickChoice(private val dropdown: DropdownSetting<*>) : Widget(dropdown) {
         return (widest + ClickWidgets.caretWidth() + 14f).coerceAtMost(width * 0.6f)
     }
 
-    /** Short labels sit beside the box; long ones go above it. */
     private val stacked: Boolean get() = Draw.width(setting.name) + boxWidth() + 6f > width
 
     private fun boxY(): Float = if (stacked) y + ClickWidgets.LABEL_ROW else y
@@ -283,13 +266,6 @@ class ClickChoice(private val dropdown: DropdownSetting<*>) : Widget(dropdown) {
     }
 }
 
-// -------------------------------------------------------------------------- sound list
-
-/**
- * A sound: the chosen one in a box, opening into a searchable list of your own files and every
- * game sound. The list scrolls with the wheel, by dragging its thumb, or by clicking its track.
- * Clicking a sound picks it and plays it.
- */
 class ClickSound(private val sound: SoundListSetting) : Widget(sound) {
 
     private class Row(val id: String?, val group: String?, val count: Int)
@@ -488,7 +464,6 @@ class ClickSound(private val sound: SoundListSetting) : Widget(sound) {
         scroll = if (room > 0f) ((mouseY - grab - t[1]) / room).coerceIn(0f, 1f) * max else 0f
     }
 
-    /** Puts the chosen sound in the middle of the list. */
     private fun revealSelected() {
         val index = matches().indexOfFirst { it.id == sound.value }
         scroll = if (index < 0) 0f else (index * ENTRY - LIST_H / 2f + ENTRY / 2f).coerceIn(0f, maxScroll())
@@ -523,7 +498,6 @@ class ClickSound(private val sound: SoundListSetting) : Widget(sound) {
             val max = maxScroll()
             val th = thumbHeight()
             val ty = t[1] + scroll / max * (t[3] - th)
-            // On the thumb it drags from where it was grabbed; on the track it jumps there first.
             grab = if (mouseY in ty..(ty + th)) mouseY - ty else th / 2f
             dragging = true
             scrollFromThumb(mouseY)
@@ -607,10 +581,6 @@ class ClickSound(private val sound: SoundListSetting) : Widget(sound) {
         private const val KEY_ENTER = 257
         private const val KEY_BACKSPACE = 259
 
-        /**
-         * Your files keep their file names. Game sounds drop their kind and read as words:
-         * minecraft:ambient.nether_wastes.mood is Nether Wastes Mood.
-         */
         fun label(id: String): String {
             val namespace = id.substringBefore(':', "minecraft")
             val path = id.substringAfter(':')
@@ -623,7 +593,6 @@ class ClickSound(private val sound: SoundListSetting) : Widget(sound) {
                 .joinToString(" ") { word -> word.replaceFirstChar { it.titlecase() } }
         }
 
-        /** The small tag beside a game sound: block, entity, item... or the mod it comes from. */
         fun kind(id: String): String {
             val namespace = id.substringBefore(':', "minecraft")
             val path = id.substringAfter(':')
@@ -633,9 +602,6 @@ class ClickSound(private val sound: SoundListSetting) : Widget(sound) {
     }
 }
 
-// -------------------------------------------------------------------------- colour
-
-/** A colour: its hex and swatch on the right, opening a picker underneath. */
 class ClickColor(private val color: ColorSetting) : Widget(color) {
 
     private var open = false
@@ -842,9 +808,6 @@ class ClickColor(private val color: ColorSetting) : Widget(color) {
     }
 }
 
-// -------------------------------------------------------------------------- text
-
-/** A text field under its label, edited in place. */
 class ClickText(private val text: TextSetting) : Widget(text) {
 
     private var editing = false
@@ -912,9 +875,6 @@ class ClickText(private val text: TextSetting) : Widget(text) {
     }
 }
 
-// -------------------------------------------------------------------------- button
-
-/** A button on the right of its label, or under it when the label is long. */
 class ClickAction(setting: Setting<*>, private val label: String, private val action: () -> Unit) : Widget(setting) {
 
     private val hoverAnim2 = Anim(120L)

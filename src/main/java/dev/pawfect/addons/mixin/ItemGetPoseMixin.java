@@ -9,7 +9,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Raises your arms over your head for the item get, after the model's own pose. */
 @Mixin(PlayerModel.class)
 public class ItemGetPoseMixin {
 

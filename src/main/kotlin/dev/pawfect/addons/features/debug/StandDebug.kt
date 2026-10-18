@@ -42,11 +42,6 @@ object StandDebug {
             .map { "§8${"%.1f".format(player.distanceTo(it))}m §f${it.name.string.replace('§', '&')}" }
     }
 
-    /**
-     * Writes every armor stand within [FILE_RADIUS] blocks to a file, nearest first: position, name, flags,
-     * what each slot holds (with the head texture value and skin URL, which is what a head ID is) and the
-     * full NBT. Unnamed stands are included since key and decoration heads usually have no name.
-     */
     fun save(): Pair<Int, Path>? {
         val player = McCompat.player ?: return null
         val level = McCompat.mc.level ?: return null
@@ -87,7 +82,6 @@ object StandDebug {
         NbtUtils.prettyPrint(output.buildResult(), false)
     }.getOrElse { "(could not save: ${it.javaClass.simpleName}: ${it.message})" }
 
-    /** Armor stands carrying player heads nearby: which slot, the skin, and whether it counts as a Nukekubi. */
     fun heads(): List<String> {
         val player = McCompat.player ?: return listOf("No player.")
         val level = McCompat.mc.level ?: return listOf("No level.")
@@ -111,7 +105,6 @@ object StandDebug {
         return out
     }
 
-    // Each step a glow passes through, so whichever one comes back false or 0 is where it's lost.
     private fun glowStages(stand: ArmorStand): String {
         val mc = McCompat.mc
         val ours = NukekubiGlow.shouldGlow(stand)

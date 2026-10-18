@@ -16,21 +16,14 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** Smoothing steps between samples, so the ribbons curve instead of kinking. */
 private const val SUB = 3
 
-/** Turns of the twist per block travelled. */
 private const val TWIST = 2.4f
 
 private const val PI_F = PI.toFloat()
 
-/** A petal's outline: pairs of along and width. */
 internal val PETAL = floatArrayOf(0f, 0.1f, 0.25f, 0.75f, 0.6f, 1f, 0.9f, 0.6f, 1f, 0f)
 
-/**
- * One trail smoothed into rings, camera relative, drawn in its theme. Ring 0 is the oldest end,
- * the last ring is at the player.
- */
 internal abstract class Ribbon(
     protected val trail: ResolvedTrail,
     protected val time: Float,
@@ -74,21 +67,17 @@ internal abstract class Ribbon(
     protected fun light(fx: Fx, color: Int, alpha: Float) =
         fx.light(color and 0xFFFFFF or ((alpha.coerceIn(0f, 1f) * 255f).toInt() shl 24), additive)
 
-    /** How long ago point [p] was laid, in seconds, and as a share of the trail's length. */
     protected fun seconds(p: Trails.Point) = (now - p.at) / 1000f
 
     protected fun age(p: Trails.Point) = (seconds(p) / trail.length).coerceIn(0f, 1f)
 
-    /** Point [p] relative to the camera. */
     protected fun rel(p: Trails.Point, out: Vector3f) = out.set((p.x - camera.x).toFloat(), (p.y - camera.y).toFloat(), (p.z - camera.z).toFloat())
 
     open fun solids(fx: Fx) {}
 
     abstract fun lights(fx: Fx)
 
-    /** Ring [i]'s frame: [out] gets the radial direction at twist angle [phi], [across] the way round. */
     protected fun radial(i: Int, phi: Float, out: Vector3f, across: Vector3f) {
-        // Up made square to the path; sideways when the path runs straight up.
         var nx = -tx[i] * ty[i]
         var ny = 1f - ty[i] * ty[i]
         var nz = -tz[i] * ty[i]
@@ -110,7 +99,6 @@ internal abstract class Ribbon(
         across.set(-nx * sn + bx * c, -ny * sn + by * c, -nz * sn + bz * c)
     }
 
-    /** Across the path at ring [i] as the camera sees it, unit length, or false when edge on. */
     protected fun side(i: Int, out: Vector3f): Boolean {
         out.set(ty[i] * -pz[i] - tz[i] * -py[i], tz[i] * -px[i] - tx[i] * -pz[i], tx[i] * -py[i] - ty[i] * -px[i])
         if (out.lengthSquared() < 1.0e-10f) return false
@@ -118,7 +106,6 @@ internal abstract class Ribbon(
         return true
     }
 
-    /** A soft band facing the camera down the middle: bright on the centre line, gone at the edges. */
     protected fun core(fx: Fx, spread: Float, alpha: Float, white: Float) {
         val side = Vector3f()
         var ok = false
@@ -154,7 +141,6 @@ internal abstract class Ribbon(
         }
     }
 
-    /** A bright thread wound round the path at [radius] (a share of the width), [k] half turns apart. */
     protected fun helix(fx: Fx, k: Int, radius: Float, alpha: Float, white: Float, line: Float) {
         val r = Vector3f()
         val a = Vector3f()
@@ -180,7 +166,6 @@ internal abstract class Ribbon(
         }
     }
 
-    /** Points that shed something, about [share] of them, with how far through its life each is. */
     protected inline fun shed(share: Float, channel: Int, each: (p: Trails.Point, j: Int, keep: Float) -> Unit) {
         for ((j, p) in points.withIndex()) {
             if (hash(p.seed, 0, channel) > share) continue
@@ -191,7 +176,6 @@ internal abstract class Ribbon(
     }
 
     companion object {
-        /** Smooths [track] through its samples with a Catmull-Rom curve. Null when there's nothing to draw. */
         fun of(trail: ResolvedTrail, track: Trails.Track, camera: Vec3, now: Long, time: Float): Ribbon? {
             val points = track.points.toList()
             if (points.size < 2) return null
@@ -236,7 +220,6 @@ internal abstract class Ribbon(
     }
 }
 
-/** Two ribbons of silk twisting round each other, a glowing core, fine threads and loose sparkles. */
 private class SilkRibbon(
     trail: ResolvedTrail, time: Float, now: Long, points: List<Trails.Point>, camera: Vec3,
     px: FloatArray, py: FloatArray, pz: FloatArray, strength: FloatArray, dist: FloatArray,
@@ -249,7 +232,6 @@ private class SilkRibbon(
         sparkles(fx)
     }
 
-    /** A silk band wound round the path, lit as it turns, with a bright thread down its middle. */
     private fun strand(fx: Fx, k: Int) {
         val r = Vector3f()
         val a = Vector3f()
@@ -298,7 +280,6 @@ private class SilkRibbon(
     }
 }
 
-/** Flames licking up along your path, a low glow under them and embers drifting off the top. */
 private class FlameRibbon(
     trail: ResolvedTrail, time: Float, now: Long, points: List<Trails.Point>, camera: Vec3,
     px: FloatArray, py: FloatArray, pz: FloatArray, strength: FloatArray, dist: FloatArray,
@@ -310,7 +291,6 @@ private class FlameRibbon(
             val f = fade(i)
             if (f <= 0.02f) continue
             val w = width(i)
-            // Each flame has its own flicker, fixed to where on the path it stands.
             val seed = dist[i] * 7.3f
             val flick = 0.65f + 0.35f * sin(time * 11f + seed) * sin(time * 4.3f + seed * 1.7f)
             val c = color(s(i) * 0.7f + 0.3f * abs(sin(seed)))
@@ -336,7 +316,6 @@ private class FlameRibbon(
     }
 }
 
-/** A thin line of gold light with feathers coming loose behind it and drifting down. */
 private class FeatherRibbon(
     trail: ResolvedTrail, time: Float, now: Long, points: List<Trails.Point>, camera: Vec3,
     px: FloatArray, py: FloatArray, pz: FloatArray, strength: FloatArray, dist: FloatArray,
@@ -345,7 +324,6 @@ private class FeatherRibbon(
     private val at = Vector3f()
     private val rot = Quaternionf()
 
-    /** Where a feather shed at [p] has fallen to by now. */
     private fun fall(p: Trails.Point, out: Vector3f): Vector3f {
         val t = seconds(p)
         rel(p, out)
@@ -380,14 +358,12 @@ private class FeatherRibbon(
     }
 }
 
-/** Dark smoke rolling off your path, edged on both sides by a thin line of coloured light. */
 private class SmokeRibbon(
     trail: ResolvedTrail, time: Float, now: Long, points: List<Trails.Point>, camera: Vec3,
     px: FloatArray, py: FloatArray, pz: FloatArray, strength: FloatArray, dist: FloatArray,
 ) : Ribbon(trail, time, now, points, camera, px, py, pz, strength, dist) {
 
     override fun lights(fx: Fx) {
-        // Smoke covers, so it goes down first and the light lands on it.
         val at = Vector3f()
         shed(0.7f, 61) { p, _, keep ->
             val t = seconds(p)
@@ -427,7 +403,6 @@ private class SmokeRibbon(
     }
 }
 
-/** A faint band of nebula with stars caught in it, the brightest joined into a running constellation. */
 private class StarRibbon(
     trail: ResolvedTrail, time: Float, now: Long, points: List<Trails.Point>, camera: Vec3,
     px: FloatArray, py: FloatArray, pz: FloatArray, strength: FloatArray, dist: FloatArray,
@@ -435,7 +410,6 @@ private class StarRibbon(
 
     private val at = Vector3f()
 
-    /** Star [k] of point [p], scattered through the band and drifting a little as it ages. */
     private fun star(p: Trails.Point, k: Int, out: Vector3f): Vector3f {
         rel(p, out)
         val w = trail.width * 0.6f
@@ -466,7 +440,6 @@ private class StarRibbon(
                 val r = (0.03f + trail.width * 0.07f) * (0.6f + 0.8f * hash(p.seed, k, 76))
                 fx.star(at.x, at.y, at.z, r * (1.5f + tw), light(fx, WorldFx.hot(c, 0.65f), keep * tw))
             }
-            // Every fourth point's first star joins the line.
             if (p.seed % 4 == 0) {
                 star(p, 0, at)
                 val c = light(fx, color(hash(p.seed, 0, 75)), keep * 0.35f)
@@ -479,7 +452,6 @@ private class StarRibbon(
     }
 }
 
-/** Petals fluttering down from your path, a single thread of fairy light winding through them. */
 private class PetalRibbon(
     trail: ResolvedTrail, time: Float, now: Long, points: List<Trails.Point>, camera: Vec3,
     px: FloatArray, py: FloatArray, pz: FloatArray, strength: FloatArray, dist: FloatArray,

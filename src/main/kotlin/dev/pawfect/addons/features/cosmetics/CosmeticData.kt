@@ -121,14 +121,12 @@ class TrailCosmetic {
     @Expose
     var rippleLife: Float = 0.9f
 
-    /** "legacy" for the flat ribbon from before, anything else for the new themed one. */
     @Expose
     var look: String? = null
 
     @Expose
     var form: String? = null
 
-    /** The new trail and ripple use their theme's colours instead of [colors]. */
     @Expose
     var own: Boolean = true
 
@@ -202,14 +200,12 @@ class MotesCosmetic {
     @Expose
     var glow: Boolean = true
 
-    /** "legacy" for the flat lights from before, anything else for the new themed ones. */
     @Expose
     var look: String? = null
 
     @Expose
     var form: String? = null
 
-    /** The new motes use their theme's colours instead of [colors]. */
     @Expose
     var own: Boolean = true
 
@@ -327,7 +323,6 @@ class ResolvedRipple(
     val life: Float,
     val legacy: Boolean = false,
     val form: Form = Form.PRISM,
-    /** Usually the trail's, unless the ripple keeps its own theme's colours. */
     val palette: ResolvedName? = null,
 )
 

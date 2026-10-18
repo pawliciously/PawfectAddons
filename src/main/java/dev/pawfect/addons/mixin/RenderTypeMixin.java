@@ -23,8 +23,6 @@ public abstract class RenderTypeMixin {
     @Unique
     private static final Vector3f pawfectaddons$NO_OFFSET = new Vector3f();
 
-    // A render type only writes its model view and texture matrix; chams also carry their colour,
-    // offset and effect settings in the colour modulator, model offset and texture matrix slots.
     @WrapOperation(
             method = "writeDynamicTransforms",
             at = @At(

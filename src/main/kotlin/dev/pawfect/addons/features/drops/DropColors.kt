@@ -2,7 +2,6 @@ package dev.pawfect.addons.features.drops
 
 import dev.pawfect.addons.config.features.DropCelebrationConfig.Tier
 
-/** Each tier's colour, and the lighter one its light glows with. */
 object DropColors {
 
     fun of(tier: Tier): Int = when (tier) {

@@ -51,7 +51,6 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
 
     var greenChecked = false
 
-    /** The map shows the room with a white or green checkmark: its mobs are cleared. */
     var mapCleared = false
 
     private var retryIn = 0
@@ -123,7 +122,6 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
     }
 
     fun tick(level: ClientLevel, player: BlockPos) {
-        // The entrance, fairy and blood rooms have no data to match against.
         if (!type.scan) return
         if (matchState == MatchState.FAILED) {
             if (--retryIn > 0) return
@@ -139,16 +137,11 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
         scan(level, player)
     }
 
-    /** Spots spread over the room to match it from, when you aren't in it to match it around you. */
     private val probes: List<BlockPos> = segments.flatMap { (x, z) ->
         PROBE_OFFSETS.flatMap { dx -> PROBE_OFFSETS.flatMap { dz -> PROBE_HEIGHTS.map { y -> BlockPos(x + dx, y, z + dz) } } }
     }
     private var probed = 0
 
-    /**
-     * Matches the room from afar, one spot per call, while the world has it loaded. Only for a
-     * room the map shows opened; a failed match waits for you to walk in and retry.
-     */
     fun probe(level: ClientLevel) {
         if (matchState != MatchState.MATCHING && matchState != MatchState.DOUBLE_CHECKING) return
         if (!SecretRoomData.loaded) return
@@ -164,7 +157,6 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
             val physical = DungeonMapUtils.getPhysicalRoomPos(immutable)
             if (!segments.contains(physical.x() to physical.y())) continue
             if (!notInDoorway(immutable)) continue
-            // Unloaded blocks read as air; leave them to be checked once they've loaded.
             if (!loaded(level, immutable)) continue
             if (!checked.add(immutable)) continue
             if (checkBlock(level, immutable)) break
@@ -210,7 +202,6 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
         return false
     }
 
-    /** ClientLevel.hasChunkAt always says yes; the chunk cache knows which chunks have actually arrived. */
     private fun loaded(level: ClientLevel, pos: BlockPos): Boolean = level.chunkSource.hasChunk(pos.x shr 4, pos.z shr 4)
 
     private fun notInDoorway(pos: BlockPos): Boolean {
@@ -223,7 +214,6 @@ class DungeonRoom(val type: Type, val segments: Set<Pair<Int, Int>>) {
     companion object {
         private val logger = LoggerFactory.getLogger("PawfectAddons/Secrets")
 
-        /** Where in each 31 block segment, and how high, the far-off probes look. */
         private val PROBE_OFFSETS = intArrayOf(5, 15, 25)
         private val PROBE_HEIGHTS = intArrayOf(69, 79)
     }

@@ -17,13 +17,6 @@ import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
 
-/**
- * Records your own route through a room as you play it: where you walk, where you etherwarp or
- * teleport to, what you stonk, levers you flip and pearls you throw, split into a step each time
- * you collect a secret. Stopping (or leaving the dungeon) saves it to recorded.json, where it
- * takes over from any other route for that room. Recording again from the same start replaces
- * that route; from another start it's kept as a second route, picked when you come in that way.
- */
 object RouteRecorder {
 
     private class Builder {
@@ -53,10 +46,6 @@ object RouteRecorder {
 
     val recording: Boolean get() = room != null
 
-    /**
-     * What's been recorded so far, for drawing as you go: the room, the finished steps and the one
-     * still being walked, which has no secret yet.
-     */
     fun preview(): Pair<DungeonRoom, List<RouteData.Step>>? {
         val here = room ?: return null
         val live = if (builder.empty) emptyList() else listOf(builder.build(null, null))
@@ -66,10 +55,8 @@ object RouteRecorder {
     private const val SAMPLE_GAP_SQ = 9
     private const val TELEPORT_SQ = 25.0
 
-    /** A bat has to die this close to you, squared, to be your secret. */
     private const val BAT_RANGE_SQ = 256.0
 
-    /** How close a clicked chest or essence has to be to one of the room's secrets, squared. */
     private const val SECRET_RANGE_SQ = 2
 
     fun register() {
@@ -96,7 +83,6 @@ object RouteRecorder {
         val name = here.name
         room = null
         if (!save || name == null) return "Recording thrown away."
-        // Whatever is left over walks out of the room.
         val player = McCompat.player
         if (player != null) {
             val exit = relative(here, player.blockPosition())
@@ -111,7 +97,6 @@ object RouteRecorder {
         }.getOrElse { "Could not save the route: ${it.message}" }
     }
 
-    /** Marks the block you're looking at as a superboom spot for this step. */
     fun markSuperboom(): String {
         val here = room ?: return "Not recording."
         val hit = McCompat.mc.hitResult as? BlockHitResult ?: return "Look at the wall to superboom."
@@ -122,8 +107,6 @@ object RouteRecorder {
 
     fun tick() {
         val here = room ?: return
-        // Positions stay relative to the room you started in, so a route can pass through the
-        // next room over; only leaving the dungeon ends it.
         if (!SkyBlockData.inDungeons) {
             ChatUtils.chat(stop())
             return
@@ -131,10 +114,6 @@ object RouteRecorder {
         if (!teleported(here)) sample(force = false)
     }
 
-    /**
-     * Logs a jump of more than five blocks since the last check as a teleport. Crouching makes it
-     * an etherwarp onto the block below you; otherwise it lands you in the air or on the ground.
-     */
     private fun teleported(here: DungeonRoom): Boolean {
         val player = McCompat.player ?: return false
         val now = player.position()
@@ -164,10 +143,7 @@ object RouteRecorder {
     private fun finish(type: String, pos: BlockPos) {
         val here = room ?: return
         val at = relative(here, pos)
-        // The same secret again (a chest's click and opening, or a second click) is one step.
         if (steps.any { it.secretType == type && it.secretAt?.contentEquals(at) == true }) return
-        // Etherwarping onto an item picks it up before the tick sees the jump, so the
-        // etherwarp has to go in this step rather than the next.
         if (!teleported(here)) sample(force = true)
         steps += builder.build(type, at)
         builder = Builder()
@@ -188,7 +164,6 @@ object RouteRecorder {
         builder.angles += RouteGeometry.angles(direction)
     }
 
-    /** Whether [at] is one of the room's chests or essences; any chest counts in a room we have no data for. */
     private fun isSecret(here: DungeonRoom, at: IntArray): Boolean {
         val secrets = here.name?.let { SecretRoomData.secretsFor(it) }.orEmpty()
         if (secrets.isEmpty()) return true
@@ -213,7 +188,6 @@ object RouteRecorder {
 
     fun onBat(pos: BlockPos) {
         val player = McCompat.player ?: return
-        // A bat killed in another room, by you or a teammate, isn't part of this route.
         if (player.distanceToSqr(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5) > BAT_RANGE_SQ) return
         finish("bat", pos)
     }

@@ -11,11 +11,6 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-/**
- * Writes everything the server says to a file while it's on: chat, action bar (only when it changes) and
- * titles. One readable file with § codes and one with the full JSON per line, for DungeonSim to copy.
- * Also keeps the last few action bars and titles for [DungeonDump] whether it's on or not.
- */
 object ChatRecorder {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/ChatRecorder")

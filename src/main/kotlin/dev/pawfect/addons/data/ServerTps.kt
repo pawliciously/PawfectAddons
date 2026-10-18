@@ -1,9 +1,5 @@
 package dev.pawfect.addons.data
 
-/**
- * The server's tick rate, read from its time packets. A server running at full speed sends one
- * every 20 ticks, so the gap between two of them says how fast it is really ticking.
- */
 object ServerTps {
 
     private const val SAMPLES = 6
@@ -12,7 +8,6 @@ object ServerTps {
     private val gaps = ArrayDeque<Long>()
     private var lastAt = 0L
 
-    /** Ticks per second, or null until two time packets have arrived. */
     val tps: Float?
         get() {
             if (gaps.isEmpty()) return null

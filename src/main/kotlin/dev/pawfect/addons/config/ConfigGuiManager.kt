@@ -14,7 +14,6 @@ object ConfigGuiManager {
         sections = PawfectSettings.buildSections()
     }
 
-    /** The click GUI, or Chroma for a dev who switched to the classic menu. */
     fun open(tab: String? = null) {
         build()
         McCompat.screen = if (ConfigManager.features.theme.classicMenu) ChromaConfigScreen(sections, tab) else ClickGuiScreen(sections, tab)

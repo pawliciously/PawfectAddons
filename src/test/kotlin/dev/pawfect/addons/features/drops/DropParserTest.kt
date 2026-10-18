@@ -13,7 +13,6 @@ class DropParserTest {
 
     @Test
     fun ownChestLoot() {
-        // As it comes in chat, from the logs.
         val found = assertNotNull(DropParser.parse("    RARE REWARD! Fuming Potato Book", me))
         assertEquals("Fuming Potato Book", found.name)
         assertEquals(Tier.RARE, found.tier)

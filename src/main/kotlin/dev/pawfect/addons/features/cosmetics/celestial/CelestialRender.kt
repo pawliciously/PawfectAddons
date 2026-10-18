@@ -28,10 +28,6 @@ import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.sin
 
-/**
- * Bone lengths, resting angles in degrees and flap of a wing. Lift raises a segment, sweep swings
- * it back, tilt leans the whole wing back at the top.
- */
 class Rig(
     val l0: Float,
     val l1: Float,
@@ -51,7 +47,6 @@ class Rig(
     val fold: Fold = Fold.TUCKED,
 )
 
-/** How a crouch changes the resting angles, added on top of the rig's. [back] moves the root further off you. */
 class Fold(
     val sweep: Float,
     val lift: Float,
@@ -67,10 +62,6 @@ class Fold(
     }
 }
 
-/**
- * Where the wings settle when you crouch and hold still: around you like a cloak. The root slides
- * out to [rootX] and back by [rootZ] so the bones clear your arms. Angles work like [Rig]'s.
- */
 class Wrap(
     val rootX: Float,
     val rootZ: Float,
@@ -89,12 +80,7 @@ class Wrap(
 
 enum class Anchor { BODY, HEAD }
 
-/**
- * A cosmetic built once into meshes. Every vertex lives in one of three segments; [sides] copies
- * are drawn, each with its own three segment transforms, so mirrored pairs cost one mesh.
- */
 abstract class Piece(val id: String, val anchor: Anchor, val sides: Int) {
-    /** The hue this style is tuned around, or null when it cycles colours on its own. */
     open val baseHue: Float? = null
 
     private val built by lazy {
@@ -111,10 +97,8 @@ abstract class Piece(val id: String, val anchor: Anchor, val sides: Int) {
 
     protected abstract fun build(fill: MeshBuilder, glow: MeshBuilder, sparks: MutableList<Spark>)
 
-    /** Segment transforms for the frame, relative to the anchor, [sides] times three. */
     abstract fun matrices(state: AvatarRenderState, motion: Motion, t: Float, size: Float): Array<Matrix4f>
 
-    /** Moves a vertex for the frame. Must stay linear in v per part so layered copies stay together. */
     open fun displace(kind: Int, u: Float, v: Float, seed: Float, t: Float, p: Vector3f) {}
 
     open fun tint(kind: Int, color: Int, u: Float, v: Float, seed: Float, t: Float): Int = color
@@ -131,17 +115,12 @@ abstract class WingStyle(id: String, val rig: Rig) : Piece(id, Anchor.BODY, 2) {
         motion.matrices(rig, if (state.showCape) BACK_CAPE else BACK, size)
 
     companion object {
-        /** How far behind the spine the wings attach: clear of a chestplate, or of a cape. */
         const val BACK = 0.21f
         const val BACK_CAPE = 0.25f
     }
 }
 
 object WingRenderType {
-    /**
-     * One premultiplied blend draws solid parts and additive glow in the same batch, so glow
-     * never ends up underneath a feather when batches come out in a different order.
-     */
     val type: RenderType by lazy {
         val pipeline = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "pipeline/celestial"))
@@ -156,7 +135,6 @@ object WingRenderType {
     }
 }
 
-/** Eases the wings between idle, walking, crouching and gliding instead of snapping. */
 class Motion {
     var seenAt = 0L
     private var last = 0L
@@ -167,7 +145,6 @@ class Motion {
     private var wrap = 0f
     private var still = 0f
 
-    /** Sets the pose directly, for checking poses without a player to drive them. */
     fun force(move: Float, fold: Float, glide: Float, wrap: Float, phase: Float) {
         this.move = move
         this.fold = fold
@@ -192,10 +169,8 @@ class Motion {
         phase = (phase + dt * TAU / rig.period * speed) % TAU
     }
 
-    /** Three segment transforms per wing, right wing first, relative to the body. */
     fun matrices(rig: Rig, back: Float, size: Float = 1f): Array<Matrix4f> {
         val pose = rig.wrap
-        // Small wings cannot reach round you, so they just fold on your back.
         val reach = ((size - 0.4f) / 0.5f).coerceIn(0f, 1f)
         val e = if (pose == null) 0f else wrap * wrap * (3f - 2f * wrap) * reach
         val amp = rig.amp * (1f + 0.5f * move) * (1f - 0.75f * glide) * (1f - 0.5f * fold) * (1f - 0.85f * e)
@@ -211,7 +186,6 @@ class Motion {
         var wristSweep = rig.wristSweep + tuck.wristSweep * fold
         var tilt = rig.tilt + tuck.tilt * fold
         var rootX = 0.09f
-        // Bigger wings reach further down and in, so they sit a little further off your back.
         val off = back + 0.06f * (size - 1f).coerceAtLeast(0f)
         var rootZ = off + tuck.back * fold * size
         if (pose != null && e > 0f) {
@@ -244,10 +218,8 @@ class Motion {
     companion object {
         const val TAU = (PI * 2.0).toFloat()
 
-        /** Seconds of standing still while crouched before the wings fold round you. */
         const val WRAP_AFTER = 0.8f
 
-        /** Runs [segments] for the right side then the left, flattening into one array. */
         fun mirrored(segments: (side: Float) -> Triple<Matrix4f, Matrix4f, Matrix4f>): Array<Matrix4f> {
             val r = segments(1f)
             val l = segments(-1f)
@@ -258,7 +230,6 @@ class Motion {
 
 class CelestialLayer(parent: RenderLayerParent<AvatarRenderState, PlayerModel>) : RenderLayer<AvatarRenderState, PlayerModel>(parent) {
 
-    /** Each player flaps on their own; forgotten once they have not been drawn for a while. */
     private val motions = HashMap<Int, Motion>()
     private var prunedAt = 0L
 
@@ -310,7 +281,6 @@ class CelestialLayer(parent: RenderLayerParent<AvatarRenderState, PlayerModel>) 
     private val q = Vector3f()
     private val spark = SparkOut()
 
-    /** With a [collider], vertices go through body space ([local] then [pose]) so they can be kept out of the player. */
     private fun draw(mesh: Mesh, piece: Piece, mats: Array<Matrix4f>, consumer: VertexConsumer, t: Float, shade: Float, collider: Collider?, local: Array<Matrix4f>, pose: Matrix4f) {
         for (i in 0 until mesh.size) {
             p.set(mesh.x[i], mesh.y[i], mesh.z[i])
@@ -334,7 +304,6 @@ class CelestialLayer(parent: RenderLayerParent<AvatarRenderState, PlayerModel>) 
         }
     }
 
-    /** Each spark is two crossed diamonds so it reads from the side as well as from behind. */
     private fun sparks(piece: Piece, mats: Array<Matrix4f>, consumer: VertexConsumer, t: Float) {
         for (side in 0 until piece.sides) {
             for (s in piece.sparks) {

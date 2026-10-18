@@ -9,7 +9,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Draws the invincibility masks' cooldown over them, in the inventory and the hotbar alike. */
 @Mixin(GuiGraphicsExtractor.class)
 public class ItemDecorationsMixin {
 

@@ -63,13 +63,10 @@ object MediaBridge {
     private var lastReported = Double.NaN
     private var lastUpdated = Long.MIN_VALUE
 
-    // The bridge prints a line about four times a second. If it goes quiet, something on the
-    // Windows side is stuck, so it is restarted instead of leaving the card frozen.
     @Volatile
     private var lastLineAt = 0L
     private var startedAt = 0L
 
-    // A play or pause shows straight away; the bridge's own reports take over once they agree.
     @Volatile
     private var heldPlaying: Boolean? = null
     @Volatile
@@ -131,11 +128,9 @@ object MediaBridge {
             script.toAbsolutePath().toString(),
             "-WorkDir",
             directory.toAbsolutePath().toString(),
-            // The bridge stops by itself once the game is gone, even after a crash.
             "-ParentPid",
             ProcessHandle.current().pid().toString(),
         )
-        // Nothing reads the error stream, and a full pipe would block the bridge mid-write.
         builder.redirectError(ProcessBuilder.Redirect.DISCARD)
 
         val started = builder.start()
@@ -199,8 +194,6 @@ object MediaBridge {
             reportedPlaying
         }
 
-        // The player's position is as of when it last updated its timeline, which a browser can
-        // leave many seconds behind, so the time since then is added back on.
         val reported = number("position")
         val duration = number("duration")
         val updated = json.get("updated")?.takeIf { !it.isJsonNull }?.asLong ?: 0L
@@ -210,7 +203,6 @@ object MediaBridge {
         } else {
             reported
         }
-        // While a play or pause is held, the old position would pull the bar back.
         if (!holding && (track == null || reported != lastReported || updated != lastUpdated)) {
             positionBase = live
             positionStamp = now
@@ -269,7 +261,6 @@ object MediaBridge {
     private const val QUIET_TIMEOUT_MS = 8_000L
     private const val HOLD_MS = 1_500L
 
-    /** 2001; a timeline that never updated reports year one. */
     private const val SANE_STAMP = 978_307_200_000L
 
     fun stop() {

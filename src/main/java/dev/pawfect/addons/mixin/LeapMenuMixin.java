@@ -13,12 +13,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * The leap menu takes over Hypixel's Spirit Leap screen. While it's up, the screen draws the
- * leap menu instead of its slots, and every input that could click a slot (clicks, drags,
- * releases, scrolling, the hotbar, drop and clone keys) is handled here or dropped. Escape and
- * the inventory key still close it the normal way.
- */
 @Mixin(AbstractContainerScreen.class)
 public abstract class LeapMenuMixin {
 
@@ -34,7 +28,6 @@ public abstract class LeapMenuMixin {
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void pawfectaddons$leapClick(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
         if (!LeapMenu.active(pawfectaddons$self())) return;
-        // A double click is still one click to us, and only the first of the two leaps.
         LeapMenu.mouseClicked(pawfectaddons$self(), event.x(), event.y(), event.button());
         cir.setReturnValue(true);
     }
@@ -62,7 +55,6 @@ public abstract class LeapMenuMixin {
         cir.setReturnValue(true);
     }
 
-    /** The backstop: nothing the screen itself does can click a slot while the leap menu is up. */
     @Inject(method = "slotClicked", at = @At("HEAD"), cancellable = true)
     private void pawfectaddons$leapNoSlotClicks(Slot slot, int slotId, int button, ContainerInput input, CallbackInfo ci) {
         if (LeapMenu.active(pawfectaddons$self())) ci.cancel();

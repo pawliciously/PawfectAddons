@@ -24,6 +24,5 @@ void main() {
         discard;
     }
 #endif
-    // No fog and no fade: every block shows at its full colour, near or far, from the first frame.
     fragColor = color;
 }

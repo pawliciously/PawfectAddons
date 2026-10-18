@@ -12,10 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.pawfect.addons.features.dev.DevClickSounds;
 
-/**
- * Dev click sounds for the UI clicks that don't go through a widget: tab bars, the world list, option keys, the
- * crafter, and other mods playing the vanilla click themselves.
- */
 @Mixin(SoundManager.class)
 public abstract class SoundManagerMixin {
 

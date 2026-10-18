@@ -69,7 +69,6 @@ class StorageData {
         @JvmField
         val pages: MutableMap<String, Map<String, Int>> = mutableMapOf()
 
-        /** RNG Meters by floor ("F7", "M3") or slayer boss ("Voidgloom Seraph"). */
         @Expose
         @JvmField
         val rngMeters: MutableMap<String, RngMeterEntry> = mutableMapOf()
@@ -77,27 +76,21 @@ class StorageData {
 }
 
 class RngMeterEntry {
-    /** Dungeon score or slayer XP in the meter. */
     @Expose
     var stored: Long = 0
 
-    /** The selected drop's id, or null with nothing selected. */
     @Expose
     var item: String? = null
 
-    /** What the selected drop needs. */
     @Expose
     var goal: Long? = null
 
-    /** The last run's or boss's gain, for how many are left. */
     @Expose
     var lastGain: Long? = null
 
-    /** Read from the meter's menu or the slayer's chat, not added up from runs. */
     @Expose
     var exact: Boolean = false
 
-    /** When it last changed, to show the slayer you were last on. */
     @Expose
     var touched: Long = 0
 }

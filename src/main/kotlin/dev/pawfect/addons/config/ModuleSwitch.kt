@@ -8,22 +8,14 @@ import java.lang.reflect.Modifier
 import java.util.Collections
 import java.util.IdentityHashMap
 
-/**
- * The click GUI's module switch. It never touches your settings: a module that's off just stops
- * running. Each feature reads its config through [view], which while its module is off hands back
- * a copy with every switch off, so the feature sees itself as disabled and does nothing. Switching
- * the module back on picks up exactly where it was.
- */
 object ModuleSwitch {
 
-    /** Categories that hold settings rather than a feature, so they have no switch. */
     private val ALWAYS_ON = setOf("theme", "dev")
 
     private val gson: Gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().serializeNulls().create()
 
     private val disabled get() = ConfigManager.features.modules.disabled
 
-    /** The switched-off copies, one per real config object, made when first asked for. */
     private val copies: MutableMap<Any, Any> = Collections.synchronizedMap(IdentityHashMap())
 
     fun switchable(category: SettingCategory): Boolean =
@@ -39,7 +31,6 @@ object ModuleSwitch {
         copies.clear()
     }
 
-    /** [real], or while module [id] is off, a copy of it with every switch off. */
     @JvmStatic
     fun <T : Any> view(id: String, real: T): T {
         if (enabled(id)) return real

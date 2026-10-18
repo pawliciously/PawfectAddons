@@ -101,7 +101,6 @@ object LegacyTrails {
         submit(poseStack, collector, jobs, camera, time)
     }
 
-    /** Draws the trail of someone walking the menu scene, who has no entity in any world. */
     fun submitShowcase(poseStack: PoseStack, collector: SubmitNodeCollector, uuid: UUID, feet: Vec3, height: Double, camera: Vec3) {
         if (!Cosmetics.showsOffWorld(config.trails, uuid)) return
         val trail = Cosmetics.trailFor(uuid) ?: return

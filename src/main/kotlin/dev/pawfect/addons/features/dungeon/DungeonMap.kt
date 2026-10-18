@@ -34,20 +34,12 @@ import org.joml.Matrix3x2f
 import org.slf4j.LoggerFactory
 import kotlin.math.exp
 
-/**
- * The dungeon map, drawn from the vanilla map in your hotbar and nothing else: the rooms it has
- * revealed, its checkmarks, and its player markers. On top of that, the names and secret counts
- * of the rooms it shows opened, and your teammates' heads turned the way they face. A head is only
- * named when it's certain who it is: a teammate close enough to be loaded, or a map marker whose
- * number matches its teammate's place in the tab list.
- */
 object DungeonMap {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Map")
 
     private val config get() = ModuleSwitch.view("dungeon", ConfigManager.features.dungeonHud)
 
-    /** A player on the map, in map pixels, facing [yaw]. [name] is null for a marker we can't put a name to. */
     class Marker(val name: String?, val x: Double, val y: Double, val yaw: Float, val self: Boolean, val dungeonClass: DungeonClass?, val skin: PlayerSkin?)
 
     private val TEXTURE: Identifier = Identifier.fromNamespaceAndPath("pawfectaddons", "dungeon_map")
@@ -57,16 +49,12 @@ object DungeonMap {
 
     private val startedAt = System.nanoTime()
 
-    /** Where each map marker is drawn, easing toward where the map says, so heads glide between updates. */
     private val eased = HashMap<String, FloatArray>()
     private var easedAt = 0L
     private var easedMap: MapItemSavedData? = null
 
-    /** The map can be drawn: in a dungeon, out of the boss, holding the map, lined up with the world. */
     fun available(): Boolean =
         !failed && SkyBlockData.inDungeons && !DungeonScanner.inBoss && DungeonScanner.mapData() != null && DungeonScanner.anchor() != null
-
-    // ------------------------------------------------------------------ HUD
 
     fun renderHud() {
         if (!config.map || McCompat.hideGui || !RenderContext.isActive) return
@@ -91,12 +79,6 @@ object DungeonMap {
         GuiEditManager.register(position, HudDefaults.DUNGEON_MAP, size, size)
     }
 
-    // ------------------------------------------------------------------ drawing
-
-    /**
-     * Draws the map in a square at [x], [y]. With [clickable], heads it says yes to light up
-     * under the mouse; the name of the one under the mouse is returned.
-     */
     fun draw(graphics: GuiGraphicsExtractor, x: Float, y: Float, size: Float, mouseX: Double, mouseY: Double, clickable: ((String) -> Boolean)?): String? = try {
         drawMap(graphics, x, y, size, mouseX, mouseY, clickable)
     } catch (t: Throwable) {
@@ -116,10 +98,8 @@ object DungeonMap {
         fun sx(mapX: Double) = f.sx(mapX)
         fun sy(mapY: Double) = f.sy(mapY)
 
-        // Always the whole map, so it never zooms as rooms are revealed.
         graphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, f.ox.toInt(), f.oy.toInt(), 0f, 0f, (MAP * k).toInt(), (MAP * k).toInt(), MAP, MAP, MAP, MAP, -1)
 
-        // Names and secret counts of the rooms the map shows opened, over the middle of the room.
         if (config.mapRoomNames || config.mapSecrets) DungeonScanner.knownRooms().forEach { room ->
             val name = room.name?.takeIf { room.matched } ?: return@forEach
             val corners = room.segments.map { anchor.toMap(it.first.toDouble(), it.second.toDouble()) }
@@ -161,7 +141,6 @@ object DungeonMap {
                 else -> 0xFF000000.toInt() or (marker.dungeonClass?.color ?: 0x8F89AA)
             }
             val s = if (over) head * 1.25f else head
-            // Turned with the player: the top of the head points the way they face.
             val pose = graphics.pose()
             pose.pushMatrix()
             pose.translate(sx(marker.x), sy(marker.y))
@@ -186,7 +165,6 @@ object DungeonMap {
         return hovered
     }
 
-    /** The panel behind the map, in the same styles as chat and the scoreboard. */
     private fun background(graphics: GuiGraphicsExtractor, x: Float, y: Float, size: Float) {
         config.sanitize()
         val opacity = config.mapOpacity.coerceIn(0f, 1f)
@@ -218,7 +196,6 @@ object DungeonMap {
         if (config.mapOutline) Shapes.outline(graphics, x, y, size, size, radius.toFloat(), argb(accent, 0.35f * opacity + 0.1f))
     }
 
-    /** Where the map sits inside its square, and how big a head is. */
     private class Frame(val ox: Float, val oy: Float, val k: Float, val head: Float) {
         fun sx(mapX: Double) = (ox + mapX * k).toFloat()
         fun sy(mapY: Double) = (oy + mapY * k).toFloat()
@@ -229,7 +206,6 @@ object DungeonMap {
         return Frame(x + PAD, y + PAD, k, (anchor.roomSize * k * 0.65f).coerceIn(6f, 14f))
     }
 
-    /** The clickable head under the mouse, by the same layout the map is drawn with. */
     private fun hit(f: Frame, markers: List<Marker>, mouseX: Double, mouseY: Double, clickable: ((String) -> Boolean)?): String? {
         if (clickable == null) return null
         val half = f.head / 2f
@@ -242,7 +218,6 @@ object DungeonMap {
         }?.name
     }
 
-    /** The clickable head under the mouse for a map drawn in this square, or null. */
     fun headAt(x: Float, y: Float, size: Float, mouseX: Double, mouseY: Double, clickable: (String) -> Boolean): String? {
         val map = DungeonScanner.mapData() ?: return null
         val anchor = DungeonScanner.anchor() ?: return null
@@ -250,14 +225,6 @@ object DungeonMap {
         return hit(frame(x, y, size, anchor), markers(map, anchor), mouseX, mouseY, clickable)
     }
 
-    // ------------------------------------------------------------------ players
-
-    /**
-     * You and your teammates close enough to be loaded, exactly, then the map's markers for
-     * everyone else. Hypixel marks you with the frame icon and numbers everyone else's marker by
-     * their place in the tab list; that numbering is only trusted while every loaded teammate's
-     * marker sits where they actually are.
-     */
     fun markers(map: MapItemSavedData, anchor: DungeonScanner.MapAnchor): List<Marker> {
         val self = McCompat.player ?: return emptyList()
         val level = McCompat.mc.level ?: return emptyList()
@@ -279,7 +246,6 @@ object DungeonMap {
             out += marker
         }
 
-        // The map's markers in the order Hypixel sent them ("icon-0", "icon-1", ...), minus your own.
         val icons = map.decorations.withIndex().filter { (_, decoration) ->
             val type = decoration.type().value()
             type != MapDecorationTypes.FRAME.value() && type != MapDecorationTypes.PLAYER_OFF_MAP.value() && type != MapDecorationTypes.PLAYER_OFF_LIMITS.value()
@@ -313,8 +279,6 @@ object DungeonMap {
             return out
         }
 
-        // No numbering to go by: pair each loaded teammate with their nearest marker, and only
-        // name what's left when it's one marker for one teammate.
         val claimed = HashSet<Int>()
         loaded.values.forEach { marker ->
             icons.filter { it.index !in claimed }
@@ -333,7 +297,6 @@ object DungeonMap {
         return out
     }
 
-    /** Moves a marker's drawn spot and facing part of the way to where the map has it. */
     private fun ease(key: String, decoration: MapDecoration, step: Float): Triple<Double, Double, Float> {
         val tx = mapX(decoration).toFloat()
         val ty = mapY(decoration).toFloat()
@@ -353,9 +316,6 @@ object DungeonMap {
     private fun mapX(decoration: MapDecoration) = decoration.x() / 2.0 + 64.0
     private fun mapY(decoration: MapDecoration) = decoration.y() / 2.0 + 64.0
 
-    // ------------------------------------------------------------------ the map texture
-
-    /** Copies the map's pixels into the texture when they change, restyling a few colours. */
     private fun refresh(map: MapItemSavedData) {
         val colors = map.colors
         val hash = colors.contentHashCode()
@@ -373,10 +333,6 @@ object DungeonMap {
         tex.upload()
     }
 
-    /**
-     * Vanilla colours, except plain rooms and rooms not opened yet. The entrance, blood and the
-     * checkmarks share colours with each other, so those stay exactly as the map has them.
-     */
     private fun restyle(packed: Int): Int = when (packed) {
         ROOM -> 0xFF7A5232.toInt()
         UNOPENED -> 0xFF3B3848.toInt()
@@ -398,10 +354,8 @@ object DungeonMap {
     private val ROOM = MapColor.COLOR_ORANGE.getPackedId(MapColor.Brightness.LOWEST).toInt() and 0xFF
     private val UNOPENED = MapColor.COLOR_GRAY.getPackedId(MapColor.Brightness.NORMAL).toInt() and 0xFF
 
-    /** The map is 128 pixels a side. */
     private const val MAP = 128
 
-    /** How fast a map marker catches up with the map, and how far it can be before it just jumps. */
     private const val EASE_NANOS = 90_000_000.0
     private const val JUMP_SQ = 40f * 40f
 

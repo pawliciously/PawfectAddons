@@ -12,12 +12,10 @@ object MediaPalette {
     private const val NEUTRAL_BINS = 3
     private const val MAX_SAMPLES = 6000
 
-    /** How far either side of a hue's peak still counts as the same colour, in bins. */
     private const val FAMILY_REACH = 2
 
     val IDLE: IntArray = intArrayOf(0x2B2F3E, 0x363A4E, 0x23262F, 0x3B3652)
 
-    /** A run of neighbouring bins that reads as one colour: a peak and the hues around it. */
     private class Family(val neutral: Boolean) {
         var count = 0.0
         var red = 0.0
@@ -36,8 +34,6 @@ object MediaPalette {
             value += other.value
         }
 
-        // Mostly how much of the cover it takes up, with a mild lean towards vivid colour so a
-        // large drab area still wins over a small bright one, but not over an equal one.
         val score: Double
             get() {
                 if (count == 0.0) return 0.0
@@ -61,7 +57,6 @@ object MediaPalette {
         val bins = Array(HUE_BINS + NEUTRAL_BINS) { Bin() }
         val hsv = FloatArray(3)
 
-        // An even grid over the whole cover, so no part of it is skipped.
         val step = maxOf(1, sqrt(image.width.toDouble() * image.height / MAX_SAMPLES).toInt())
         for (y in 0 until image.height step step) {
             for (x in 0 until image.width step step) {
@@ -87,8 +82,6 @@ object MediaPalette {
         }
 
         val families = ArrayList<Family>()
-        // Each strongest remaining hue claims its neighbours, so one colour spread across a few
-        // bins counts as one colour instead of several smaller ones.
         val taken = BooleanArray(HUE_BINS)
         val smoothed = DoubleArray(HUE_BINS) { i ->
             bins[i].count + 0.5 * (bins[(i + HUE_BINS - 1) % HUE_BINS].count + bins[(i + 1) % HUE_BINS].count)
@@ -114,7 +107,6 @@ object MediaPalette {
         val chosen = ArrayList<Family>(4)
         for (family in families.sortedByDescending { it.score }) {
             if (chosen.size == 4) break
-            // One grey at most, and hues far enough apart to read as different colours.
             val clashes = chosen.any { other ->
                 if (family.neutral || other.neutral) family.neutral && other.neutral
                 else hueGap(family.peak, other.peak) <= FAMILY_REACH * 2

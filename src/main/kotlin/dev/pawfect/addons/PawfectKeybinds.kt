@@ -20,7 +20,6 @@ object PawfectKeybinds {
     private lateinit var mediaNext: KeyMapping
     private lateinit var mediaPrevious: KeyMapping
 
-    /** Dev only, so it's only registered on the dev account. */
     private var dumpGui: KeyMapping? = null
 
     fun register() {

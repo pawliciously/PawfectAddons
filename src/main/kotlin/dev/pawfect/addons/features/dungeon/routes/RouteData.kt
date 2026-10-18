@@ -12,27 +12,6 @@ import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 
-/**
- * Secret routes. Two file formats are read, both mapping a room to its steps in order with
- * every position relative to the room's corner the same way our room data is:
- *
- * - The Secret Routes Mod's, keyed by room id ("Sewer-7"). A room can have more than one route
- *   ("Name", "Name:1"); the one starting closest to you is used.
- * - Stella's, keyed by display name ("Pressure Plates"), each step a list of waypoints and the
- *   line to walk.
- *
- * The route sets ship with the mod (assets/pawfectaddons/routes, credits in CREDITS.txt):
- * - Default: the Secret Routes Mod's routes (3ppopka's set), by yourboykyle, zyra and the
- *   Secret Routes team, https://github.com/yourboykyle/SecretRoutes (GPL-3.0).
- * - FlameOfWar SRM: FlameOfWar's routes from the same mod, by FlameOfWar, Itplays, wyannnnn and
- *   yourboykyle (GPL-3.0).
- * - Stella: Stella's default routes, recorded by Luckkytigger for Stella by Eclipse (NEXD_),
- *   https://github.com/Eclipse-5214/ether (LGPL-3.0).
- * - Our own routes for rooms the community ones get wrong, used over Default and Stella.
- *
- * Your recordings are saved in config/pawfectaddons/routes/recorded.json and used when you pick
- * Recorded. A room without one falls back to Default, and so on down for a set that lacks it.
- */
 object RouteData {
 
     class Step(
@@ -45,11 +24,8 @@ object RouteData {
         val pearlAngles: List<FloatArray>,
         val secretType: String?,
         val secretAt: IntArray?,
-        /** The secret from our own room data this step collects, once the route is fitted to the room. */
         val ours: SecretRoomData.SecretEntry? = null,
-        /** Added from our room data because the route skipped it. */
         val extra: Boolean = false,
-        /** Where a teleport the route doesn't list as an etherwarp lands you: the block you end up in. */
         val teleports: List<IntArray> = emptyList(),
     ) {
         fun copy(
@@ -60,20 +36,13 @@ object RouteData {
             teleports: List<IntArray> = this.teleports,
         ) = Step(locations, etherwarps, mines, interacts, tnts, pearls, pearlAngles, secretType, secretAt, ours, extra, teleports)
 
-        /** A step with nothing to collect, done once you get there. */
         val walkOnly: Boolean get() = secretType == null || secretType in WALK_TYPES
 
-        /** Where the step ends: its secret, or the last place it walks to. */
         val target: IntArray? get() = secretAt ?: locations.lastOrNull()
 
-        /** The first place the step goes, for picking which route to follow. */
         val start: IntArray? get() = locations.firstOrNull() ?: etherwarps.firstOrNull() ?: secretAt
     }
 
-    /**
-     * Step types with nothing to collect: done once you get there. FlameOfWar's Sloth ends on
-     * the Prince, a mob to kill rather than a secret.
-     */
     private val WALK_TYPES = setOf("exit", "exitroute", "dummy", "plate", "prince")
 
     private enum class Kind(val resource: String?) {
@@ -88,11 +57,6 @@ object RouteData {
 
     const val RECORDED_FILE = "recorded.json"
 
-
-    /**
-     * Room to its routes, per kind of file: the room id in lower case, or for Stella's files
-     * the display name as a [SecretRoomData.nameKey].
-     */
     private var routes: Map<Kind, Map<String, List<List<Step>>>> = emptyMap()
 
     var report: String = "not loaded"
@@ -100,20 +64,14 @@ object RouteData {
 
     val folder: Path get() = ConfigManager.configDirectory.resolve("routes")
 
-    /**
-     * A room's routes and the set they came from. [note] says why that isn't the set you picked,
-     * for showing in game; null when it is.
-     */
     class Picked(val routes: List<List<Step>>, val from: Source, val ours: Boolean, val note: String?)
 
-    /** The sets tried for a room, in order, with [source] picked. */
     private fun order(source: Source): List<Source> = when (source) {
         Source.DEFAULT, Source.RECORDED -> listOf(Source.DEFAULT, Source.FLAMEOFWAR, Source.STELLA)
         Source.FLAMEOFWAR -> listOf(Source.FLAMEOFWAR, Source.DEFAULT, Source.STELLA)
         Source.STELLA -> listOf(Source.STELLA, Source.DEFAULT, Source.FLAMEOFWAR)
     }
 
-    /** [room]'s routes from [set], ours over Default and Stella where we have them. */
     private fun from(set: Source, key: String): Pair<List<List<Step>>, Boolean>? {
         if (set == Source.DEFAULT || set == Source.STELLA) routes[Kind.PAWFECT]?.get(key)?.let { return it to true }
         val found = when (set) {
@@ -141,11 +99,6 @@ object RouteData {
         return null
     }
 
-    /**
-     * Rooms whose Stella route doesn't work, by our room id; the Secret Routes Mod's is used
-     * there instead. Grass Ruin's warps up through slabs from the lower chest and mines through
-     * the upper one instead of opening it; Sewer's runs better as the Secret Routes Mod has it.
-     */
     private val STELLA_BROKEN = setOf("grass-ruin-3", "sewer-7")
 
     private const val RESOURCES = "/assets/pawfectaddons/routes/"
@@ -212,15 +165,11 @@ object RouteData {
         )
     }
 
-    // ------------------------------------------------------------------ Stella's format
-
-    /** A Stella file's steps are objects with a "waypoints" list. */
     private fun isStella(json: JsonObject): Boolean = json.entrySet().any { (name, value) ->
         !name.startsWith("#") && value.isJsonArray &&
             (value.asJsonArray.firstOrNull() as? JsonObject)?.has("waypoints") == true
     }
 
-    /** Stella's names for rooms our data names differently, as [SecretRoomData.nameKey]s. */
     private val STELLA_NAMES = mapOf(
         "withermancer" to "withermancers",
         "dinosite" to "dinodigsite",
@@ -236,10 +185,6 @@ object RouteData {
 
     private fun stellaKey(name: String): String = SecretRoomData.nameKey(name).let { STELLA_NAMES[it] ?: it }
 
-    /**
-     * One of Stella's steps: its line is where to walk, its waypoints what to do on the way, and
-     * the chest, essence, item or bat at the end is the secret it collects.
-     */
     private fun parseStellaStep(json: JsonObject): Step {
         val etherwarps = ArrayList<IntArray>()
         val mines = ArrayList<IntArray>()
@@ -262,7 +207,6 @@ object RouteData {
                 "CHEST", "ESSENCE" -> { secretType = "interact"; secretAt = pos }
                 "ITEM" -> { secretType = "item"; secretAt = pos }
                 "BAT" -> { secretType = "bat"; secretAt = pos }
-                // Custom marks are notes like crypts, apart from the odd bat.
                 "CUSTOM" -> if (name.equals("bat", ignoreCase = true)) { secretType = "bat"; secretAt = pos }
             }
         }
@@ -278,8 +222,6 @@ object RouteData {
             secretAt = secretAt,
         )
     }
-
-    // ------------------------------------------------------------------ writing
 
     private fun points(list: List<IntArray>): JsonArray = JsonArray().also { array ->
         list.forEach { p -> array.add(JsonArray().also { it.add(p[0]); it.add(p[1]); it.add(p[2]) }) }
@@ -308,14 +250,8 @@ object RouteData {
         }
     }
 
-    /** Two recordings starting this close together, squared, are the same way into the room. */
     private const val SAME_START_SQ = 36
 
-    /**
-     * Saves [steps] as one of [room]'s routes in your recordings. A recorded route that starts in
-     * the same place is replaced; otherwise it's kept alongside as "room:1", "room:2" and so on.
-     * Returns whether one was replaced.
-     */
     fun saveRecorded(room: String, steps: List<Step>): Boolean {
         Files.createDirectories(folder)
         val file = folder.resolve(RECORDED_FILE)

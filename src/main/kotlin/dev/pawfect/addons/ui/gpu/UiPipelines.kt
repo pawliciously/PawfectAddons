@@ -10,7 +10,6 @@ object UiPipelines {
     private fun id(path: String): Identifier =
         Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, path)
 
-    /** A GUI pipeline drawn with our rounded-shape vertices and the given fragment shader. */
     private fun shape(name: String, fragment: String): RenderPipeline = RenderPipelines.register(
         RenderPipeline.builder(RenderPipelines.GUI_SNIPPET)
             .withLocation(id("pipeline/$name"))

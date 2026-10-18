@@ -99,8 +99,6 @@ public abstract class ClientPacketListenerMixin {
         ServerTps.reset();
     }
 
-    // TAIL, not HEAD: the handler first runs on the network thread only to hand itself to the
-    // main thread, and HEAD would count every packet twice.
     @Inject(method = "handleSetTime", at = @At("TAIL"))
     private void pawfectaddons$setTime(ClientboundSetTimePacket packet, CallbackInfo callback) {
         ServerTps.onTimePacket();
@@ -133,7 +131,6 @@ public abstract class ClientPacketListenerMixin {
         }
     }
 
-    // TAIL so it runs once, on the main thread
     @Inject(method = "setTitleText", at = @At("TAIL"))
     private void pawfectaddons$title(ClientboundSetTitleTextPacket packet, CallbackInfo callback) {
         try {

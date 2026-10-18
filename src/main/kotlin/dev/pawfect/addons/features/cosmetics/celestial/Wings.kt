@@ -17,7 +17,6 @@ private const val PI_F = PI.toFloat()
 
 private fun Random.pick(list: List<Feather>) = list[nextInt(list.size)]
 
-/** White and gold, a slow gold light running over the feathers and motes drifting down. */
 object Seraph : WingStyle(
     "seraph",
     Rig(0.36f, 0.42f, 0.34f, sweep = 26f, lift = 42f, elbowSweep = -4f, elbowLift = -16f, wristSweep = 8f, wristLift = -22f, amp = 7f, period = 3.6f, lag = 0.55f, scale = 0.85f),
@@ -74,7 +73,6 @@ object Seraph : WingStyle(
     }
 }
 
-/** Obsidian bone and a dark membrane, violet pulses running out along the veins. */
 object Abyssal : WingStyle(
     "abyssal",
     Rig(0.34f, 0.4f, 0.1f, sweep = 24f, lift = 38f, elbowSweep = -6f, elbowLift = -10f, wristSweep = 12f, wristLift = -30f, amp = 10f, period = 4.2f, lag = 0.6f, scale = 0.9f),
@@ -112,7 +110,6 @@ object Abyssal : WingStyle(
         rays += ray(0, 0f, -90f, 0.5f)
         rays.forEachIndexed { i, r -> r.u = i / (rays.size - 1f) }
 
-        // Membrane, with a faint violet copy on both faces for the pulse to wash over.
         for (k in 0 until rays.size - 1) {
             val a = rays[k]
             val b = rays[k + 1]
@@ -133,7 +130,6 @@ object Abyssal : WingStyle(
             }
         }
 
-        // Veins down every ray that isn't a finger.
         for (r in rays) {
             if (r in fingers) continue
             for (s in SIDES) {
@@ -145,7 +141,6 @@ object Abyssal : WingStyle(
             }
         }
 
-        // Bones, claws and a glowing seam along each finger.
         val bone = 0xFF1C1426.toInt()
         val boneTip = 0xFF0C0810.toInt()
         for (s in SIDES) {
@@ -176,7 +171,6 @@ object Abyssal : WingStyle(
         }
     }
 
-    /** Linear in v along each ray, so membrane, veins and bones bend together. */
     override fun displace(kind: Int, u: Float, v: Float, seed: Float, t: Float, p: Vector3f) {
         p.z += v * 0.03f * sin(t * 1.9f + u * 1.2f)
     }
@@ -201,7 +195,6 @@ object Abyssal : WingStyle(
     }
 }
 
-/** Floating crystal shards in slow shifting colour, light catching across them. */
 object Prism : WingStyle(
     "prism",
     Rig(0.36f, 0.42f, 0.34f, sweep = 24f, lift = 40f, elbowSweep = -4f, elbowLift = -14f, wristSweep = 8f, wristLift = -20f, amp = 3.5f, period = 5.5f, lag = 0.5f, scale = 0.85f),
@@ -224,7 +217,6 @@ object Prism : WingStyle(
         }
     }
 
-    /** Each shard drifts as one piece, so it floats apart from its neighbours. */
     override fun displace(kind: Int, u: Float, v: Float, seed: Float, t: Float, p: Vector3f) {
         p.x += 0.01f * sin(t * 0.9f + seed * 4f)
         p.y += 0.015f * sin(t * 1.1f + seed * 9.7f)
@@ -257,7 +249,6 @@ object Prism : WingStyle(
     }
 }
 
-/** Fire feathers that fade out at the tips, flames licking past them and embers rising. */
 object Phoenix : WingStyle(
     "phoenix",
     Rig(0.36f, 0.42f, 0.34f, sweep = 22f, lift = 44f, elbowSweep = -4f, elbowLift = -16f, wristSweep = 8f, wristLift = -24f, amp = 13f, period = 2.4f, lag = 0.5f, scale = 0.85f),
@@ -323,7 +314,6 @@ object Phoenix : WingStyle(
     }
 }
 
-/** Night sky feathers full of twinkling stars and faint constellations, nebula light drifting through. */
 object CelestialWings : WingStyle(
     "celestial",
     Rig(0.36f, 0.42f, 0.34f, sweep = 24f, lift = 40f, elbowSweep = -4f, elbowLift = -14f, wristSweep = 8f, wristLift = -20f, amp = 6f, period = 4.8f, lag = 0.55f, scale = 0.85f),
@@ -361,7 +351,6 @@ object CelestialWings : WingStyle(
             star(f, 0.12f + 0.8f * rnd.nextFloat(), (rnd.nextFloat() - 0.5f) * f.width * 0.6f, 0.008f + 0.014f * rnd.nextFloat().pow(2f), color)
         }
 
-        // A few bright stars with a glint cross.
         val primaries = feathers.filter { it.row == 0 }
         repeat(7) {
             val f = rnd.pick(primaries)
@@ -376,7 +365,6 @@ object CelestialWings : WingStyle(
             }
         }
 
-        // Constellations strung down three primaries.
         for (index in intArrayOf(2, 5, 7)) {
             val f = primaries[index]
             val points = listOf(0.35f to 0.02f, 0.6f to -0.025f, 0.85f to 0.015f)
@@ -424,11 +412,9 @@ object CelestialWings : WingStyle(
     }
 }
 
-/** Fairy wings: two thin iridescent lobes and a streamer each side, fluttering fast and shedding glitter. */
 object Sylph : WingStyle(
     "sylph",
     Rig(0f, 0f, 0f, sweep = 16f, lift = 8f, elbowSweep = 6f, elbowLift = -10f, wristSweep = 0f, wristLift = 0f, amp = 14f, period = 1.1f, lag = 0.35f, scale = 0.9f, tilt = 8f,
-        // One sheet with no bones to bend, so it folds back rather than round you.
         wrap = null, fold = Fold(10f, -22f, 10f, -14f, 12f, -10f, 0f, 0.06f)),
 ) {
     private const val STEPS = 14
@@ -439,7 +425,6 @@ object Sylph : WingStyle(
 
         fun width(s: Float) = half * sin(PI_F * s.pow(0.8f)).coerceAtLeast(0f).pow(0.75f) * (1f - 0.15f * s)
 
-        /** A point on the lobe: s along it from the root, side across it in blocks. */
         fun x(s: Float, side: Float) = dx * length * s - dy * (side + length * 0.06f * sin(PI_F * s))
         fun y(s: Float, side: Float) = dy * length * s + dx * (side + length * 0.06f * sin(PI_F * s))
     }
@@ -502,7 +487,6 @@ object Sylph : WingStyle(
         }
     }
 
-    /** Ripples out from the root, linear in u so the veins ride the membrane. */
     override fun displace(kind: Int, u: Float, v: Float, seed: Float, t: Float, p: Vector3f) {
         p.z += u * 0.03f * sin(t * 5.5f + seed * 3f)
     }

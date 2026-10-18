@@ -14,11 +14,6 @@ import net.minecraft.world.phys.Vec3
 import java.util.Base64
 import java.util.WeakHashMap
 
-/**
- * Glows the Nukekubi Fixations a Voidgloom Seraph throws out: the floating heads that keep
- * damaging you until you look at them and hit them. They are armor stands carrying the
- * EnderDragon skull, a skin nothing else in SkyBlock wears.
- */
 object NukekubiGlow {
 
     private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
@@ -27,20 +22,15 @@ object NukekubiGlow {
     private const val MAX_RANGE = 64.0
     private const val MAX_RANGE_SQ = MAX_RANGE * MAX_RANGE
 
-    // ItemStack keeps identity equality, so each stack is decoded once for as long as it lives.
     private val checked = WeakHashMap<ItemStack, Boolean>()
 
-    // Heads spawn on the boss that threw them, so a head that first shows up within this many
-    // blocks of your own boss (side to side, ignoring height) is yours.
     private const val SPAWN_RADIUS_SQ = 2.0 * 2.0
 
-    /** Each head's verdict, made the first tick it's seen: whether your own boss threw it. */
     private val ours = HashMap<Int, Boolean>()
 
     @JvmStatic
     fun shouldGlow(entity: Entity): Boolean = config.nukekubiGlow && isNearbyHead(entity)
 
-    /** A live Nukekubi close enough to matter, thrown by your own boss. */
     fun isNearbyHead(entity: Entity): Boolean {
         if (entity !is ArmorStand) return false
         if (!entity.level().isClientSide || !entity.isAlive) return false
@@ -78,7 +68,6 @@ object NukekubiGlow {
         return ARGB.color(alpha, config.nukekubiColor and 0xFFFFFF)
     }
 
-    /** The skull can sit in any slot, so every one is checked, as SkyHanni does. */
     fun isNukekubi(stand: ArmorStand): Boolean = EquipmentSlot.entries.any { isNukekubi(stand.getItemBySlot(it)) }
 
     private fun isNukekubi(stack: ItemStack): Boolean {
@@ -86,7 +75,6 @@ object NukekubiGlow {
         return checked.getOrPut(stack) { skinOf(stack)?.contains(SKIN_HASH) == true }
     }
 
-    /** The decoded texture JSON of a player head, or null when it has none. */
     fun skinOf(stack: ItemStack): String? {
         val profile = stack.get(DataComponents.PROFILE) ?: return null
         val texture = profile.partialProfile().properties()["textures"].firstOrNull() ?: return null

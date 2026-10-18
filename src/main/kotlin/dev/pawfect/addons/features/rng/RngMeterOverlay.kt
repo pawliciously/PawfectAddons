@@ -22,11 +22,6 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import kotlin.math.ceil
 
-/**
- * The RNG Meter for where you are: the floor you're running, or the slayer you're on. Shows the
- * selected drop, how full the meter is, and about how many more runs or bosses it needs. A total
- * added up from runs rather than read off the meter is marked with a ~ until you open the menu.
- */
 object RngMeterOverlay {
 
     private val config get() = ModuleSwitch.view("rngmeter", ConfigManager.features.rngMeter)
@@ -57,7 +52,6 @@ object RngMeterOverlay {
             graphics.dropShadow(0f, 0f, WIDTH, HEIGHT, RADIUS, 10f, Theme.withAlpha(0x000000, 140), 2f)
             graphics.roundPanel(0f, 0f, WIDTH, HEIGHT, RADIUS, Theme.surface(Theme.background, 240), Theme.opaque(Theme.border))
         }
-        // Without the panel behind it, a shadow keeps the text readable.
         val shadow = !config.background
 
         val item = entry?.item
@@ -100,7 +94,6 @@ object RngMeterOverlay {
         left(meter, entry, goal)?.let { graphics.stringRight(it, right, bottomY, dim, shadow) }
     }
 
-    /** About how many more runs or bosses fill the meter, going by the last one. */
     private fun left(meter: String, entry: RngMeterEntry, goal: Long?): String? {
         if (!config.showLeft || goal == null) return null
         val gain = entry.lastGain?.takeIf { it > 0 } ?: return null
@@ -117,7 +110,6 @@ object RngMeterOverlay {
         else -> meter
     }
 
-    /** The colour of a name's leading colour code. */
     private fun rarity(name: String): Int {
         val code = if (name.length >= 2 && name[0] == '§') name[1] else return Theme.text
         return ChatFormatting.getByCode(code)?.let { TextColor.fromLegacyFormat(it) }?.value ?: Theme.text

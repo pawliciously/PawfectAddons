@@ -164,11 +164,6 @@ object Draw {
         pose().popMatrix()
     }
 
-    /**
-     * An icon at [scale] with its ink centred on [centerX], [centerY]. It draws from the icon
-     * raster made for 1.25x, so it's sharp at that size. Centring on the ink rather than the
-     * advance keeps each glyph's own rounding from pushing it off centre.
-     */
     fun GuiGraphicsExtractor.iconCentered(glyph: String, centerX: Float, centerY: Float, scale: Float, color: Int) {
         val ink = UiFont.largeIconInk(glyph)
         val inkX = ink?.let { (it[0] + it[1]) / 2f } ?: (UiFont.iconWidth(glyph) / 2f)
@@ -219,7 +214,6 @@ object Draw {
 
     const val LINE_HEIGHT = 9f
 
-    /** The theme's font shadow, left off for icon glyphs so they don't look doubled. */
     private fun textShadow(text: String): Boolean =
         Theme.fontShadow && text.none { it in ''..'' }
 

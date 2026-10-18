@@ -91,9 +91,6 @@ vec3 ember(vec2 uv, vec2 px, vec3 base, vec3 accent, float t, float k) {
     return c;
 }
 
-// Mirage, the media player's backdrop: four soft fields of colour drift under a slow noise warp
-// and melt into each other, with a faint sweep of light and a vignette. Here its colours come
-// from the panel's own background and accent, kept dark enough to read text over.
 float mirageFbm(vec2 p) {
     float v = 0.0;
     float a = 0.5;

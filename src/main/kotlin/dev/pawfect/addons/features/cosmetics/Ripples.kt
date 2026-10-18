@@ -10,10 +10,6 @@ import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
-/**
- * Blooms where a player lands from high enough, in their theme (see [Bloom]). Harder landings
- * bloom bigger. Legacy ripples are [LegacyRipples].
- */
 object Ripples {
 
     private const val VIEW_LIMIT = 72.0

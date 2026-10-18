@@ -9,7 +9,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.visual.menu.MenuImage;
 
-/** Draws right after a screen's background, so the screen's own window goes on top. */
 @Mixin(Screen.class)
 public abstract class ScreenBackgroundMixin {
 

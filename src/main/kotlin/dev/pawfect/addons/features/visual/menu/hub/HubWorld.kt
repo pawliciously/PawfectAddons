@@ -24,9 +24,6 @@ class HubWorld private constructor(
     private val columns: HashMap<Long, Column>,
 ) : BlockAndTintGetter {
 
-    // The highest block in each column that stops sky light, by chunk. Anything above it sees
-    // the open sky, which the saved light can miss: chunks captured before their light arrived
-    // were saved pitch dark.
     private val skyline = HashMap<Long, IntArray>()
 
     init {

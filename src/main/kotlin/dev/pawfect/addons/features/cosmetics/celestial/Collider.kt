@@ -6,11 +6,6 @@ import org.joml.Matrix4f
 import org.joml.Vector3f
 import kotlin.math.abs
 
-/**
- * The player as boxes in body space, padded for armour, taken from the model as it is posed this
- * frame. Wing vertices that end up inside one are moved out through the nearest face, so wings
- * never cut into you whatever the pose, size or animation.
- */
 class Collider {
     private val toBody = Array(BOXES.size) { Matrix4f() }
     private val fromBody = Array(BOXES.size) { Matrix4f() }
@@ -18,10 +13,8 @@ class Collider {
     private val exit = Vector3f()
     private val probe = Vector3f()
 
-    /** Each box's bounds in body space, so most vertices are let through without a transform. */
     private val bounds = Array(BOXES.size) { FloatArray(6) }
 
-    /** Places box [i] with [partToBody], the part's transform relative to the body. */
     fun place(i: Int, partToBody: Matrix4f) {
         toBody[i].set(partToBody)
         fromBody[i].set(partToBody).invert()
@@ -39,7 +32,6 @@ class Collider {
         }
     }
 
-    /** Moves [q], in body space, to the nearest point outside every box. */
     fun push(q: Vector3f) {
         var bestX = 0f
         var bestY = 0f
@@ -80,19 +72,12 @@ class Collider {
         l.x > b[0] && l.x < b[3] && l.y > b[1] && l.y < b[4] && l.z > b[2] && l.z < b[5]
 
     companion object {
-        /** Gap kept between wing and skin, enough for armour. */
         const val PAD = 0.07f
 
-        /** How far past a face a moved vertex lands, so it is clearly outside. */
         private const val EXIT = 1e-4f
 
-        /**
-         * Vertices that went deeper come out further, so a wing bends off you instead of
-         * flattening, and the two wings never meet on one plane and flicker.
-         */
         private const val BOUNCE = 0.35f
 
-        /** Helmets sit close and the head turns, so it gets less room than the rest. */
         private const val HEAD_PAD = 0.03f
 
         const val TORSO = 0
@@ -102,7 +87,6 @@ class Collider {
         const val RIGHT_LEG = 4
         const val LEFT_LEG = 5
 
-        /** Each part's box in its own space, in blocks, padded: min x y z then max x y z. */
         private val BOXES = arrayOf(
             box(-4f, 0f, -2f, 4f, 12f, 2f),
             box(-4f, -8f, -4f, 4f, 0f, 4f, HEAD_PAD),
@@ -115,13 +99,11 @@ class Collider {
         private fun box(x0: Float, y0: Float, z0: Float, x1: Float, y1: Float, z1: Float, pad: Float = PAD) =
             floatArrayOf(x0 / 16f - pad, y0 / 16f - pad, z0 / 16f - pad, x1 / 16f + pad, y1 / 16f + pad, z1 / 16f + pad)
 
-        /** The part's transform from its pivot and rotation, as [ModelPart.translateAndRotate] applies it. */
         fun transform(x: Float, y: Float, z: Float, xRot: Float, yRot: Float = 0f, zRot: Float = 0f): Matrix4f =
             Matrix4f().translate(x / 16f, y / 16f, z / 16f).rotateZYX(zRot, yRot, xRot)
 
         private fun ModelPart.transform() = transform(x, y, z, xRot, yRot, zRot)
 
-        /** A snapshot of [model] as posed right now, since the geometry is drawn after it moves on. */
         fun of(model: PlayerModel): Collider {
             val inv = model.body.transform().invert()
             val c = Collider()
@@ -134,7 +116,6 @@ class Collider {
             return c
         }
 
-        /** The vanilla pose, standing or crouched, for checking without a model. */
         fun vanilla(crouch: Boolean): Collider {
             val body = if (crouch) transform(0f, 3.2f, 0f, 0.5f) else Matrix4f()
             val inv = Matrix4f(body).invert()

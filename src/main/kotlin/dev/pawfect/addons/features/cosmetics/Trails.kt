@@ -12,10 +12,6 @@ import net.minecraft.world.phys.Vec3
 import java.util.UUID
 import kotlin.math.sqrt
 
-/**
- * The trail that follows a player, sampled here and drawn in their theme (see [Ribbon]). Legacy
- * trails are [LegacyTrails].
- */
 object Trails {
 
     private const val MAX_POINTS = 64
@@ -35,7 +31,6 @@ object Trails {
 
     private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
-    /** A sample of the path. [dist] is how far along the path it is, so the twist stays put on the ground. */
     internal class Point(val x: Double, val y: Double, val z: Double, val at: Long, val strength: Float, val dist: Float, val seed: Int)
 
     internal class Track {
@@ -104,7 +99,6 @@ object Trails {
         submit(poseStack, collector, jobs, camera, now, WorldFx.shade(level, camera))
     }
 
-    /** Draws the trail of someone walking the menu scene, who has no entity in any world. */
     fun submitShowcase(poseStack: PoseStack, collector: SubmitNodeCollector, uuid: UUID, feet: Vec3, height: Double, camera: Vec3) {
         if (!Cosmetics.showsOffWorld(config.trails, uuid)) return
         val trail = Cosmetics.trailFor(uuid) ?: return

@@ -24,10 +24,8 @@ class MenuConfig {
     @Expose
     var buttonRadius: Float = 6f
 
-    /** Always on; no longer a setting. */
     val hideSplash: Boolean = true
 
-    /** Always on; no longer a setting. */
     val showBranding: Boolean = true
 
     @Expose
@@ -45,7 +43,6 @@ class MenuConfig {
     @Expose
     var imageEnabled: Boolean = false
 
-    /** A link, a file name in config/pawfectaddons/menu-images, or empty for the default gif. */
     @Expose
     var imageSource: String = ""
 
@@ -58,13 +55,10 @@ class MenuConfig {
     @Expose
     val imagePosition: Position = HudDefaults.position(HudDefaults.MENU_IMAGE)
 
-    /** Always on; no longer a setting. */
     val hubScene: Boolean = true
 
-    /** Always on; no longer a setting. */
     val hubCapture: Boolean = true
 
-    /** Always on; no longer a setting. */
     val showcase: Boolean = true
 
     @Expose
@@ -85,7 +79,6 @@ class MenuConfig {
     @Expose
     var anchorPitch: Float = 0f
 
-    /** One camera spot per SkyBlock area; each launch shows one of the captured ones. */
     @Expose
     var spots: MutableList<MenuSpot> = mutableListOf()
 }

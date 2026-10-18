@@ -58,10 +58,6 @@ object PawfectSettings {
 
     private val dev get() = config.dev
 
-    /**
-     * A custom theme colour edited while a preset is on starts Custom from that preset's colours, so
-     * the edit shows straight away and nothing else in the menu jumps to other colours.
-     */
     private fun adoptCustomTheme(apply: () -> Unit) {
         val theme = config.theme
         if (theme.preset != ThemePreset.CUSTOM) {
@@ -137,7 +133,7 @@ object PawfectSettings {
                 "slayers",
                 "Slayers",
                 Icons.FIRE,
-                "0.80.0",
+                "0.83.0",
                 group(
                     "Boss Health",
                     ToggleSetting("Enabled", "Track your slayer boss and show its health.", slayers::enabled),
@@ -225,7 +221,7 @@ object PawfectSettings {
                 "dungeon",
                 "Dungeon",
                 Icons.SHIELD,
-                "0.52.0",
+                "0.83.0",
                 group(
                     "Floor 7",
                     ToggleSetting("Healer Box", "Outline the 3x3 healer spot from 53 64 113 to 56 64 116 in Floor 7 and Master Mode 7.", visuals::healerBox),
@@ -452,7 +448,7 @@ object PawfectSettings {
                 "visuals",
                 "Visuals",
                 Icons.EYE,
-                "0.48.0",
+                "0.83.0",
                 group(
                     "Ambient Motes",
                     ToggleSetting("Ambient Motes", "Little lights that lift off the blocks around you and drift about however they like.", ambient::enabled),
@@ -554,7 +550,7 @@ object PawfectSettings {
                 "chams",
                 "Chams",
                 Icons.CHAMELEON,
-                "0.82.0",
+                "0.83.0",
                 sectionGroup(
                     "Hand Chams",
                     "Core",
@@ -675,7 +671,7 @@ object PawfectSettings {
                 "cosmetics",
                 "Cosmetics",
                 Icons.USER,
-                "0.82.0",
+                "0.83.0",
                 group(
                     "Account",
                     GuideSetting(
@@ -757,7 +753,7 @@ object PawfectSettings {
                 "scoreboard",
                 "Scoreboard",
                 Icons.SLIDERS,
-                "0.82.0",
+                "0.83.0",
                 group(
                     "Look",
                     ToggleSetting("Custom Scoreboard", "Draw the sidebar on a themed panel without the red numbers. Steps aside if SkyHanni's or NoammAddons' scoreboard is on.", scoreboard::enabled),
@@ -998,7 +994,7 @@ object PawfectSettings {
                 "media",
                 "Media",
                 Icons.MUSIC,
-                "0.82.0",
+                "0.83.0",
                 group(
                     "Display",
                     ToggleSetting("Media Display", "Show what is currently playing on this PC.", media::enabled),
@@ -1044,7 +1040,7 @@ object PawfectSettings {
                 "dropfx",
                 "Drop Celebration",
                 Icons.PACKAGE,
-                "0.82.0",
+                "0.83.0",
                 group(
                     "Drop Celebration",
                     ToggleSetting("Drop Celebration", "Your own rare drops get a proper moment: the item lands with impact frames, then sits in a burst of light, sparks and confetti with its rarity slammed in under it. The rarer the drop, the harder it hits, from a quick pop for a Fuming Potato Book to the full show for a Handle or a dye.", dropFx::enabled),
@@ -1074,7 +1070,7 @@ object PawfectSettings {
                 "rngmeter",
                 "RNG Meter",
                 Icons.TAG,
-                "0.82.0",
+                "0.83.0",
                 group(
                     "RNG Meter",
                     ToggleSetting("RNG Meter", "Show the RNG Meter for the floor you're running or the slayer you're on: your selected drop, how full it is and about how many more runs or bosses it needs. A run adds its score on S+ and 70% of it on S. Open an RNG Meter menu once to read the exact total; until then it's marked with a ~.", rngMeter::enabled),
@@ -1136,7 +1132,7 @@ object PawfectSettings {
                 "menu",
                 "Main Menu",
                 Icons.SPARKLE,
-                "0.58.0",
+                "0.83.0",
                 group(
                     "Core",
                     ToggleSetting("Custom Main Menu", "Replace the vanilla menu backdrop with an animated shader.", menu::enabled),
@@ -1190,7 +1186,7 @@ object PawfectSettings {
                 "theme",
                 "Theme",
                 Icons.PALETTE,
-                "0.79.0",
+                "0.83.0",
                 group(
                     "Preset",
                     DropdownSetting("Theme", "Colour preset for this menu.", theme::preset, ThemePreset.entries.toList()),

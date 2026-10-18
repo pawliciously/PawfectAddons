@@ -24,19 +24,10 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/**
- * The loading screen, in place of Mojang's: a night sky where stars join up into a paw, the paw
- * fills in white and the name rises below it. How far the scene has got follows how far the
- * game has loaded; once it's done, the paw fills and the name comes in as the screen fades.
- *
- * It runs before any resource pack is loaded, so it only uses the two GUI pipelines the game
- * compiles up front, and textures read straight from the jar or drawn here.
- */
 object LoadingScene {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Loading")
 
-    /** The night sky behind everything, in place of Mojang's red. */
     @JvmField
     val BACKGROUND: Int = 0xFF0F0C1D.toInt()
 
@@ -59,17 +50,12 @@ object LoadingScene {
     private var lastFrame = 0L
     private var shown = 0f
 
-    // ------------------------------------------------------------------ timeline, in seconds of the scene
-
-    /** Where loading starts the scene and where it has got to when everything is loaded. */
     private const val LOAD_FROM = 0.4f
     private const val LOAD_TO = 3.0f
-    /** How fast the rest plays once loading is done: the paw fills and the name rises within the second before the fade. */
     private const val AFTER_RATE = 1.35f
     private const val FILL_AT = 3.0f
     private const val NAME_AT = 3.4f
 
-    // The paw's outline as stars, in the paw image's own 100 by 100 frame.
     private val PAD = arrayOf(
         floatArrayOf(50f, 49f), floatArrayOf(30f, 57f), floatArrayOf(21f, 73f), floatArrayOf(32f, 88f),
         floatArrayOf(50f, 84f), floatArrayOf(68f, 88f), floatArrayOf(79f, 73f), floatArrayOf(70f, 57f),
@@ -82,15 +68,9 @@ object LoadingScene {
         List(170) { Star(rng.nextFloat(), rng.nextFloat() * 0.92f, 0.35f + rng.nextFloat(), 0.25f + rng.nextFloat() * 0.6f, 0.8f + rng.nextFloat() * 2.2f, rng.nextFloat() * PI.toFloat() * 2f) }
     }
 
-    /** Whether the loading screen is ours. */
     @JvmStatic
     fun active(): Boolean = !failed && runCatching { ConfigManager.features.menu.pawLoadingScreen }.getOrDefault(true)
 
-    /**
-     * Draws the scene for [overlay] at [alpha], with loading at [progress] and [fadeOutStart] the
-     * time it finished (-1 while still loading). Returns false when it couldn't, so the caller
-     * draws Mojang's logo instead.
-     */
     @JvmStatic
     fun draw(graphics: GuiGraphicsExtractor, overlay: Any, alpha: Float, progress: Float, fadeOutStart: Long): Boolean {
         if (!active() || !ensureTextures()) return false
@@ -115,7 +95,6 @@ object LoadingScene {
         val real = (now - startedAt) / 1000f
         val target = if (fadeOutStart > -1L) LOAD_TO + (now - fadeOutStart) / 1000f * AFTER_RATE
         else LOAD_FROM + progress.coerceIn(0f, 1f) * (LOAD_TO - LOAD_FROM)
-        // Follows loading smoothly and never goes backwards, so a jump in progress glides instead of snapping.
         val dt = ((now - lastFrame) / 1000f).coerceIn(0f, 0.1f)
         lastFrame = now
         if (target > shown) shown += (target - shown) * min(1f, dt * 7f)
@@ -125,7 +104,6 @@ object LoadingScene {
         val h = g.guiHeight().toFloat()
         val unit = w / 1000f
 
-        // Background stars, twinkling.
         val fieldIn = ease(real / 0.8f)
         for (star in field) {
             val twinkle = 0.7f + 0.3f * sin(real * star.speed + star.phase)
@@ -138,7 +116,6 @@ object LoadingScene {
         fun px(p: FloatArray) = cx + (p[0] - 50f) / 100f * size
         fun py(p: FloatArray) = cy + (p[1] - 57f) / 100f * size
 
-        // Two unbroken strokes glide from star to star, round the pad and across the toes.
         val fill = ease((t - FILL_AT) / 0.7f)
         val stroke = 0.6f * (1f - fill) * alpha
         val thickness = maxOf(1f, unit * 2.2f)
@@ -147,10 +124,8 @@ object LoadingScene {
             trace(g, TOES.map { floatArrayOf(px(it), py(it)) }, smooth((t - 1.75f) / 1.15f), thickness, 0xCFC6FF, stroke)
         }
 
-        // The paw fills in solid white.
         if (fill > 0f) image(g, PAW, pawSize, pawSize, cx - 0.5f * size, cy - 0.57f * size, size, size, 0xFFFFFF, fill * alpha)
 
-        // The paw's stars blink on in turn and go once the paw is solid.
         (TOES + PAD).forEachIndexed { i, p ->
             val k = ease((t - 0.5f - i * 0.065f) / 0.25f) * (1f - fill)
             if (k <= 0f) return@forEachIndexed
@@ -159,7 +134,6 @@ object LoadingScene {
             dot(g, px(p), py(p), r, 0xFFFFFF, k * alpha)
         }
 
-        // The name rises in under the paw.
         val name = ease((t - NAME_AT) / 0.8f)
         if (name > 0f) {
             val height = w * 0.051f
@@ -168,7 +142,6 @@ object LoadingScene {
             image(g, WORDMARK, wordWidth, wordHeight, cx - width / 2f, y, width, height, 0xFFFFFF, name * alpha)
         }
 
-        // A thin bar for how far loading has got, gone once it's done.
         val bar = (1f - ease(t - LOAD_TO)) * alpha
         if (bar > 0f) {
             val barWidth = w * 0.22f
@@ -178,8 +151,6 @@ object LoadingScene {
             rect(g, left, barY, barWidth * progress.coerceIn(0f, 1f), maxOf(1f, unit * 1.6f), 0xFFFFFF, 0.55f * bar)
         }
     }
-
-    // ------------------------------------------------------------------ drawing
 
     private fun argb(rgb: Int, alpha: Float): Int = ((alpha.coerceIn(0f, 1f) * 255f).toInt() shl 24) or (rgb and 0xFFFFFF)
 
@@ -219,7 +190,6 @@ object LoadingScene {
         pose.popMatrix()
     }
 
-    /** The polyline through [points] drawn up to [progress] of its length, as one stroke. */
     private fun trace(g: GuiGraphicsExtractor, points: List<FloatArray>, progress: Float, thickness: Float, rgb: Int, alpha: Float) {
         if (progress <= 0f) return
         val lengths = (1 until points.size).map { hypot(points[it][0] - points[it - 1][0], points[it][1] - points[it - 1][1]) }
@@ -230,7 +200,6 @@ object LoadingScene {
             val a = points[i - 1]
             val b = points[i]
             line(g, a[0], a[1], a[0] + (b[0] - a[0]) * part, a[1] + (b[1] - a[1]) * part, thickness, rgb, alpha)
-            // A round joint, so corners don't show gaps.
             if (part >= 1f && i < points.size - 1) dot(g, b[0], b[1], thickness * 0.5f, rgb, alpha)
             left -= lengths[i - 1]
         }
@@ -242,8 +211,6 @@ object LoadingScene {
         val c = t.coerceIn(0f, 1f)
         return if (c < 0.5f) 4f * c * c * c else 1f - (-2f * c + 2f).pow(3) / 2f
     }
-
-    // ------------------------------------------------------------------ textures
 
     private fun id(path: String): Identifier = Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, path)
 
@@ -268,7 +235,6 @@ object LoadingScene {
         return ready
     }
 
-    /** Read straight from the jar: resource packs aren't loaded yet the first time this shows. */
     private fun readImage(name: String): NativeImage {
         val stream = LoadingScene::class.java.getResourceAsStream("/assets/${PawfectAddons.MOD_ID}/textures/gui/loading/$name")
             ?: error("missing $name")
@@ -286,7 +252,6 @@ object LoadingScene {
         McCompat.mc.textureManager.register(id, texture)
     }
 
-    /** A white disc with a soft edge, for stars and joints. */
     private fun softDot(): NativeImage {
         val image = NativeImage(DOT_SIZE, DOT_SIZE, false)
         val half = DOT_SIZE / 2f
@@ -298,7 +263,6 @@ object LoadingScene {
         return image
     }
 
-    /** A white band with soft top and bottom edges, stretched along each line. */
     private fun softLine(): NativeImage {
         val image = NativeImage(LINE_SIZE, LINE_SIZE, false)
         val half = LINE_SIZE / 2f

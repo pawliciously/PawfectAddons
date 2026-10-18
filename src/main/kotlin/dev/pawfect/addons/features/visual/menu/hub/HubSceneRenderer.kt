@@ -46,13 +46,10 @@ object HubSceneRenderer {
     private const val NEAR = 0.05f
     private const val FAR = 700f
     private const val INTRO_SECONDS = 10.0
-    // How long the uploaded scene settles before the intro starts, so its first frames have passed.
     private const val SETTLE_BEFORE_INTRO_NANOS = 1_000_000_000L
     private const val SETTLE_SECONDS = 2.5
-    // Until the scene is ready the camera gazes up at the sky, then tips down into the descent.
     private const val GAZE_PITCH = -50.0
     private const val TIP_SECONDS = 2.5
-    // A scripted camera path is flown at this pace, within these bounds.
     private const val PATH_SPEED = 14.0
     private const val MIN_PATH_SECONDS = 6.0
     private const val MAX_PATH_SECONDS = 20.0
@@ -64,7 +61,6 @@ object HubSceneRenderer {
     private const val LOOK_PITCH = 1.5
     private const val LOOK_RATE = 1.1
 
-    // A gap this long between frames means the menu was left, so the next frame starts a new visit.
     private const val VISIT_GAP_NANOS = 1_000_000_000L
 
     private val SKY = Vector3f(0.008f, 0.014f, 0.045f)
@@ -102,7 +98,6 @@ object HubSceneRenderer {
 
     private fun enabled(): Boolean = config.hubScene && state != State.FAILED
 
-    // Each launch shows one captured area, picked at random and kept for the session.
     private fun scene(): MenuSpot? {
         scene?.let { return it }
         return HubScene.spots().filter { HubScene.file(it.area).exists() }.randomOrNull()?.also { scene = it }
@@ -110,15 +105,12 @@ object HubSceneRenderer {
 
     private fun captured(): List<MenuSpot> = HubScene.spots().filter { HubScene.file(it.area).exists() }
 
-    /** True when there is more than one captured scene to switch between. */
     @JvmStatic
     fun canSwitch(): Boolean = enabled() && captured().size > 1
 
-    /** The name of the scene being shown, for the menu's button and credit. */
     @JvmStatic
     fun sceneTitle(): String = MenuScenes.title(scene()?.area ?: HubScene.HUB)
 
-    /** Moves on to the next captured scene and plays its intro, for the menu's background button. */
     @JvmStatic
     fun next() {
         if (state == State.BUILDING) return
@@ -136,14 +128,12 @@ object HubSceneRenderer {
         settledAt = 0L
     }
 
-    /** True when the menu should show a captured area instead of its usual background. */
     @JvmStatic
     fun active(): Boolean {
         if (McCompat.mc.level != null || !enabled()) return false
         return scene() != null
     }
 
-    /** Starts building as soon as resources finish loading, so the scene is ready before the menu shows. */
     fun preload() {
         if (state != State.IDLE || McCompat.mc.level != null || !enabled() || !resourcesReady()) return
         if (scene() == null) return
@@ -156,7 +146,6 @@ object HubSceneRenderer {
         return (loading as LoadingOverlayAccessor).`pawfectaddons$reload`().isDone
     }
 
-    /** Draws the scene where the panorama would go. False hands the frame back to the panorama. */
     @JvmStatic
     fun draw(): Boolean {
         if (!active()) return false
@@ -198,7 +187,6 @@ object HubSceneRenderer {
         }
         val camera = camera(sinceStart, delta)
         if (settledAt == 0L && introPlayed) settledAt = introStart + (introSeconds() * 1e9).toLong()
-        // Seconds since the camera settled for this visit, counting up through the fly-in.
         val showtime = when {
             settledAt != 0L -> (now - settledAt) / 1e9
             introStart >= 0L -> sinceStart - introSeconds()
@@ -253,9 +241,6 @@ object HubSceneRenderer {
         return true
     }
 
-    // The camera starts high above and behind the chosen spot and glides down in a curve that
-    // slows as it lands. Once there it drifts gently and leans a few degrees toward the mouse.
-    // The fly-in plays once per launch; later visits to the menu open on the settled view.
     private fun camera(sinceStart: Double, delta: Double): Pose {
         val spot = scene ?: MenuSpot()
         val endX = spot.x
@@ -327,7 +312,6 @@ object HubSceneRenderer {
         return (flight.length / PATH_SPEED).coerceIn(MIN_PATH_SECONDS, MAX_PATH_SECONDS)
     }
 
-    /** A scripted camera path as dense samples of x, y, z, yaw and pitch, and how far along each one is. */
     private class Flight(val samples: Array<DoubleArray>, val along: DoubleArray) {
         val length: Double get() = along.last()
     }
@@ -344,13 +328,9 @@ object HubSceneRenderer {
         return flight
     }
 
-    // Centripetal Catmull-Rom through the shots: unlike the plain kind it keeps its shape where
-    // shots are unevenly spaced, instead of whipping through a short leg after a long one. The
-    // curve is then measured by true distance, so the camera keeps an even pace along it.
     private fun fly(shots: List<MenuScenes.Shot>): Flight {
         val keys = ArrayList<DoubleArray>()
         for (shot in shots) {
-            // Each yaw is unwrapped against the one before, so the camera turns the short way.
             val yaw = keys.lastOrNull()?.let { it[3] + Mth.wrapDegrees(shot.yaw - it[3]) } ?: shot.yaw.toDouble()
             keys += doubleArrayOf(shot.x, shot.y, shot.z, yaw, shot.pitch.toDouble())
         }
@@ -376,7 +356,6 @@ object HubSceneRenderer {
     private fun distance(a: DoubleArray, b: DoubleArray): Double =
         sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2]))
 
-    // Barry and Goldman's pyramid of blends, which evaluates the curve at knot time [at].
     private fun curvePoint(
         p0: DoubleArray, p1: DoubleArray, p2: DoubleArray, p3: DoubleArray,
         t0: Double, t1: Double, t2: Double, t3: Double, at: Double,
@@ -408,8 +387,6 @@ object HubSceneRenderer {
 
     private fun smooth(x: Double): Double = x * x * x * (x * (x * 6 - 15) + 10)
 
-    // The moon sits a little to the side of where the settled camera looks, high enough to
-    // clear the buildings but low enough to stay in frame.
     private fun moonDirection(): Vector3f {
         val yaw = Math.toRadians((scene?.yaw ?: 0f).toDouble() + 24.0)
         val elevation = Math.toRadians(27.0)
@@ -488,7 +465,6 @@ object HubSceneRenderer {
         val mesh = built ?: return
         built = null
         val device = RenderSystem.getDevice()
-        // Opaque layers first, then translucent parts from the farthest band to the nearest.
         val rank = { which: ChunkSectionLayer ->
             when (which) {
                 ChunkSectionLayer.SOLID -> 0
@@ -530,7 +506,6 @@ object HubSceneRenderer {
         atlas = null
     }
 
-    /** Throws the scene away so the next menu frame rebuilds it, after a new capture. */
     fun invalidate() {
         if (state == State.BUILDING) return
         McCompat.mc.execute {

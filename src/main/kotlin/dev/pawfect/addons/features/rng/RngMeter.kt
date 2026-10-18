@@ -19,24 +19,12 @@ import net.minecraft.network.chat.Component
 import net.minecraft.world.item.ItemStack
 import org.slf4j.LoggerFactory
 
-/**
- * Keeps track of your Catacombs and Slayer RNG Meters.
- *
- * - A dungeon run adds its Team Score to that floor's meter when it ends on S+, 70% of it on S,
- *   nothing below.
- * - A slayer boss's chat says the meter's exact total after each kill.
- * - Opening any RNG Meter menu reads the exact total and the selected drop off its items, which
- *   also corrects anything the run counting gets wrong (the Pity attribute adds up to 10% more).
- *
- * What each drop needs comes from the NEU repo's rngscore.
- */
 object RngMeter {
 
     private val config get() = ModuleSwitch.view("rngmeter", ConfigManager.features.rngMeter)
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/RngMeter")
 
-    /** Slayer chat names the boss by its mob; the meters go by the boss. */
     private val SLAYER_BY_MOB = mapOf(
         "Zombie" to "Revenant Horror",
         "Spider" to "Tarantula Broodfather",
@@ -60,14 +48,11 @@ object RngMeter {
 
     private val titleRegex = Regex("""^(.+) RNG Meter$""")
 
-    /** How a menu marks the drop you've picked; the others say "Click to select!". */
     private val selectedRegex = Regex("""\bSELECTED\b|deselect""", RegexOption.IGNORE_CASE)
     private val progressRegex = Regex("""(?:Dungeon Score|Slayer XP): ([\d,.]+[kKmM]?)/([\d,.]+[kKmM]?)""")
 
-    /** The floor from the run summary's header, read just before its score. */
     private var headerFloor: String? = null
 
-    /** The slayer whose level line came last, for the meter line under it. */
     private var lastSlayer: String? = null
     private var lastSlayerAt = 0L
 
@@ -77,8 +62,6 @@ object RngMeter {
     fun register() {
         ClientTickEvents.END_CLIENT_TICK.register { runCatching { tick() } }
     }
-
-    // ------------------------------------------------------------------ chat
 
     fun onChat(message: Component) {
         if (!config.enabled || !SkyBlockData.onSkyBlock) return
@@ -141,7 +124,6 @@ object RngMeter {
         }
         droppedRegex.find(text)?.let { match ->
             val meter = meterKey(match.groupValues[2]) ?: return
-            // The drop empties the meter and picks the same drop again.
             update(meter) { entry ->
                 entry.stored = 0
                 entry.exact = false
@@ -153,7 +135,6 @@ object RngMeter {
         }
     }
 
-    /** A meter's key from how chat names it: "Catacombs (F7)", "Catacombs - Floor 6" or a slayer boss. */
     fun meterKey(name: String): String? {
         val plain = name.removeColor()
         Regex("""\(([FM]\d)\)""").find(plain)?.let { return it.groupValues[1] }
@@ -164,7 +145,6 @@ object RngMeter {
         return SLAYER_BOSSES.firstOrNull { plain.contains(it) }
     }
 
-    /** The drop [name] stands for among what [meter] can be set to. */
     fun dropId(meter: String, name: String): String? {
         val plain = name.removeColor().trim().removePrefix("Enchanted Book (").removeSuffix(")")
         val wanted = plain.normalizeItemName()
@@ -173,7 +153,6 @@ object RngMeter {
         return NeuRepo.resolve(plain)?.internalName
     }
 
-    /** Names a drop goes by, enchantments with and without "Ultimate" and their level either way. */
     private fun names(id: String): List<String> {
         val list = ArrayList<String>()
         list += NeuRepo.displayName(id).normalizeItemName()
@@ -189,8 +168,6 @@ object RngMeter {
         return list
     }
 
-    // ------------------------------------------------------------------ menus
-
     private fun tick() {
         flushIfDirty()
         if (!config.enabled) return
@@ -202,16 +179,11 @@ object RngMeter {
         runCatching { readMenu(name, screen) }
     }
 
-    /**
-     * Reads a meter's own menu ("Catacombs (F7) RNG Meter", "Voidgloom Seraph RNG Meter"), or the
-     * Catacombs one listing every floor.
-     */
     private fun readMenu(name: String, screen: AbstractContainerScreen<*>) {
         val inventory = McCompat.player?.inventory
         val stacks = screen.menu.slots.filter { it.container !== inventory }.map { it.item }.filter { !it.isEmpty }
         val meter = meterKey(name)
         if (meter == null) {
-            // Every floor at once: each item is a floor, with its progress and drop.
             stacks.forEach { stack -> meterKey(stack.plainName())?.let { readFloorItem(it, stack.loreLines()) } }
             return
         }
@@ -223,7 +195,6 @@ object RngMeter {
             if (lore.any { it.contains("don't have an RNG drop", ignoreCase = true) }) noDrop = true
             val progress = lore.firstNotNullOfOrNull { progressRegex.find(it) } ?: continue
             val current = amount(progress.groupValues[1]) ?: continue
-            // Cheaper drops can show a capped amount, so the biggest is the meter.
             stored = maxOf(stored ?: 0L, current)
             if (lore.any { selectedRegex.containsMatchIn(it) }) {
                 val id = stack.skyblockId()?.takeIf { it in NeuRepo.rngDrops(meter) } ?: dropId(meter, stack.plainName()) ?: continue
@@ -235,8 +206,6 @@ object RngMeter {
         update(meter) { entry ->
             entry.stored = total
             entry.exact = true
-            // Not finding the selected drop isn't proof there's none: only the menu saying so,
-            // or the reset message, clears it.
             val pick = selected
             if (pick != null) {
                 entry.item = pick.first
@@ -248,10 +217,8 @@ object RngMeter {
         }
     }
 
-    /** Menus already written to the log this session. */
     private val logged = HashSet<String>()
 
-    /** Writes a menu whose selected drop couldn't be found to the log once, to see how it shows it. */
     private fun logMenuOnce(name: String, stacks: List<ItemStack>) {
         if (!logged.add(name)) return
         val dump = stacks.filter { stack -> stack.loreLines().any { progressRegex.containsMatchIn(it.removeColor()) } }.take(40)
@@ -278,7 +245,6 @@ object RngMeter {
         }
     }
 
-    /** "31,800", "31.8k" or "1.2M" as a number. */
     fun amount(text: String): Long? {
         val clean = text.replace(",", "").trim()
         val multiplier = when (clean.lastOrNull()?.lowercaseChar()) {
@@ -290,12 +256,6 @@ object RngMeter {
         return Math.round(number * multiplier)
     }
 
-    // ------------------------------------------------------------------ state
-
-    /**
-     * The meter that matters where you are: your floor in a dungeon, the slayer on your quest, or
-     * else the slayer you were last on.
-     */
     fun activeMeter(): String? {
         if (!SkyBlockData.onSkyBlock) return null
         if (SkyBlockData.inDungeons) return if (config.dungeons) SkyBlockData.dungeonFloor?.takeIf { it != "E" } else null
@@ -303,7 +263,6 @@ object RngMeter {
         return questBoss() ?: profile()?.rngMeters?.filterKeys { it in SLAYER_BOSSES }?.maxByOrNull { it.value.touched }?.key
     }
 
-    /** The boss of the slayer quest on your sidebar. */
     private fun questBoss(): String? {
         val lines = SkyBlockData.sidebarLines
         if (lines.none { it.contains("Slayer Quest") }) return null

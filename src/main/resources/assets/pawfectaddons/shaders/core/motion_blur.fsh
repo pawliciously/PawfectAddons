@@ -47,7 +47,6 @@ void main() {
     vec3 previous = dir;
     if (movement > 0.5) {
         ivec2 texel = ivec2(gl_FragCoord.xy);
-        // Depth is reversed: 1 at the near plane, 0 at the far plane, so the nearest is the largest.
         float z = texelFetch(DepthSampler, texel, 0).r;
         z = max(z, texelFetch(DepthSampler, texel + ivec2(1, 0), 0).r);
         z = max(z, texelFetch(DepthSampler, texel + ivec2(-1, 0), 0).r);
@@ -57,7 +56,6 @@ void main() {
         if (depthInfo.z > 0.5) {
             linear = (near * far) / max(near + z * (far - near), 0.0001);
         } else {
-            // Without clip control the depth range is -1 to 1.
             float ndcZ = z * 2.0 - 1.0;
             linear = (2.0 * near * far) / max(ndcZ * (far - near) + far + near, 0.0001);
         }

@@ -8,17 +8,14 @@ import net.minecraft.client.renderer.entity.player.AvatarRenderer
 import net.minecraft.client.renderer.entity.state.AvatarRenderState
 import net.minecraft.world.entity.EntityTypes
 
-/** One worn cosmetic: the style, the colour picked for it if any, and how big it's drawn. */
 class Pick(val piece: Piece, val color: String?, val size: Float = 1f) {
     val paint: Paint? get() = Paint.of(piece, color)
 }
 
-/** Wings, halos and horns, picked on the website under Celestial. */
 object Celestial {
     const val SIZE_MIN = 0.1f
     const val SIZE_MAX = 1.5f
 
-    /** Every slot and the styles it can hold, wings first. The names match the website's. */
     val CATALOG: Map<String, List<Piece>> = linkedMapOf("wings" to Wings.ALL, "halo" to Halos.ALL, "horns" to Horns.ALL)
 
     fun register() {

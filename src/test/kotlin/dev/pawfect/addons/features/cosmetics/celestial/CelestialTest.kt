@@ -7,26 +7,15 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/**
- * Checks the meshes, and that wings stay out of the player. The collider moves anything that
- * would cut in, so the check here is how far it has to: a short way reads as feathers resting on
- * you, a long way means the pose itself is wrong.
- */
 class CelestialTest {
 
-    /** How far the collider may move a vertex before the pose counts as clipping. */
     private val slack = 0.04f
 
-    /**
-     * How deep a vertex may have gone before the collider caught it, at [size]. The standing pose
-     * lets the lower feathers rest on your back, more so the bigger they are.
-     */
     private fun allowed(size: Float) = 0.04f + 0.1f * size
     private val quick = !System.getProperty("search").isNullOrEmpty()
 
     private class Result(val pushed: Int, val furthest: Float, val reach: Float, val worst: Vector3f)
 
-    /** Every vertex of [style] at [wrap], against the vanilla pose. Reach is how far across the front the right wing gets. */
     private fun check(style: WingStyle, crouch: Boolean, wrap: Float, size: Float, back: Float, rig: Rig = style.rig): Result {
         val body = Collider.vanilla(crouch)
         val motion = Motion()
@@ -101,7 +90,6 @@ class CelestialTest {
     private fun Rig.with(wrap: Wrap? = this.wrap, fold: Fold = this.fold) =
         Rig(l0, l1, l2, sweep, lift, elbowSweep, elbowLift, wristSweep, wristLift, amp, period, lag, scale, tilt, wrap, fold)
 
-    /** Tries crouch folds for every style and prints the ones that need the least pushing. */
     private fun searchFold() {
         for (style in Wings.ALL) {
             val found = ArrayList<Pair<Float, String>>()
@@ -117,7 +105,6 @@ class CelestialTest {
         }
     }
 
-    /** Tries wrap poses for [Wrap.FEATHERED]'s styles and prints the clean ones that reach furthest round. */
     private fun search() {
         val styles = listOf(Seraph, Phoenix, Prism, CelestialWings)
         val found = ArrayList<Pair<Float, String>>()

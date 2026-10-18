@@ -32,27 +32,18 @@ import java.util.concurrent.Executors
 import javax.imageio.ImageIO
 import javax.imageio.metadata.IIOMetadata
 
-/**
- * A picture or animated gif in a corner of the screen in every menu (not chat), drawn behind the menu's own
- * window. It comes from a link (downloaded once and cached) or a file in config/pawfectaddons/menu-images;
- * left empty it's the dancing Zelda gif. Moved and resized in the position editor like any HUD element.
- */
 object MenuImage {
 
-    /** The default, fetched on first use rather than shipped in the mod. */
     const val DEFAULT_URL = "https://gifdb.com/images/high/princess-zelda-dancing-qr4xllxpu42ajb01.gif"
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/MenuImage")
     val folder: Path get() = FabricLoader.getInstance().configDir.resolve("pawfectaddons").resolve("menu-images")
     private val cacheFolder: Path get() = folder.resolve(".cache")
 
-    /** Height in GUI pixels at scale 1. */
     private const val BASE_HEIGHT = 120
-    /** Frames are shrunk to this many pixels on their longest side before upload. */
     private const val FRAME_SIZE = 320
     private const val MAX_FRAMES = 300
     private const val MAX_DOWNLOAD = 25L * 1024 * 1024
-    /** A typed source has to sit still this long before it's loaded, so half a link isn't fetched. */
     private const val SETTLE_MS = 800L
     private val EXTENSIONS = setOf("png", "gif", "jpg", "jpeg", "bmp")
 
@@ -68,7 +59,6 @@ object MenuImage {
     private var width = 0
     private var height = 0
     private var totalMs = 1
-    /** What's showing (or loading): source plus cutout setting plus file time. */
     private var key: String? = null
     @Volatile private var ready: Decoded? = null
     @Volatile private var loading: String? = null
@@ -82,14 +72,12 @@ object MenuImage {
 
     private val config get() = ConfigManager.features.menu
 
-    /** Called right after a screen draws its background, so the screen's window goes on top. */
     @JvmStatic
     fun renderBehind(screen: Screen, graphics: GuiGraphicsExtractor) {
         if (!config.imageEnabled || screen is ChatScreen || screen is GuiPositionEditorScreen) return
         draw(graphics)
     }
 
-    /** The position editor draws its own backdrop, so it calls this to show the picture while you move it. */
     @JvmStatic
     fun renderInEditor(graphics: GuiGraphicsExtractor) {
         if (config.imageEnabled) draw(graphics)
@@ -110,7 +98,6 @@ object MenuImage {
         GuiEditManager.register(position, HudDefaults.MENU_IMAGE, w, h)
     }
 
-    /** Picks up a new source or a changed file, and uploads frames a background load has finished. */
     private fun update() {
         ready?.let { done ->
             ready = null
@@ -148,8 +135,6 @@ object MenuImage {
 
     private fun isLink(source: String) = source.startsWith("http://", true) || source.startsWith("https://", true)
 
-    // Background work
-
     private fun load(key: String, source: String, cut: Boolean) {
         runCatching {
             val file = when {
@@ -169,7 +154,6 @@ object MenuImage {
         }
     }
 
-    /** Fetches a link once; later loads use the copy in menu-images/.cache. */
     private fun download(url: String): Path {
         Files.createDirectories(cacheFolder)
         val name = MessageDigest.getInstance("SHA-1").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
@@ -180,7 +164,6 @@ object MenuImage {
         val request = HttpRequest.newBuilder(uri)
             .timeout(Duration.ofSeconds(20))
             .header("User-Agent", "Mozilla/5.0 (PawfectAddons)")
-            // Some gif sites only serve the file to their own pages
             .header("Referer", "${uri.scheme}://${uri.host}/")
             .GET().build()
         val response = http.send(request, HttpResponse.BodyHandlers.ofInputStream())
@@ -203,7 +186,6 @@ object MenuImage {
         return gif || png || jpg || bmp
     }
 
-    /** Every frame drawn onto the full canvas (gif frames are often only the part that changed), with its delay. */
     private fun decode(path: Path, cut: Boolean): List<Pair<BufferedImage, Int>> {
         Files.newInputStream(path).use { stream ->
             ImageIO.createImageInputStream(stream).use { input ->
@@ -273,10 +255,6 @@ object MenuImage {
     private fun background(argb: Int): Boolean =
         (argb ushr 24) < 16 || ((argb shr 16 and 0xFF) >= 235 && (argb shr 8 and 0xFF) >= 235 && (argb and 0xFF) >= 235)
 
-    /**
-     * Some gifs carry a thin line along the very top (the Zelda one does, 2 px across nearly the whole width in
-     * most frames). Any of the first few rows that runs across more than 60% of the picture is cleared.
-     */
     private fun trimTopLine(image: BufferedImage) {
         for (y in 0 until minOf(4, image.height)) {
             var minX = -1
@@ -290,7 +268,6 @@ object MenuImage {
         }
     }
 
-    /** Clears near-white pixels joined to the edge of the picture: the background, not white bits inside it. */
     private fun cutWhite(image: BufferedImage) {
         val w = image.width
         val h = image.height
@@ -337,8 +314,6 @@ object MenuImage {
         return out
     }
 
-    // Render thread
-
     private fun upload(done: Decoded) {
         release()
         frames = done.frames.mapIndexed { i, (image, delay) ->
@@ -351,10 +326,6 @@ object MenuImage {
         totalMs = frames.sumOf { it.delayMs }.coerceAtLeast(1)
     }
 
-    /**
-     * With a clear 1 px border: scaled drawing samples past the edge and wraps around, which would put a line of
-     * the bottom row along the top.
-     */
     private fun toNative(image: BufferedImage): NativeImage {
         val native = NativeImage(image.width + 2, image.height + 2, true)
         for (y in 0 until image.height) {
@@ -368,9 +339,6 @@ object MenuImage {
         frames = emptyList()
     }
 
-    // Settings buttons
-
-    /** Picture files in the folder, sorted by name. */
     fun folderFiles(): List<String> = runCatching {
         Files.createDirectories(folder)
         Files.list(folder).use { files ->
@@ -379,7 +347,6 @@ object MenuImage {
         }
     }.getOrDefault(emptyList())
 
-    /** Switches to the next picture in the folder. False if the folder is empty. */
     fun nextFromFolder(): Boolean {
         val files = folderFiles()
         if (files.isEmpty()) return false

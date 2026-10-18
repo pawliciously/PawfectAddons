@@ -27,7 +27,6 @@ object Shapes {
         graphics.enableScissor(left, top, right, bottom)
         val rect = ScreenRectangle(left, top, right - left, bottom - top)
             .transformAxisAligned(graphics.pose())
-        // No overlap clips everything, rather than falling back to the new area alone.
         val outer = scissor
         scissor = if (outer == null) rect else outer.intersection(rect) ?: ScreenRectangle.empty()
     }
@@ -141,10 +140,6 @@ object Shapes {
         rect(graphics, x, y, width, height, radius, left, right, 0f, 0, 0f, MODE_SOLID, true)
     }
 
-    /**
-     * The top edge of a rounded shape, [thickness] deep in the middle and thinning down each
-     * rounded corner, coloured from [left] to [right]. Drawn over a panel, it reads as a lit rim.
-     */
     fun rimTop(
         graphics: GuiGraphicsExtractor,
         x: Float,

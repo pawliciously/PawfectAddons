@@ -4,7 +4,6 @@ import com.google.gson.annotations.Expose
 
 class DropCelebrationConfig {
 
-    /** How hard a drop is to get, which sets how hard its celebration hits. */
     enum class Tier(private val label: String) {
         RARE("Rare"),
         VERY_RARE("Very Rare"),
@@ -14,7 +13,6 @@ class DropCelebrationConfig {
         override fun toString(): String = label
     }
 
-    /** How a drop's celebrated. */
     enum class Style(private val label: String) {
         CELEBRATION("Celebration"),
         ITEM_GET("Item Get");

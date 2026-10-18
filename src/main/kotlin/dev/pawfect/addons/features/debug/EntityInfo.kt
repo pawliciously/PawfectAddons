@@ -13,11 +13,6 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/**
- * Saves the NBT of every entity within a radius of the player, nearest first, the way F3+I
- * copies one entity. It's what the client knows: Hypixel only sends what it renders, so names,
- * equipment, head skins and flags are there, but server-side data isn't.
- */
 object EntityInfo {
 
     data class Found(val entity: Entity, val distance: Double)
@@ -37,7 +32,6 @@ object EntityInfo {
         return Result(found, write(found, radius))
     }
 
-    /** One short line for chat: distance, type and name. */
     fun describe(found: Found): String {
         val entity = found.entity
         val name = entity.customName?.string?.takeIf { it.isNotBlank() }

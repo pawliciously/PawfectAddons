@@ -26,30 +26,20 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 
-/** An item's own moment, on top of its tier's. */
 enum class Signature(val id: String, val ownMusic: Boolean) {
     NONE("none", false),
 
-    /** The dye's colour splashes over the screen like paint and runs. */
     DYE("dye", false),
 
-    /** It falls from the sky, slams into the ground point first and cracks the screen. */
     GIANT("giant", false),
 
-    /** A dial ticks it up through every rarity, as if it's recombobulating itself. */
     RECOMB("recomb", true),
 
-    /** A constellation draws itself a star at a time, a star for each the Master Star is. */
     STARS("stars", true),
 
-    /** Necron's lasers sweep the screen and close in on it. */
     NECRON("necron", false),
 }
 
-/**
- * Where the item sits and how it's turned, off the centre of the screen. Anything of it lower than
- * [clipBelow] (also off the centre) is hidden, as if it's gone into the screen there.
- */
 class ItemPose(
     val x: Float,
     val y: Float,
@@ -74,7 +64,6 @@ object DropSignatures {
         }
     }
 
-    /** How many stars a Master Star draws. */
     fun starCount(id: String?): Int = when (id?.uppercase()) {
         "FIRST_MASTER_STAR" -> 1
         "SECOND_MASTER_STAR" -> 2
@@ -83,7 +72,6 @@ object DropSignatures {
         else -> 5
     }
 
-    /** Roughly the colour each dye is named for; anything else takes its vanilla dye's colour. */
     private val dyeColors = mapOf(
         "necron" to 0xE7413C, "pearlescent" to 0x115555, "jade" to 0x00A86B, "nyanza" to 0xE9FFDB,
         "aquamarine" to 0x7FFFD4, "celadon" to 0xACE1AF, "emerald" to 0x50C878, "bone" to 0xE3DAC9,
@@ -106,9 +94,6 @@ object DropSignatures {
         return java.awt.Color.HSBtoRGB((key.hashCode() and 0xFFFF) / 65535f, 0.7f, 0.95f) and 0xFFFFFF
     }
 
-    // ------------------------------------------------------------------ hooks
-
-    /** Drawn over the wind up's light, under its glow. */
     fun windup(fr: DropFrame, t: Float) {
         when (fr.show.signature) {
             Signature.NECRON -> lasers(fr, t / fr.f.windup)
@@ -117,7 +102,6 @@ object DropSignatures {
         }
     }
 
-    /** The item, if it's already on screen before it lands. */
     fun windupItem(fr: DropFrame, t: Float): ItemPose? {
         if (fr.show.signature != Signature.GIANT) return null
         val from = fr.f.windup * GIANT_FALL_FROM
@@ -133,7 +117,6 @@ object DropSignatures {
         else -> null
     }
 
-    /** Drawn behind the item through the reveal. */
     fun behind(fr: DropFrame, r: Float, out: Float) {
         when (fr.show.signature) {
             Signature.DYE -> paint(fr, r, out)
@@ -145,10 +128,8 @@ object DropSignatures {
         }
     }
 
-    /** How much lower the rarity text sits, to clear the signature. */
     fun labelDrop(fr: DropFrame): Float = if (fr.show.signature == Signature.GIANT) fr.unit * 0.45f else 0f
 
-    /** Drawn over the item, under the text. */
     fun front(fr: DropFrame, r: Float, out: Float) {
         when (fr.show.signature) {
             Signature.RECOMB -> dial(fr, r, out)
@@ -157,13 +138,9 @@ object DropSignatures {
         }
     }
 
-    /** The item through the reveal, moved its own way. [outro] runs 0 to 1 as it goes. */
     fun pose(fr: DropFrame, r: Float, outro: Float, base: ItemPose): ItemPose = when (fr.show.signature) {
         Signature.GIANT -> {
-            // Stuck a third of the way into the screen, juddering from the hit, and otherwise dead
-            // still: no bob or tilt, so it reads as stuck fast.
             val judder = sin(r * 0.09f) * 0.14f * exp(-r / 450f)
-            // Before the end it grinds down through the slit and is gone.
             val sink = easeInCubic((r - sinkStart(fr.show)) / SINK_MS)
             val shudder = sin(r * 0.25f) * 1.5f * sink * (1f - sink)
             val down = sink * (2f * SWORD_TIP * GIANT_ZOOM + 0.3f) * fr.unit
@@ -227,8 +204,6 @@ object DropSignatures {
         return list
     }
 
-    // ------------------------------------------------------------------ dye
-
     private fun paint(fr: DropFrame, r: Float, out: Float) {
         val g = fr.g
         val seed = fr.seed
@@ -246,19 +221,16 @@ object DropSignatures {
             val a = 0.93f * out
             val tone = tones[k % tones.size]
             blob(g, sx, sy, radius, argb(tone, a))
-            // A ragged edge of smaller blobs round it.
             for (j in 0 until 10) {
                 val angle = WorldFx.hash(seed, k * 13 + j, 73) * WorldFx.TAU
                 val d = radius * (0.65f + WorldFx.hash(seed, k * 13 + j, 75) * 0.45f)
                 blob(g, sx + cos(angle) * d, sy + sin(angle) * d, radius * (0.16f + WorldFx.hash(seed, k * 13 + j, 76) * 0.26f), argb(tone, a))
             }
-            // Drops flung off it.
             for (j in 0 until 8) {
                 val angle = WorldFx.hash(seed, k * 17 + j, 77) * WorldFx.TAU
                 val d = radius * (1.25f + WorldFx.hash(seed, k * 17 + j, 78) * 1.1f) * min(1f, q * 0.8f)
                 blob(g, sx + cos(angle) * d, sy + sin(angle) * d, (1.2f + WorldFx.hash(seed, k * 17 + j, 79) * 2.6f) * fr.size, argb(tone, a))
             }
-            // Runs down the screen, each at its own pace.
             val drips = 2 + (WorldFx.hash(seed, k, 80) * 3f).toInt()
             for (d in 0 until drips) {
                 val s = k * 7 + d
@@ -277,21 +249,14 @@ object DropSignatures {
         }
     }
 
-    // ------------------------------------------------------------------ giant's sword
-
-    /** The line it goes into the screen at, below the centre. */
     private fun entryY(fr: DropFrame): Float = SWORD_ENTRY * fr.unit
 
-    /** Where the sword's centre sits with its point [SWORD_BURY] blocks into the screen. */
     private fun plantedY(fr: DropFrame, zoom: Float): Float = (SWORD_ENTRY - (SWORD_TIP * zoom - SWORD_BURY)) * fr.unit
 
-    /** When it starts sinking out of sight, counted from the reveal. */
     private fun sinkStart(show: DropCelebration.Show): Float = show.outroAt - show.revealAt - SINK_MS
 
-    /** Where the point went in. */
     private fun tip(fr: DropFrame): Pair<Float, Float> = fr.cx to fr.cy + entryY(fr)
 
-    /** The slit it's stuck in, with sparks thrown up as it grinds down through. */
     private fun slit(fr: DropFrame, r: Float, out: Float) {
         val g = fr.g
         val (tx, ty) = tip(fr)
@@ -317,7 +282,6 @@ object DropSignatures {
         val from = fr.f.windup * GIANT_FALL_FROM
         val q = (t - from) / (fr.f.windup - from)
         if (q <= 0f) return
-        // Air rushing past it, and its shadow growing where it'll hit.
         for (i in 0 until 24) {
             val x = fr.cx + (WorldFx.hash(fr.seed, i, 90) - 0.5f) * fr.unit * 2.2f
             val y = ((WorldFx.hash(fr.seed, i, 91) + q * 3f) % 1f) * fr.h
@@ -344,7 +308,6 @@ object DropSignatures {
                 crack(fr, bx, by, angle + (if (i % 2 == 0) 0.6f else -0.6f), length * 0.4f, seed + i * 13, out, 3)
             }
         }
-        // Dust thrown out low along the ground.
         val time = r / 1000f
         for (i in 0 until 16) {
             val life = 0.9f + WorldFx.hash(seed, i, 96) * 0.6f
@@ -375,12 +338,9 @@ object DropSignatures {
         }
     }
 
-    // ------------------------------------------------------------------ recombobulator
-
     private val RARITIES = intArrayOf(0xFFFFFF, 0x55FF55, 0x5555FF, 0xAA00AA, 0xFFAA00, 0xFF55FF)
     private val RARITY_NAMES = arrayOf("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC")
 
-    /** The rarity the dial's on and how fresh that step is (1 just now, toward 0 after). */
     private fun rarity(r: Float): Pair<Int, Float> {
         val step = floor((r - DIAL_START) / DIAL_STEP).toInt().coerceIn(0, RARITIES.size - 1)
         val since = r - DIAL_START - step * DIAL_STEP
@@ -411,8 +371,6 @@ object DropSignatures {
         DropDraw.text(g, word, fr.cx, fr.cy - fr.unit * 1.05f, (1.5f + 0.7f * pop) * fr.size, argb(tone, appear))
     }
 
-    // ------------------------------------------------------------------ master stars
-
     private fun starAt(k: Int): Float = 350f + k * 380f
 
     private fun constellation(fr: DropFrame, r: Float, out: Float) {
@@ -420,7 +378,6 @@ object DropSignatures {
         val seed = fr.seed
         val n = fr.show.extra
         val appear = min(1f, r / 400f) * out
-        // Faint stars scattered behind.
         for (i in 0 until 22) {
             val x = fr.w * WorldFx.hash(seed, i, 100)
             val y = fr.h * WorldFx.hash(seed, i, 101) * 0.8f
@@ -459,9 +416,6 @@ object DropSignatures {
         }
     }
 
-    // ------------------------------------------------------------------ necron
-
-    /** Three beams from off screen, swinging in to meet on the point it lands. */
     private fun lasers(fr: DropFrame, p: Float) {
         val pivots = arrayOf(-0.1f * fr.w to -0.1f * fr.h, 1.1f * fr.w to -0.05f * fr.h, 0.5f * fr.w to 1.15f * fr.h)
         val strength = min(1f, p / 0.15f)
@@ -472,7 +426,6 @@ object DropSignatures {
         }
     }
 
-    /** Every so often through the reveal, two beams sweep across behind it. */
     private fun sweeps(fr: DropFrame, r: Float, out: Float) {
         if (r < SWEEP_START) return
         val s = ((r - SWEEP_START) % SWEEP_EVERY) / 900f
@@ -496,20 +449,13 @@ object DropSignatures {
     private const val GIANT_FALL_FROM = 0.35f
     private const val GIANT_ZOOM = 2.1f
 
-    /** How far below the centre, in blocks, the sword goes into the screen. */
     private const val SWORD_ENTRY = 0.9f
 
-    /** From the sword's centre to its point, in blocks per unit of zoom: half its diagonal sprite. */
     private const val SWORD_TIP = 0.66f
 
-    /** How deep, in blocks, the point's in once it's landed. */
     private const val SWORD_BURY = 0.35f
     private const val SINK_MS = 1500f
 
-    /**
-     * Turns the sword's sprite to point straight down. The model space is flipped from the
-     * screen's, so this turns the other way to how it reads.
-     */
     private const val SWORD_DOWN = (3.0 * PI / 4.0).toFloat()
     private const val DIAL_START = 250f
     private const val DIAL_STEP = 260f

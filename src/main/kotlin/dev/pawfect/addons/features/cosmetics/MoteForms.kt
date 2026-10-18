@@ -17,10 +17,6 @@ import kotlin.math.sqrt
 
 private const val PI_F = PI.toFloat()
 
-/**
- * One player's motes for a frame, in their theme. Each theme says where a mote is at any moment
- * and what it looks like; the solid pass and the light pass both read the same places.
- */
 internal abstract class Swarm(job: Motes.Job, camera: Vec3, protected val time: Float) {
     protected val motes = job.motes
     protected val count = job.count
@@ -28,7 +24,6 @@ internal abstract class Swarm(job: Motes.Job, camera: Vec3, protected val time: 
     protected val drift = time * motes.drift
     protected val additive = motes.glow
 
-    // Camera relative, so the floats stay precise far from spawn.
     protected val ax = (job.anchor.x - camera.x).toFloat()
     protected val ay = (job.anchor.y - camera.y).toFloat()
     protected val az = (job.anchor.z - camera.z).toFloat()
@@ -43,17 +38,13 @@ internal abstract class Swarm(job: Motes.Job, camera: Vec3, protected val time: 
 
     protected fun h(i: Int, channel: Int) = WorldFx.hash(seed, i, channel)
 
-    /** Mote [i]'s colour from the palette, opaque. */
     protected fun color(i: Int, at: Float = h(i, 8)) = motes.palette.colorAt(at, time) or 0xFF000000.toInt()
 
-    /** A light colour at [alpha], added or laid over as glass depending on the glow setting. */
     protected fun light(fx: Fx, color: Int, alpha: Float) =
         fx.light(color and 0xFFFFFF or ((alpha.coerceIn(0f, 1f) * 255f).toInt() shl 24), additive)
 
-    /** Where mote [i] is, [back] seconds ago, before the swarm's lag. */
     protected abstract fun place(i: Int, back: Float, out: Vector3f)
 
-    /** Places mote [i] [back] seconds ago, hanging back toward the lagging swarm centre by its own amount. */
     protected fun at(i: Int, back: Float, out: Vector3f): Vector3f {
         place(i, back, out)
         val hang = 0.25f + 0.75f * h(i, 16)
@@ -73,7 +64,6 @@ internal abstract class Swarm(job: Motes.Job, camera: Vec3, protected val time: 
 
     abstract fun lights(fx: Fx)
 
-    /** A ribbon down mote [i]'s own path behind it, thinning and fading, [steps] long. */
     protected fun streak(fx: Fx, i: Int, head: Int, width: Float, steps: Int = 6, every: Float = 0.05f) {
         var x0 = px[i]
         var y0 = py[i]
@@ -94,7 +84,6 @@ internal abstract class Swarm(job: Motes.Job, camera: Vec3, protected val time: 
         }
     }
 
-    /** A tilted circle round the player, the shape most themes orbit on. */
     protected fun orbit(i: Int, t: Float, ring: Float, out: Vector3f): Vector3f {
         val dir = if (h(i, 2) < 0.8f) 1f else -1f
         val rate = dir * (0.35f + h(i, 3) * 0.5f) / (0.4f + ring)
@@ -130,7 +119,6 @@ internal abstract class Swarm(job: Motes.Job, camera: Vec3, protected val time: 
     }
 }
 
-/** Little cut gems on tilted orbits, each in a soft glow with a twinkle and a comet tail. */
 private class PrismSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job, camera, time) {
     private val size = FloatArray(count)
     private val shine = FloatArray(count)
@@ -167,7 +155,6 @@ private class PrismSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job,
     }
 }
 
-/** Embers lifting off you, flickering hot with small flames licking up from them, cooling as they rise. */
 private class EmberSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job, camera, time) {
     private val life = FloatArray(count)
 
@@ -212,7 +199,6 @@ private class EmberSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job,
     }
 }
 
-/** Gold feathers drifting down round you like falling leaves, catching the light as they turn. */
 private class SeraphSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job, camera, time) {
     private val life = FloatArray(count)
     private val rot = Array(count) { Quaternionf() }
@@ -269,7 +255,6 @@ private class SeraphSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job
     }
 }
 
-/** Dark matter: glossy black orbs spiralling in toward you, each in a ring of coloured light. */
 private class AbyssSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job, camera, time) {
     private val life = FloatArray(count)
 
@@ -311,7 +296,6 @@ private class AbyssSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job,
     }
 }
 
-/** Stars turning slowly round you, the nearest ones joined by faint lines into constellations. */
 private class AstralSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job, camera, time) {
     private val near = IntArray(count) { -1 }
 
@@ -334,7 +318,6 @@ private class AstralSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job
     }
 
     override fun place(i: Int, back: Float, out: Vector3f) {
-        // Slower than the gems, so the shapes hold long enough to read.
         orbit(i, (drift - back * motes.drift) * 0.45f, ringOf(i), out)
     }
 
@@ -364,7 +347,6 @@ private class AstralSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job
     }
 }
 
-/** Tiny butterflies of light wandering round you, wings beating, trailing a little pollen. */
 private class SylphSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job, camera, time) {
     private val heading = FloatArray(count)
     private val ahead = Vector3f()
@@ -395,7 +377,6 @@ private class SylphSwarm(job: Motes.Job, camera: Vec3, time: Float) : Swarm(job,
             val c = color(i)
             val tip = WorldFx.hot(c, 0.5f)
             for (side in floatArrayOf(1f, -1f)) {
-                // Forewing angled ahead, hindwing behind and smaller; both beat together.
                 q.rotationY(heading[i]).rotateZ(side * beat)
                 if (side < 0f) q.rotateY(PI_F)
                 fx.leaf(px[i], py[i], pz[i], Quaternionf(q).rotateY(-0.45f * side), s, s * 0.8f, WING, c, tip)

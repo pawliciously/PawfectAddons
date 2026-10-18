@@ -22,7 +22,6 @@ class SecretRoutesConfig {
     }
 
     enum class Source(private val label: String) {
-        /** The Secret Routes Mod's routes, saved as SECRET_ROUTES before they were bundled. */
         @SerializedName(value = "DEFAULT", alternate = ["SECRET_ROUTES"])
         DEFAULT("Default"),
 
@@ -31,7 +30,6 @@ class SecretRoutesConfig {
 
         STELLA("Stella"),
 
-        /** Your own recordings, with Default for rooms you haven't recorded. */
         RECORDED("Recorded");
 
         override fun toString(): String = label
@@ -61,7 +59,6 @@ class SecretRoutesConfig {
     @Expose
     var useLevers: Boolean = true
 
-    /** Dev only: keep drawing a room's route once it's done. */
     @Expose
     var showFinished: Boolean = false
 

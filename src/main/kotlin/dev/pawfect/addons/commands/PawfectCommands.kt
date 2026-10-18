@@ -260,7 +260,6 @@ object PawfectCommands {
         )
     }
 
-    /** Dungeon room capture for DungeonSim: what's saved and what's still missing, or switch it on and off. */
     private fun roomsNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal("rooms")
             .executes {
@@ -290,7 +289,6 @@ object PawfectCommands {
                 },
             )
 
-    /** Plays the drop celebration without needing the drop. */
     private fun dropNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal("drop")
             .executes {
@@ -446,7 +444,6 @@ object PawfectCommands {
         return sig
     }
 
-    /** Diagnostics and tools for building PA. Only registered for the pawliciously account. */
     private fun devNode(): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal("dev")
             .requires { McCompat.mc.user.name.equals(DEV_NAME, ignoreCase = true) }
@@ -612,7 +609,6 @@ object PawfectCommands {
         return SUCCESS
     }
 
-    /** Saves the NBT of every entity within a radius of the player, and lists the nearest. */
     private fun entityInfoNode(name: String): LiteralArgumentBuilder<FabricClientCommandSource> =
         ClientCommands.literal(name)
             .executes { entityInfo(ENTITY_RADIUS) }

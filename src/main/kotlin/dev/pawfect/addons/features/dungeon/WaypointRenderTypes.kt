@@ -13,7 +13,6 @@ import net.minecraft.resources.Identifier
 
 object WaypointRenderTypes {
 
-    /** Vanilla's lines, drawn over everything. */
     private fun seeThroughLines(): RenderPipeline = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
         .withLocation(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "pipeline/waypoint_lines"))
         .withDepthStencilState(DepthStencilState(CompareOp.ALWAYS_PASS, false))

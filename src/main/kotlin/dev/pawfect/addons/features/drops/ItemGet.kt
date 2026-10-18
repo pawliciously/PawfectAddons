@@ -28,11 +28,6 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 
-/**
- * A test of the "item get" moment: the camera swings round to face you, you lift the drop up over
- * your head with both hands while light bursts behind it and a short fanfare plays, and a box at
- * the bottom types out what you got. Then you lower it and the camera goes back to how it was.
- */
 object ItemGet {
 
     private class Moment(val stack: ItemStack, val name: String, val color: Int) {
@@ -54,15 +49,12 @@ object ItemGet {
     private var moment: Moment? = null
     private var savedCamera: CameraType? = null
 
-    /** Drops waiting for the chest they came from to close. */
     private val pending = ArrayDeque<Pair<String, String?>>()
 
-    /** Plays once no screen's open, as you can't see yourself through a chest. */
     fun queue(name: String, id: String?) {
         if (pending.size < 4) pending.addLast(name to id)
     }
 
-    /** An original fanfare: four notes climbing, then a bright chord. */
     private val cues: List<Cue> = buildList {
         fun note(n: Int) = 2f.pow((n - 12) / 12f)
         add(Cue(150f, "minecraft:entity.player.attack.sweep", 0.4f, 1.5f))
@@ -118,19 +110,14 @@ object ItemGet {
             val cue = cues[m.nextCue++]
             if (volume > 0f) SoundCue.play(cue.id, cue.volume * volume, cue.pitch)
         }
-        // A little tick as each pair of letters types out.
         val typed = typedChars(t)
         if (typed / 2 > m.typed / 2 && typed < plainLength(m) && volume > 0f) SoundCue.play("minecraft:block.note_block.hat", 0.2f * volume, 1.8f)
         m.typed = typed
         if (t >= END) stop()
     }
 
-    // ------------------------------------------------------------------ pose
-
-    /** How far the arms are up, 0 to 1. */
     private fun raised(t: Float): Float = smooth(t / 350f) * (1f - smooth((t - LOWER) / 300f))
 
-    /** Puts your arms up over your head, called after the player model's own pose. */
     @JvmStatic
     fun pose(entityId: Int, rightArm: ModelPart, leftArm: ModelPart) {
         val m = moment ?: return
@@ -146,8 +133,6 @@ object ItemGet {
         leftArm.zRot += (ARM_IN - leftArm.zRot) * k
     }
 
-    // ------------------------------------------------------------------ world
-
     private fun drawWorld(poseStack: PoseStack, collector: SubmitNodeCollector) {
         val m = moment ?: return
         val client = McCompat.mc
@@ -157,7 +142,6 @@ object ItemGet {
         val camera = client.gameRenderer.mainCamera()
         val eye = camera.position()
         val feet = player.getPosition(partial)
-        // From the hands up to over the head, overshooting a touch.
         val lift = DropDraw.backOut(((t - 150f) / 500f).coerceIn(0f, 1f)) * (1f - smooth((t - LOWER) / 300f))
         val height = HANDS + (OVERHEAD - HANDS) * lift
         val x = (feet.x - eye.x).toFloat()
@@ -173,7 +157,6 @@ object ItemGet {
         item.submit(poseStack, collector, 0xF000F0, OverlayTexture.NO_OVERLAY, 0)
         poseStack.popPose()
 
-        // Light bursting out behind it once it's up.
         val burst = smooth((t - JINGLE) / 250f) * (1f - smooth((t - LOWER) / 300f))
         if (burst <= 0f) return
         val left = camera.leftVector()
@@ -208,15 +191,12 @@ object ItemGet {
         })
     }
 
-    // ------------------------------------------------------------------ dialog
-
     private fun line(m: Moment): String = "§fYou got ${m.name}§f!"
 
     private fun plainLength(m: Moment): Int = line(m).removeColor().length
 
     private fun typedChars(t: Float): Int = ((t - TEXT) / 35f).toInt().coerceAtLeast(0)
 
-    /** The first [count] letters of [text], keeping its colour codes. */
     private fun typed(text: String, count: Int): String {
         val out = StringBuilder()
         var shown = 0
@@ -258,7 +238,6 @@ object ItemGet {
         pose.scale(1.3f, 1.3f)
         g.text(font, text, 0, 0, argb(0xFFFFFF, appear), true)
         pose.popMatrix()
-        // A little marker once it's all out, like the box is waiting on you.
         if (typedChars(t) >= plainLength(m) && (t / 400f).toInt() % 2 == 0) {
             g.text(font, "▼", (x + width - 14f).toInt(), (y + height - 11f).toInt(), argb(Theme.mix(m.color, 0xFFFFFF, 0.4f), appear), false)
         }
@@ -271,7 +250,6 @@ object ItemGet {
     private const val HANDS = 1.55f
     private const val OVERHEAD = 2.45f
 
-    /** Arms straight up, hands leaning in to hold it between them. */
     private const val ARM_UP = -2.95f
     private const val ARM_IN = 0.28f
 }

@@ -40,7 +40,6 @@ public abstract class ChatComponentMixin {
         ChatStyle.endLines(access);
     }
 
-    /** Recording mode keeps everything but our own messages out of chat. */
     @Inject(
         method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
         at = @At("HEAD"),

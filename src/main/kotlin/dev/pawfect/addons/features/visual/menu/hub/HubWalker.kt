@@ -40,12 +40,6 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/**
- * A player walking through a menu scene in their cosmetics: along the route its
- * scene sets out, stopping once to greet the camera. They move the way a player does,
- * ticked twenty times a second, and are drawn by the game's own player renderer, so the skin,
- * cape, name, trail and motes look exactly as they do in a world.
- */
 internal object HubWalker {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/HubWalker")
@@ -53,16 +47,12 @@ internal object HubWalker {
     private const val NAME = "pawliciously"
     private val ID: UUID = UUID.fromString("59abdd8f-1279-4822-bb24-7dc27b261f97")
 
-
-    // Seconds after the camera settles; starting a little early means walking into a settled frame.
     private const val START_AT = -1.0
     private const val TICK_SECONDS = 0.05
     private const val MAX_TICKS_PER_FRAME = 10
     private const val SKIN_RETRY_MS = 30_000L
-    // Once inside the castle the walker is gone; this long after, the walk starts over.
     private const val REAPPEAR_TICKS = 200
 
-    // Vanilla's walking pace, jump and gravity, per tick.
     private const val WALK_SPEED = 0.2158
     private const val JUMP_SPEED = 0.42
     private const val GRAVITY = 0.08
@@ -84,8 +74,6 @@ internal object HubWalker {
     private const val CROUCHING_EYES = 1.27f
     private const val FULL_BRIGHT = 15728880
 
-    // A vanilla name tag is 0.225 blocks tall wherever its owner stands, which is a handful of
-    // pixels from across the scene, so it grows just enough to stay readable.
     private const val TAG_HEIGHT = 9 * 0.025
     private const val MIN_TAG_PIXELS = 12.0
     private const val MAX_TAG_SCALE = 3.0
@@ -163,14 +151,11 @@ internal object HubWalker {
     private var lightColour = 0
     private var lightmap: GpuTextureView? = null
 
-    // The walker's own submits, drawn with the scene camera.
     private val storage = SubmitNodeStorage()
 
-    /** The lightmap the game should hand out while the walker draws, or null for its own. */
     @JvmStatic
     fun lightmapOverride(): GpuTextureView? = lightmap
 
-    /** Plans the walk on the scene's build thread, while its blocks are loaded. */
     fun prepare(world: HubWorld, script: MenuScenes.Script) {
         val started = System.nanoTime()
         greetingStop = script.greeting
@@ -185,28 +170,21 @@ internal object HubWalker {
         }
     }
 
-    /** Drops the planned walk, for a scene it does not belong in. */
     fun forget() {
         walk = null
     }
 
-    /** Sends the walker back to the start, for a fresh visit to the menu. */
     fun restart() {
         phase = Phase.WAITING
         lastFrame = 0L
     }
 
-    /** Stops the walker for the session after a draw error, leaving the scene itself running. */
     fun fail(error: Throwable) {
         if (broken) return
         broken = true
         logger.error("The menu walker stopped after a draw error.", error)
     }
 
-    /**
-     * Steps the walk and draws it into the scene. [showtime] counts seconds since the camera
-     * settled for this visit, negative while it is still flying in.
-     */
     fun draw(cameraX: Double, cameraY: Double, cameraZ: Double, rotation: Quaternionf, view: Matrix4f, projection: GpuBufferSlice, pixelAngle: Double, showtime: Double) {
         if (broken || !ConfigManager.features.menu.showcase) return
         val walk = walk ?: return
@@ -300,7 +278,6 @@ internal object HubWalker {
                     phaseTicks = 0
                 }
             }
-            // A jump and a swing every so often, with the crouch key spammed throughout.
             Phase.GREETING -> {
                 jump = phaseTicks in GREETING_JUMPS
                 if (jump) body.swing = 0f
@@ -323,8 +300,6 @@ internal object HubWalker {
         animate(body)
     }
 
-    // Steps up whatever the planner allows without a jump, jumps anything taller, and falls the
-    // rest of the way with vanilla's gravity.
     private fun move(body: Body, walk: WalkPlanner.Walk, at: Double, jump: Boolean) {
         val floor = sample(walk.floors, at)
         val ahead = sample(walk.floors, at + 0.4 / WalkPlanner.STEP)
@@ -374,8 +349,6 @@ internal object HubWalker {
         body.headYaw = body.bodyYaw + Mth.clamp(Mth.wrapDegrees(body.headYaw - body.bodyYaw), -HEAD_TURN_LIMIT, HEAD_TURN_LIMIT)
     }
 
-    // The same bookkeeping a client player does every tick: limbs, the lagging cape anchor, the
-    // view bob that swings the cape, and the arm swing.
     private fun animate(body: Body) {
         val moved = hypot(body.x - previous.x, body.z - previous.z).toFloat()
         body.limbSpeed += (min(moved * 4f, 1f) - body.limbSpeed) * 0.4f
@@ -443,17 +416,14 @@ internal object HubWalker {
         modelView.pushMatrix().set(view)
         lighting.setupFor(Lighting.Entry.LEVEL)
         try {
-            // The body, cape and effects take the scene's light at the walker's spot.
             lightmap = light(walk, current.distance)
             val feet = Vec3(x, y, z)
             val eye = Vec3(cameraX, cameraY, cameraZ)
             mc.entityRenderDispatcher.submit(state, camera, x - cameraX, y - cameraY, z - cameraZ, PoseStack(), storage)
             Trails.submitShowcase(PoseStack(), storage, ID, feet, height, eye)
             Motes.submitShowcase(PoseStack(), storage, ID, feet, height, eye)
-            // Drawn here, with this camera, instead of with the menu's flat projection.
             features.renderAllFeatures(storage)
 
-            // The name tag stays clear of the scene's light, so it reads against the night.
             lightmap = null
             nameTag(storage, x - cameraX, y + height + 0.5 - cameraY, z - cameraZ, distance, pixelAngle)
             features.renderAllFeatures(storage)
@@ -465,7 +435,6 @@ internal object HubWalker {
         }
     }
 
-    // What the player renderer would read off a real player entity this frame.
     private fun fill(skin: PlayerSkin, partial: Float, x: Double, y: Double, z: Double, crouching: Boolean, distance: Double) {
         val bodyYaw = Mth.rotLerp(partial, previous.bodyYaw, current.bodyYaw)
         val headYaw = Mth.rotLerp(partial, previous.headYaw, current.headYaw)
@@ -494,7 +463,6 @@ internal object HubWalker {
         state.attackArm = HumanoidArm.RIGHT
         state.attackTime = if (current.swing >= 0f) Mth.lerp(partial, previous.swing.coerceAtLeast(0f), current.swing) / SWING_TICKS else 0f
 
-        // Cape physics, as the player renderer works it out from the lagging cloak anchor.
         val dx = Mth.lerp(partial.toDouble(), previous.cloakX, current.cloakX) - x
         val dy = Mth.lerp(partial.toDouble(), previous.cloakY, current.cloakY) - y
         val dz = Mth.lerp(partial.toDouble(), previous.cloakZ, current.cloakZ) - z
@@ -513,12 +481,9 @@ internal object HubWalker {
         val pose = PoseStack()
         pose.translate(x, y, z)
         pose.scale(scale, scale, scale)
-        // Not see-through: the tag hides behind blocks like the walker does.
         storage.submitNameTag(pose, TAG_ORIGIN, 0, name, false, FULL_BRIGHT, camera)
     }
 
-    // A one pixel lightmap in the scene's colour at the walker's spot: every light level reads
-    // the same colour, so the body and the cape layer, which only carries light levels, match.
     private fun light(walk: WalkPlanner.Walk, distance: Double): GpuTextureView {
         val at = (distance / WalkPlanner.STEP).coerceIn(0.0, walk.xs.size - 1.0)
         val index = floor(at).toInt().coerceAtMost(walk.xs.size - 2).coerceAtLeast(0)

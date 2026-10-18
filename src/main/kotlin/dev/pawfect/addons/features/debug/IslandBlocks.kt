@@ -12,12 +12,6 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/**
- * Counts every block in the chunks the client has loaded, so standing on an island lists what
- * it's built from. Islands fit inside a normal render distance, so standing near the middle
- * covers all of one. Counts come from each chunk section's palette, so a whole island takes
- * well under a second.
- */
 object IslandBlocks {
 
     class Result(val counts: List<Pair<Block, Long>>, val chunks: Int, val file: Path)

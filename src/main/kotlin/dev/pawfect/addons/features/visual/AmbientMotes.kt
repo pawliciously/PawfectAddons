@@ -26,16 +26,6 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-/**
- * Motes of light drifting through the world around you, lifting off the blocks out to a set
- * distance. Each colour set has its own way of moving and its own look: embers rise and cool,
- * Seraph light falls like feathers, Abyss motes spiral down and blink about, Astral ones hang still
- * and twinkle with the odd shooting star, Sylph ones flit about like fireflies and Prism shards
- * glide and flash as they turn. Theme and Custom do a bit of everything.
- *
- * They spawn all around you, not just where you're looking, and live out their lives; blocks in
- * front of them hide them through the depth test.
- */
 object AmbientMotes {
 
     private val config get() = ModuleSwitch.view("visuals", ConfigManager.features.ambientMotes)
@@ -56,7 +46,6 @@ object AmbientMotes {
         var scale = 1f
         var spin = 0f
         var timer = 0
-        /** The tick something happened to it: a blink or a turn, drawn as a flash. */
         var eventAt = -1000
     }
 
@@ -66,7 +55,6 @@ object AmbientMotes {
     private val cursor = BlockPos.MutableBlockPos()
     private var lastPalette: Palette? = null
 
-    /** A breeze the embers all lean into together. */
     private var windX = 0.0
     private var windZ = 0.0
 
@@ -82,8 +70,6 @@ object AmbientMotes {
         motes.clear()
     }
 
-    // ------------------------------------------------------------------ tick
-
     private fun tick() {
         val client = McCompat.mc
         val level = client.level
@@ -91,7 +77,6 @@ object AmbientMotes {
             if (motes.isNotEmpty()) clear()
             return
         }
-        // A new colour set moves differently, so the old ones make way at once.
         if (config.palette != lastPalette) {
             clear()
             lastPalette = config.palette
@@ -126,13 +111,10 @@ object AmbientMotes {
         repeat(attempts.coerceAtLeast(0)) { spawn(level, eye, reach) }
     }
 
-    /** The farthest they go: your setting, but no further than the loaded world. */
     private fun reach(): Double {
         val loaded = (McCompat.mc.options.effectiveRenderDistance * 16 + 8).toDouble()
         return min(config.distance.toDouble(), loaded).coerceAtLeast(8.0)
     }
-
-    // ------------------------------------------------------------------ spawning
 
     private fun moodFor(palette: Palette): Mood = when (palette) {
         Palette.EMBER -> Mood.EMBER
@@ -145,13 +127,11 @@ object AmbientMotes {
     }
 
     private fun spawn(level: ClientLevel, eye: Vec3, reach: Double) {
-        // Anywhere around you, a little above or below your eye.
         val yaw = random.nextDouble() * Math.PI * 2
         val pitch = (random.nextDouble() - 0.6) * 1.0
         val dx = cos(yaw) * cos(pitch)
         val dy = sin(pitch)
         val dz = sin(yaw) * cos(pitch)
-        // Weighted toward you: most of what you see is close, and the far ones fill the distance.
         val distance = NEAR + (reach - NEAR) * random.nextDouble().pow(1.7)
         val surface = surface(level, eye.x + dx * distance, eye.y + dy * distance, eye.z + dz * distance) ?: return
         val mood = moodFor(config.palette)
@@ -170,7 +150,6 @@ object AmbientMotes {
         val oz = z - eye.z
         val distSq = ox * ox + oy * oy + oz * oz
         if (distSq > reach * reach) return
-        // Lifted up under a ceiling, it'd start inside the blocks.
         if (solidAt(level, x, y, z)) return
 
         val speed = config.speed.toDouble().coerceIn(0.1, 4.0)
@@ -194,7 +173,6 @@ object AmbientMotes {
             else -> 1
         }
         if (mood == Mood.SHOOTING) {
-            // Straight across and down, too quick to do anything else.
             val yaw = random.nextDouble() * Math.PI * 2
             val pitch = -(0.2 + random.nextDouble() * 0.3)
             val v = (0.35 + random.nextDouble() * 0.25) * speed
@@ -207,7 +185,6 @@ object AmbientMotes {
         m.eventAt = -1000
         val colors = palette()
         m.color = colors[random.nextInt(colors.size)]
-        // The abyss's darkest shade is kept for the glow round them; their rings take the bright ones.
         if (mood == Mood.VOID && colors.size >= 3) m.color = if (random.nextBoolean()) colors[0] else colors[2]
         m.spark = when (config.look) {
             Look.GLOW -> false
@@ -218,7 +195,6 @@ object AmbientMotes {
         motes += m
     }
 
-    /** The top of the nearest floor under a point, in loaded chunks; the ground's top if it's in open air. */
     private fun surface(level: ClientLevel, x: Double, y: Double, z: Double): Vec3? {
         val bx = kotlin.math.floor(x).toInt()
         val bz = kotlin.math.floor(z).toInt()
@@ -237,8 +213,6 @@ object AmbientMotes {
         if (ground <= level.minY) return null
         return Vec3(bx + 0.5, ground.toDouble(), bz + 0.5)
     }
-
-    // ------------------------------------------------------------------ movement
 
     private fun noise(seed: Int, channel: Int, t: Float): Double {
         val f1 = 0.35f + WorldFx.hash(seed, channel, 1) * 0.6f
@@ -270,7 +244,6 @@ object AmbientMotes {
             }
             Mood.DART -> {
                 if (--m.timer <= 0) {
-                    // A quick dash somewhere, then hanging there a moment like a firefly.
                     val yaw = random.nextDouble() * Math.PI * 2
                     val pitch = (random.nextDouble() - 0.4) * 1.2
                     val dash = (0.12 + random.nextDouble() * 0.12) * speed
@@ -285,13 +258,11 @@ object AmbientMotes {
                 }
             }
             Mood.EMBER -> {
-                // Shoots up off the ground, jittering in the heat, and slows as it cools.
                 val f = m.age / m.life.toDouble()
                 val rise = (0.035 + WorldFx.hash(s, 5, 0) * 0.035) * (1 - f * 0.7) * speed
                 steer(m, (noise(s, 0, t * 4f) * 0.018 + windX) * speed, rise, (noise(s, 2, t * 4f) * 0.018 + windZ) * speed, 0.18)
             }
             Mood.FEATHER -> {
-                // Rocks side to side on the way down, quickest through the middle of each swing.
                 val phase = t * (1.3f + WorldFx.hash(s, 6, 0) * 0.8f) * speed.toFloat() + WorldFx.hash(s, 7, 0) * WorldFx.TAU
                 val heading = WorldFx.hash(s, 8, 0) * WorldFx.TAU
                 val c = cos(phase).toDouble()
@@ -299,7 +270,6 @@ object AmbientMotes {
                 steer(m, cos(heading) * side + windX * 0.5, (0.003 - 0.02 * c * c) * speed, sin(heading) * side + windZ * 0.5, 0.3)
             }
             Mood.VOID -> {
-                // Spirals down round a sinking point, tighter and quicker as it goes.
                 val tight = 1f - 0.75f * (m.age / m.life.toFloat())
                 val radius = (0.5f + WorldFx.hash(s, 6, 0) * 1.2f) * tight
                 val dir = if (s and 1 == 0) 1f else -1f
@@ -316,7 +286,6 @@ object AmbientMotes {
             }
             Mood.SHOOTING -> Unit
             Mood.FAIRY -> {
-                // Loops figure eights round a point that wanders, and now and then zips off somewhere new.
                 m.ax += noise(s, 3, t * 0.25f) * 0.012 * speed
                 m.ay += noise(s, 4, t * 0.2f) * 0.004 * speed
                 m.az += noise(s, 5, t * 0.25f) * 0.012 * speed
@@ -339,7 +308,6 @@ object AmbientMotes {
                 seek(m, tx, ty, tz, 0.15, 0.28 * speed, 0.3)
             }
             Mood.SHARD -> {
-                // Glides dead straight, then turns sharply like light off a facet.
                 if (--m.timer <= 0) {
                     m.timer = 30 + random.nextInt(70)
                     val yaw = random.nextDouble() * Math.PI * 2
@@ -357,7 +325,6 @@ object AmbientMotes {
         val ny = m.y + m.vy
         val nz = m.z + m.vz
         if (m.mood != Mood.SHOOTING) {
-            // Only the near ones bump into blocks, as far off nobody can tell; feathers always land.
             val near = (nx - eye.x) * (nx - eye.x) + (ny - eye.y) * (ny - eye.y) + (nz - eye.z) * (nz - eye.z) < COLLIDE_RANGE * COLLIDE_RANGE
             if ((near || m.mood == Mood.FEATHER) && solidAt(level, nx, ny, nz)) {
                 when (m.mood) {
@@ -381,7 +348,6 @@ object AmbientMotes {
         m.x = nx; m.y = ny; m.z = nz
     }
 
-    /** Abyss motes wink out and back a few blocks off. */
     private fun blink(level: ClientLevel, m: Mote, jump: Double) {
         m.timer = 60 + random.nextInt(100)
         val yaw = random.nextDouble() * Math.PI * 2
@@ -392,7 +358,6 @@ object AmbientMotes {
         if (solidAt(level, m.x + dx, m.y + dy, m.z + dz)) return
         m.x += dx; m.y += dy; m.z += dz
         m.ax += dx; m.ay += dy; m.az += dz
-        // No streak between where it was and where it went.
         m.px = m.x; m.py = m.y; m.pz = m.z
         m.eventAt = m.age
     }
@@ -403,7 +368,6 @@ object AmbientMotes {
         m.vz += (tz - m.vz) * k
     }
 
-    /** Steers toward a point, no faster than [cap] a tick. */
     private fun seek(m: Mote, tx: Double, ty: Double, tz: Double, gain: Double, cap: Double, k: Double) {
         var dx = (tx - m.x) * gain
         var dy = (ty - m.y) * gain
@@ -433,8 +397,6 @@ object AmbientMotes {
         Palette.CUSTOM -> intArrayOf(config.customColor, Theme.mix(config.customColor, 0xFFFFFF, 0.35f))
     }
 
-    // ------------------------------------------------------------------ drawing
-
     private fun draw(poseStack: PoseStack, collector: SubmitNodeCollector) {
         if (motes.isEmpty() || !config.enabled) return
         val client = McCompat.mc
@@ -454,7 +416,6 @@ object AmbientMotes {
                 val age = m.age + partial
                 val alpha = fade(m, age) * (1f - smooth(reach * 0.82, reach, dist.toDouble())) * bright
                 if (alpha <= 0.01f) continue
-                // Far motes grow so they still read as points of light, not vanish below a pixel.
                 val grow = max(1f, dist / 12f).pow(0.85f)
                 val r = BASE_RADIUS * size * m.scale * grow
                 val segments = if (dist > 48) 6 else 10
@@ -475,7 +436,6 @@ object AmbientMotes {
 
     private fun Fx.glow(rgb: Int, alpha: Float): Int = light(argb(rgb, alpha), true)
 
-    /** A short streak back along where it's come from. */
     private fun Fx.tail(x: Float, y: Float, z: Float, m: Mote, length: Float, width: Float, color: Int) {
         line(x, y, z, x - m.vx.toFloat() * length, y - m.vy.toFloat() * length, z - m.vz.toFloat() * length, width, 0f, color, 0)
     }
@@ -491,7 +451,6 @@ object AmbientMotes {
         }
     }
 
-    /** White hot as it lifts off, cooling through orange to a dull red, flickering all the way. */
     private fun ember(fx: Fx, x: Float, y: Float, z: Float, r: Float, m: Mote, a: Float, age: Float, time: Float, grow: Float, segments: Int) {
         val f = (age / m.life).coerceIn(0f, 1f)
         val colors = Form.EMBER.colors
@@ -502,7 +461,6 @@ object AmbientMotes {
         fx.soft(x, y, z, r * 0.7f, fx.glow(WorldFx.hot(c, 0.65f * (1f - f)), a * flicker), 6)
     }
 
-    /** A warm glow in a faint ring, breathing slowly and catching the light now and then. */
     private fun feather(fx: Fx, x: Float, y: Float, z: Float, r: Float, m: Mote, a: Float, time: Float, segments: Int, near: Boolean) {
         val breathe = 0.75f + 0.25f * sin(time * 1.4f + m.seed)
         fx.soft(x, y, z, r * 3.8f, fx.glow(m.color, a * 0.2f * breathe), segments)
@@ -512,7 +470,6 @@ object AmbientMotes {
         if (glint > 0.05f) fx.star(x, y, z, r * 3.4f * glint, fx.glow(WorldFx.hot(m.color, 0.6f), a * glint))
     }
 
-    /** A pinprick in a violet ring, wrapped in dark light, with a ring bursting out wherever it blinks to. */
     private fun void(fx: Fx, x: Float, y: Float, z: Float, r: Float, m: Mote, a: Float, age: Float, segments: Int, near: Boolean) {
         val since = age - m.eventAt
         val arrive = (since / 6f).coerceIn(0f, 1f)
@@ -529,7 +486,6 @@ object AmbientMotes {
         }
     }
 
-    /** Hangs nearly still, twinkling sharply, with a slow bright flare every so often. */
     private fun star(fx: Fx, x: Float, y: Float, z: Float, r: Float, m: Mote, a: Float, time: Float, segments: Int) {
         val rate = 1.5f + WorldFx.hash(m.seed, 9, 0) * 3f
         val twinkle = 0.4f + 0.6f * (0.5f + 0.5f * sin(time * rate + m.seed)).pow(3)
@@ -544,7 +500,6 @@ object AmbientMotes {
         fx.star(x, y, z, r * 2.6f, fx.glow(WorldFx.hot(m.color, 0.6f), a))
     }
 
-    /** Pulses on and off like a firefly, leaving a thin streak of dust and the odd sparkle. */
     private fun fairy(fx: Fx, x: Float, y: Float, z: Float, r: Float, m: Mote, a: Float, time: Float, grow: Float, segments: Int) {
         val rate = 1.4f + WorldFx.hash(m.seed, 9, 0) * 1.2f
         val pulse = max(0f, sin(time * rate + m.seed))
@@ -556,7 +511,6 @@ object AmbientMotes {
         if (dust > 0.05f) fx.star(x, y, z, r * 2f * dust, fx.glow(WorldFx.hot(m.color, 0.5f), a * dust))
     }
 
-    /** Shifts slowly through the crystal's colours, and flashes with a ring of the next one at every turn. */
     private fun shard(fx: Fx, x: Float, y: Float, z: Float, r: Float, m: Mote, a: Float, age: Float, time: Float, segments: Int, near: Boolean) {
         val colors = Form.PRISM.colors
         val n = colors.size
@@ -575,7 +529,6 @@ object AmbientMotes {
 
     private fun argb(color: Int, alpha: Float): Int = ((alpha.coerceIn(0f, 1f) * 255).toInt() shl 24) or (color and 0xFFFFFF)
 
-    /** In and out gently, except embers pop up and shooting stars come and go in a blink. */
     private fun fade(m: Mote, age: Float): Float {
         val fadeIn = when (m.mood) {
             Mood.SHOOTING -> 3f

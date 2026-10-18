@@ -13,10 +13,6 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.util.function.IntSupplier;
 
-/**
- * Swaps Mojang's logo and progress bar for the PawfectAddons loading scene, on startup and on
- * every resource reload. Vanilla still decides when to fade and when it's finished.
- */
 @Mixin(LoadingOverlay.class)
 public abstract class LoadingOverlayMixin {
 
@@ -58,7 +54,6 @@ public abstract class LoadingOverlayMixin {
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/LoadingOverlay;extractProgressBar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIIIF)V")
     )
     private void pawfectaddons$progressBar(LoadingOverlay overlay, GuiGraphicsExtractor graphics, int left, int top, int right, int bottom, float alpha) {
-        // The scene draws its own bar.
         if (!pawfectaddons$drewScene) extractProgressBar(graphics, left, top, right, bottom, alpha);
     }
 }

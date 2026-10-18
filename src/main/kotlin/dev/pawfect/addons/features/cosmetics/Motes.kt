@@ -12,10 +12,6 @@ import java.util.UUID
 import kotlin.math.exp
 import kotlin.math.roundToInt
 
-/**
- * The motes swarming round a player, in the theme they picked (see [Swarm]). The swarm lags a
- * moment behind when you move and settles back round you. Legacy ones are [LegacyMotes].
- */
 object Motes {
 
     private const val VIEW_LIMIT = 64.0
@@ -26,7 +22,6 @@ object Motes {
 
     private val config get() = ModuleSwitch.view("cosmetics", ConfigManager.features.cosmetics)
 
-    /** Where each swarm's centre has got to, chasing its player. */
     private class Follow(var x: Double, var y: Double, var z: Double, var at: Long)
 
     private val follows = HashMap<UUID, Follow>()
@@ -83,7 +78,6 @@ object Motes {
         submit(poseStack, collector, jobs, camera, time, WorldFx.shade(level, jobs.first().anchor))
     }
 
-    /** Draws the motes of someone walking the menu scene, who has no entity in any world. */
     fun submitShowcase(poseStack: PoseStack, collector: SubmitNodeCollector, uuid: UUID, feet: Vec3, height: Double, camera: Vec3) {
         if (!Cosmetics.showsOffWorld(config.motes, uuid)) return
         val motes = Cosmetics.motesFor(uuid) ?: return
@@ -100,7 +94,6 @@ object Motes {
 
     private fun clock(now: Long) = if (config.animate) (now % 3_600_000L) / 1000f else 0f
 
-    /** Eases the swarm centre toward [anchor], snapping when the player jumps a long way. */
     private fun follow(uuid: UUID, anchor: Vec3, now: Long): Vec3 {
         val f = follows.getOrPut(uuid) { Follow(anchor.x, anchor.y, anchor.z, now) }
         val dt = ((now - f.at).coerceIn(0L, 100L)) / 1000.0

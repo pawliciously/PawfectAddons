@@ -11,7 +11,6 @@ import dev.pawfect.addons.features.visual.playerchams.PlayerChams;
 @Mixin(SubmitNodeCollection.class)
 public abstract class SubmitNodeCollectionMixin {
 
-    // Model parts are submitted through submitModel too, so this covers both.
     @ModifyVariable(method = "submitModel", at = @At("HEAD"), argsOnly = true)
     private RenderType pawfectaddons$chamsModel(RenderType renderType) {
         return PlayerChams.wrap(renderType);

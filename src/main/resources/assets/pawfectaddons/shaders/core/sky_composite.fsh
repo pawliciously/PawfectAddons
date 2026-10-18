@@ -376,20 +376,12 @@ vec3 skyGalaxy(vec3 dir, vec3 anchor, vec3 warm, vec3 cool, vec3 hot, float amou
     return max(body, vec3(0.0));
 }
 
-// Angular radius a star is drawn at on a 1080p screen with a 70 degree field of view. Stars keep
-// their total light relative to this, so they look the same at any resolution.
 const float STAR_REF = 0.00085;
 
-// A star's core at squared angular distance d2. It is never drawn narrower than about a pixel:
-// its light is spread over the wider spot instead, so a star keeps its brightness at any
-// resolution and stays steady as the sky drifts rather than crawling between pixels.
 float starCore(float d2, float radius) {
     return exp(-d2 / (radius * radius)) * (STAR_REF * STAR_REF) / (radius * radius);
 }
 
-// Colour, brightness and twinkle for the light a star sends to this pixel. Each star twinkles on
-// its own: two sines at unrelated rates and phases taken from its hash, so the field never pulses
-// together and no star repeats on an obvious beat.
 vec3 starShade(float light, float lum, vec3 r, float time, float shimmer) {
     float wave = 0.6 * sin(time * (0.9 + 2.3 * r.x) + 37.0 * r.y) + 0.4 * sin(time * (0.29 + 0.73 * r.z) + 11.0 * r.x);
     float sparkle = 1.0 + shimmer * (0.3 + 0.7 * lum) * wave;
@@ -397,11 +389,6 @@ vec3 starShade(float light, float lum, vec3 r, float time, float shimmer) {
     return hue * light * (0.18 + lum * 3.2) * sparkle;
 }
 
-// How much of a star shows (x) and how bright it is (y). Whether it shows depends on how crowded
-// its part of the sky is: it fades in as the crowding rises past its rank rather than switching
-// on there, which keeps it whole where the crowding changes across it, and every star is gone
-// where there is no crowding at all. Its brightness comes from the rank too, but folded so that
-// the stars on the threshold are not always the brightest ones.
 vec2 starRank(float h, float chance, float density) {
     float rank = h / chance;
     float mag = fract(rank * 7.0);
@@ -409,11 +396,6 @@ vec2 starRank(float h, float chance, float density) {
     return vec2(smoothstep(rank, rank + 0.2, density), lum * lum);
 }
 
-// One candidate star per cell, so a layer costs one hash per pixel instead of a search through
-// neighbouring cells. Only this cell's pixels see its star, so the star's light has to die out
-// before the cell walls: a cut through it would flicker as it drifts across pixels. Stars without
-// that room fade away instead, which thins a layer out gracefully where its cells are only a few
-// pixels wide.
 vec3 milkyStars(vec3 g, float scale, float chance, float density, float gain, float size, float halo, vec3 tint, float px, float time, float shimmer) {
     vec3 cell = floor(g * scale);
     float h = hash13(cell);
@@ -423,8 +405,6 @@ vec3 milkyStars(vec3 g, float scale, float chance, float density, float gain, fl
 
     vec3 r = hash33(cell + 19.19);
     vec3 star = normalize(cell + 0.2 + r * 0.6);
-    // The star's distance to its cell walls across the sky. A wall the sphere meets at a grazing
-    // angle lies further off on the sky than inside the cell, hence the slope.
     vec3 local = star * scale - cell;
     vec3 wall = min(local, 1.0 - local) * inversesqrt(max(1.0 - star * star, 1e-4));
     float room = min(wall.x, min(wall.y, wall.z)) / scale;
@@ -442,12 +422,7 @@ vec3 milkyStars(vec3 g, float scale, float chance, float density, float gain, fl
     return starShade(light, lum, r, time, shimmer) * tint * gain;
 }
 
-// The band holds more stars than one per cell can show cleanly, so its densest layer looks at the
-// four cells around each pixel instead, laid out in galactic longitude and latitude where they
-// stay nearly square close to the plane. Any star within half a cell of a pixel is in those four,
-// so as long as its light dies out within that reach, no star is ever cut off at a cell edge.
 vec3 bandStars(vec3 g, float u, float scale, float chance, float density, float gain, vec3 tint, float px, float time, float shimmer) {
-    // A whole number of cells around keeps the wrap at the anticentre seamless.
     float around = floor(TAU * scale);
     float cosLat = sqrt(max(1.0 - g.y * g.y, 0.05));
     vec2 size = vec2(TAU * cosLat / around, 1.0 / (scale * cosLat));
@@ -475,8 +450,6 @@ vec3 bandStars(vec3 g, float u, float scale, float chance, float density, float 
     return light * tint * gain;
 }
 
-// A handful of bright stars placed by hand in galactic coordinates, with the soft glow and the
-// horizontal lens streak of the reference. A fixed list costs a dot product each per pixel.
 const vec4 HEROES[6] = vec4[6](
     vec4(0.901, 0.105, 0.420, 1.00),
     vec4(0.912, -0.242, -0.332, 0.70),
@@ -497,8 +470,6 @@ vec3 heroStars(vec3 g, float px, float time, float shimmer) {
         float y = dot(delta, galUp.xyz);
         float a = HEROES[i].w;
 
-        // A sharp core, two soft glows and the long horizontal streak and short vertical spike
-        // a camera lens adds to a very bright point. The streak follows the screen, not the sky.
         float radius = max(0.0008 * (0.6 + a), px * 0.75);
         float point = exp(-d2 / (radius * radius)) * 4.0;
         float dist = sqrt(d2);
@@ -512,7 +483,6 @@ vec3 heroStars(vec3 g, float px, float time, float shimmer) {
     return light;
 }
 
-// Two distant galaxies far from the band: a face-on spiral and a thin edge-on disc.
 vec3 deepSky(vec3 g) {
     vec3 light = vec3(0.0);
 
@@ -545,9 +515,6 @@ vec3 deepSky(vec3 g) {
     return light;
 }
 
-// Shooting stars come from the CPU as up to three paths, so the shader never has to look for
-// them. Each is drawn in its own frame: one dot product says how far a pixel sits off the path
-// and another how far along it, which holds for the short arcs a meteor covers.
 vec3 shootingStars(vec3 dir, float px) {
     vec3 light = vec3(0.0);
     for (int i = 0; i < 3; i++) {
@@ -562,7 +529,6 @@ vec3 shootingStars(vec3 dir, float px) {
         float along = dot(dir, path.xyz);
         float energy = side.w / width;
 
-        // The trail fades and thins toward its tail; the head is a round glow brighter than both.
         float u = clamp(-along / max(path.w, 1e-4), 0.0, 1.0);
         float thin = width * mix(1.0, 0.35, u);
         float tail = (1.0 - u) * (1.0 - u);
@@ -580,17 +546,11 @@ vec3 skyMilkyWay(vec3 dir, float time, float intensity, float lutH) {
     vec4 lut = texture(SkySampler, uv);
     vec3 colour = unpackHdr(lut.rgb);
     float lane = lut.a;
-    // The angle one pixel spans here: the centre's, shrinking off-axis as the screen tilts away
-    // from the ray. It comes from the camera rather than screen derivatives, which some compilers
-    // move into the per-star branches, where they come out as zero.
     float facing = dot(dir, camFwd.xyz);
     float px = galX.w * facing * sqrt(facing);
     int quality = int(galUp.w + 0.5);
     float shimmer = galRight.w * 0.45;
 
-    // The LUT is coarser than the screen, so two octaves of fine noise put the detail back: grain
-    // in the bright nebula and ragged, fractal edges on the dust lanes. Both only run where they
-    // show, so the dark sky pays nothing for them.
     float lum = dot(colour, vec3(0.2126, 0.7152, 0.0722));
     float edge = lane * (1.0 - lane) * 4.0;
     float weight = smoothstep(0.05, 0.5, lum);
@@ -602,12 +562,7 @@ vec3 skyMilkyWay(vec3 dir, float time, float intensity, float lutH) {
     }
     float crowd = smoothstep(0.10, 0.8, lum) * (1.0 - lane * 0.85);
 
-    // Three layers of single stars from faint and plentiful to sparse and bright, and a dense one
-    // that only fills the band. The faint ones follow the star density in the LUT, which is what
-    // makes the band read as millions of stars.
     float plenty = mix(0.7, 1.3, intensity);
-    // Stars inside the band pick up some of the nebula colour behind them, so the band reads as a
-    // pink-white stipple rather than white specks pasted on top.
     vec3 behind = colour / max(max(colour.r, max(colour.g, colour.b)), 1e-3);
     vec3 inBand = mix(vec3(1.0), behind, 0.45 * crowd);
     vec3 stars = milkyStars(g, 120.0, 0.75 * plenty, mix(0.45, 1.1, crowd), 0.45 * mix(0.4, 2.0, crowd), 1.0, 0.0, inBand, px, time, shimmer * 0.5);

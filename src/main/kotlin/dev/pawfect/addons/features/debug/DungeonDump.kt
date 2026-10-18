@@ -21,11 +21,6 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/**
- * Everything a dungeon looks like from the client, to one file, so DungeonSim can send the same thing:
- * where the server says you are, the sidebar, the tab list, inventory items, the map's pixels and markers,
- * recent action bars and titles, entities and player heads nearby.
- */
 object DungeonDump {
 
     private const val ENTITY_RADIUS = 64.0
@@ -185,7 +180,6 @@ object DungeonDump {
         }
     }
 
-    /** Player head blocks nearby: wither essence and redstone keys are told apart by profile id. */
     private fun heads(out: MutableList<String>) {
         val player = McCompat.player ?: return
         val level = McCompat.mc.level ?: return

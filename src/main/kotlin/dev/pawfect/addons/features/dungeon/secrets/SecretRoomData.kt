@@ -60,10 +60,8 @@ object SecretRoomData {
     private val skeletons = HashMap<String, HashMap<String, IntArray>>()
     private val secrets = HashMap<String, List<SecretEntry>>()
 
-    /** Our room ids to their display names ("Super Tall"), squashed by [nameKey]. */
     private val names = HashMap<String, String>()
 
-    /** Our room ids to their display names as written. */
     private val displayNames = HashMap<String, String>()
 
     @Volatile
@@ -81,13 +79,10 @@ object SecretRoomData {
 
     fun roomCount(): Int = skeletons.values.sumOf { it.size }
 
-    /** A room's display name as a [nameKey], for matching files that name rooms that way. */
     fun displayKey(room: String): String? = names[room]
 
-    /** A room's display name ("Super Tall"), or its id when the data has none. */
     fun displayName(room: String): String = displayNames[room] ?: room
 
-    /** A name in lower case with only its letters and digits, so "Lots Of Floors" and "Lots of Floors" match. */
     fun nameKey(name: String): String = name.lowercase().filter { it.isLetterOrDigit() }
 
     fun load() {

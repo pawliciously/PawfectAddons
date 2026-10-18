@@ -10,7 +10,6 @@ import net.minecraft.network.chat.Style
 import net.minecraft.world.item.ItemStack
 import java.util.Optional
 
-/** Text exactly as the server sent it, for the dev dumps. */
 object DebugText {
 
     private val NAMES = listOf(
@@ -18,10 +17,6 @@ object DebugText {
         "dark_gray", "blue", "green", "aqua", "red", "light_purple", "yellow", "white",
     )
 
-    /**
-     * The component with its styles turned back into § codes, like Hypixel's old formatting. Codes already in
-     * the text are kept as they are. Colors with no § code are written §#RRGGBB.
-     */
     fun legacy(component: Component?): String {
         if (component == null) return ""
         val out = StringBuilder()
@@ -60,7 +55,6 @@ object DebugText {
         return sb.toString()
     }
 
-    /** The component as JSON, the way it came over the network. */
     fun json(component: Component?): String {
         if (component == null) return "null"
         return runCatching {
@@ -69,7 +63,6 @@ object DebugText {
         }.getOrElse { "(json failed: ${it.javaClass.simpleName})" }
     }
 
-    /** An item with all its components as SNBT. */
     fun item(stack: ItemStack): String {
         if (stack.isEmpty) return "empty"
         val level = McCompat.mc.level ?: return stack.toString()

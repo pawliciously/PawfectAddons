@@ -8,16 +8,10 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents
 import org.joml.Vector3f
 
-/**
- * Draws a line from the crosshair to every Nukekubi head, through walls, so you can tell which
- * way to turn to look at one. Any point straight ahead of the camera lands on the crosshair, so
- * starting the line there makes it come out of the middle of the screen.
- */
 object NukekubiTracer {
 
     private val config get() = ModuleSwitch.view("slayers", ConfigManager.features.slayers)
 
-    // The skull sits on the stand's head, about this far above its feet.
     private const val HEAD_HEIGHT = 1.75
     private const val START_AHEAD = 0.5f
 
@@ -42,7 +36,6 @@ object NukekubiTracer {
         val color = (0xFF shl 24) or (config.nukekubiTracerColor and 0xFFFFFF)
         val width = config.nukekubiTracerWidth.coerceIn(0.5f, 6f)
 
-        // Drawn relative to the camera, so the numbers stay small and the line doesn't jitter.
         val poseStack = context.poseStack()
         poseStack.pushPose()
         context.submitNodeCollector().submitCustomGeometry(poseStack, WaypointRenderTypes.seeThrough) { pose, consumer ->

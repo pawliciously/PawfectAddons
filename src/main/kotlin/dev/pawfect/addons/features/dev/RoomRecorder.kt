@@ -40,20 +40,6 @@ import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.math.atan2
 
-
-/**
- * Dev only, for DungeonSim. Two recorders, on together from the Dev tab:
- *
- * Mobs: every mob the client sees in the dungeon grid (starred mobs, Fels, minibosses, bats), where and when it
- * first showed up, how far away you were then, its name tag, gear and skin, when it went visible (Fels wake up)
- * and when it died. Wither and Blood keys that appear are saved with the mob that died next to them, so a
- * miniboss that drops a key shows up as such. Saved per room when the run ends, unrotated like room captures.
- *
- * Levers: right clicking a lever (or the Mushroom room's mushroom) snapshots the room, then saves every block
- * that changed in the next 3 seconds, and keeps watching for 30 seconds to see if the passage closes again.
- *
- * When you walk into a room that still needs either, chat says so. Only ever about the room you're standing in.
- */
 object RoomRecorder {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/RoomRecorder")
@@ -69,13 +55,11 @@ object RoomRecorder {
     private const val SNAPSHOT_MIN_Y = 40
     private const val SNAPSHOT_MAX_Y = 160
 
-    /** A key counts as dropped by a mob that died this close to it, this recently. */
     private const val KEY_DROP_RANGE = 8.0
     private const val KEY_DROP_MS = 3000L
 
     private const val MAX_SESSIONS = 10
 
-    /** Room pools that have mobs worth recording. Puzzles and the special rooms don't. */
     private val MOB_SHAPES = listOf("1x1", "1x2", "1x3", "1x4", "2x2", "l-shape", "miniboss", "trap")
 
     private val dir: Path get() = FabricLoader.getInstance().configDir.resolve("pawfectaddons").resolve("dev").resolve("record")
@@ -97,7 +81,6 @@ object RoomRecorder {
         val skin: String?,
     ) {
         var lastPos: Vec3 = firstPos
-        /** Entity id of the name tag stand tied to this mob, while both are loaded. */
         var standId: Int? = null
         var name: String? = null
         var firstName: String? = null
@@ -115,7 +98,6 @@ object RoomRecorder {
 
     private class Entered(val at: Long, val clearedAlready: Boolean)
 
-    /** A room PA matched this run, kept here because the scanner forgets its rooms the moment you warp out. */
     private class KnownRoom(
         val name: String,
         val shape: String,
@@ -124,15 +106,12 @@ object RoomRecorder {
         val segments: Set<Pair<Int, Int>>,
     )
 
-    // This run
     private var levelKey = 0
     private var inRun = false
     private var absentTicks = 0
     private var ticks = 0
     private var runStart = 0L
-    /** Mobs loaded right now, by entity id. */
     private val tracked = HashMap<Int, Mob>()
-    /** Every mob this run, by UUID, which stays the same when a mob leaves your range and comes back. */
     private val mobs = LinkedHashMap<UUID, Mob>()
     private val known = HashMap<Pair<Int, Int>, KnownRoom>()
     private val seenKeys = HashSet<Int>()
@@ -158,7 +137,6 @@ object RoomRecorder {
         val key = System.identityHashCode(level)
         if (key != levelKey) {
             levelKey = key
-            // Entity ids belong to the old world; keep what we learned, stop matching ids
             tracked.values.forEach { it.gone = true }
             tracked.clear()
             seenKeys.clear()
@@ -182,15 +160,12 @@ object RoomRecorder {
         if (ticks % SCAN_EVERY == 0) scanEntities(level)
     }
 
-    // Walking into rooms
-
     private fun watchRoom() {
         val room = DungeonScanner.current ?: return
         if (room !== lastRoom) {
             lastRoom = room
             entered.getOrPut(firstCell(room.segments)) { Entered(System.currentTimeMillis(), room.greenChecked || room.mapCleared) }
         }
-        // Matching can finish a moment after you walk in, so this is checked every tick
         val name = room.name ?: return
         if (!room.matched || !notified.add(name)) return
         remember(room)
@@ -225,8 +200,6 @@ object RoomRecorder {
         ChatUtils.chat("§dRecord §8» §f${SecretRoomData.displayName(name)} §7needs ${needs.joinToString(" §7and ")}")
     }
 
-    // Mobs
-
     private fun scanEntities(level: ClientLevel) {
         val now = System.currentTimeMillis()
         val self = McCompat.player ?: return
@@ -246,7 +219,6 @@ object RoomRecorder {
                 continue
             }
             if (entity !is LivingEntity) continue
-            // Real players have random (version 4) UUIDs; Hypixel's NPCs and minibosses don't
             if (entity is Player && entity.uuid.version() == 4) continue
             present.add(entity.id)
             val mob = tracked.getOrPut(entity.id) {
@@ -272,13 +244,6 @@ object RoomRecorder {
         nameMobs(stands)
     }
 
-    /**
-     * Name tags float above their mob as separate stands. Each stand is tied to one mob for good, the way Star
-     * Mob ESP does it: Hypixel spawns the mob just before its stand, so the entity one id lower (three for a
-     * Withermancer) is the mob; failing that, the nearest mob under it that has no stand yet. Going by distance
-     * alone gave a Fels in the wall the name of the zombie next to it. Only stands with a ❤ count, so damage
-     * numbers never become a name.
-     */
     private fun nameMobs(stands: List<ArmorStand>) {
         val owner = HashMap<Int, Mob>()
         for (mob in tracked.values) mob.standId?.let { owner[it] = mob }
@@ -367,8 +332,6 @@ object RoomRecorder {
 
     private fun rel(now: Long): String = "+${now - runStart}ms"
 
-    // Levers
-
     private class LeverJob(
         val room: String,
         val shape: String,
@@ -388,7 +351,6 @@ object RoomRecorder {
         var changes: List<Pair<BlockPos, BlockState>>? = null
         var revertedAfterTicks: Int? = null
         var saved = false
-        /** Another lever went within [TOO_CLOSE_TICKS]; what changed can't be split between them. */
         var tooClose = false
 
         fun index(dx: Int, dy: Int, dz: Int) = (dy * sizeZ + dz) * sizeX + dx
@@ -410,15 +372,12 @@ object RoomRecorder {
         val secret = leverSecrets(name).minByOrNull { relPos.distSqr(BlockPos(it.x, it.y, it.z)) }
             ?.takeIf { relPos.distSqr(BlockPos(it.x, it.y, it.z)) <= 4.0 }
         if (level.getBlockState(pos).block != Blocks.LEVER && secret == null) return
-        // Puzzle levers (the water board's) are puzzle workings, not secret passages
         if (room.type == DungeonRoom.Type.PUZZLE && secret == null) return
         val now = System.currentTimeMillis()
-        // The same click can come through for both hands
         if (pos == lastLeverPos && now - lastLeverClick < 250) return
         lastLeverPos = pos.immutable()
         lastLeverClick = now
 
-        // Recordings still in their window end here, so they only hold what happened before this lever
         for (open in levers) {
             if (open.changes != null) continue
             open.changes = diff(level, open)
@@ -477,7 +436,6 @@ object RoomRecorder {
         }
     }
 
-    /** Blocks in the room that differ from the snapshot, ignoring the lever itself. */
     private fun diff(level: ClientLevel, job: LeverJob): List<Pair<BlockPos, BlockState>> {
         val out = ArrayList<Pair<BlockPos, BlockState>>()
         val at = BlockPos.MutableBlockPos()
@@ -514,7 +472,6 @@ object RoomRecorder {
                 root.addProperty("shape", job.shape)
                 val all = root.getAsJsonObject("levers") ?: JsonObject().also { root.add("levers", it) }
                 val key = job.secret?.let { leverKey(it.x, it.y, it.z) } ?: leverKey(job.clicked.x, job.clicked.y, job.clicked.z)
-                // Every recording is kept; DungeonSim goes with what most of them agree on
                 val lever = all.getAsJsonObject(key) ?: JsonObject().also { all.add(key, it) }
                 lever.addProperty("secretName", job.secret?.secretName)
                 val recordings = lever.getAsJsonArray("recordings") ?: JsonArray().also { lever.add("recordings", it) }
@@ -550,8 +507,6 @@ object RoomRecorder {
         DungeonRoom.Facing.SW -> Rotation.CLOCKWISE_90
         DungeonRoom.Facing.SE -> Rotation.CLOCKWISE_180
     }
-
-    // Saving mobs at the end of the run
 
     private fun finishRun() {
         if (!inRun) return
@@ -670,8 +625,6 @@ object RoomRecorder {
         return Math.toDegrees(atan2(-(b.x - a.x), b.z - a.z)).toFloat()
     }
 
-    // What's left
-
     private fun leverSecrets(room: String): List<SecretRoomData.SecretEntry> =
         SecretRoomData.secretsFor(room).filter { it.category == "lever" && !it.secretName.contains("Pressure Plate", ignoreCase = true) }
 
@@ -694,7 +647,6 @@ object RoomRecorder {
             ?.map { it.key }?.toSet() ?: emptySet()
     }
 
-    /** /pa dev record: what's recorded and what's still missing, for every room, not just this run's. */
     fun status(shortForm: Boolean = false) {
         SecretRoomData.load()
         worker.execute {
@@ -723,8 +675,6 @@ object RoomRecorder {
             }
         }
     }
-
-    // Files
 
     private fun read(file: Path): JsonElement? =
         if (!Files.exists(file)) null else runCatching { Files.newBufferedReader(file).use { JsonParser.parseReader(it) } }.getOrNull()

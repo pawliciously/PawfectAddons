@@ -16,11 +16,6 @@ import net.minecraft.client.gui.screens.ChatScreen
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-/**
- * The PawfectAddons watermark: a small panel with the menu's flowing gradient along its top
- * edge and through its name, in the theme's accent. Every reading can be switched off, and it
- * moves with the HUD editor like the other overlays.
- */
 object Watermark {
 
     private class Part(val text: String, val color: Int)
@@ -71,7 +66,6 @@ object Watermark {
         return list
     }
 
-    /** Green when it's healthy, yellow when it's slipping, red when it's bad. */
     private fun health(good: Boolean, okay: Boolean): Int = when {
         good -> Theme.opaque(GOOD)
         okay -> Theme.opaque(OKAY)

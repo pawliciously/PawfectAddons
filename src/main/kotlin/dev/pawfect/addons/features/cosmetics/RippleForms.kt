@@ -16,7 +16,6 @@ import kotlin.math.sqrt
 
 private const val PI_F = PI.toFloat()
 
-/** One landing worked out for this frame, in its theme. Harder landings have more [power]. */
 internal abstract class Bloom(val ring: Ripples.Ring, camera: Vec3, now: Long, protected val time: Float) {
     protected val ripple = ring.ripple
     protected val palette = ripple.palette ?: ring.trail.palette
@@ -26,7 +25,6 @@ internal abstract class Bloom(val ring: Ripples.Ring, camera: Vec3, now: Long, p
     protected val seconds = (now - ring.bornAt) / 1000f
     protected val additive = ring.trail.glow
 
-    /** How far out the front has got, easing off as it spreads. */
     protected val front = (age * ripple.speed).coerceIn(0f, 1f).pow(0.55f) * ripple.size * power
     protected val fade = envelope(age) * power
     protected val scale = sqrt(ripple.size / 1.6f) * power
@@ -47,7 +45,6 @@ internal abstract class Bloom(val ring: Ripples.Ring, camera: Vec3, now: Long, p
 
     abstract fun lights(fx: Fx)
 
-    /** A ring of light on the ground at [r]: soft inside, a hot rim, a quick falloff outside. */
     protected fun groundRing(fx: Fx, r: Float, width: Float, rim: Int, body: Int, lift: Float = 0f) {
         if (r <= 0.01f) return
         fx.band(cx, cy + lift, cz, (r - width * 2.2f).coerceAtLeast(0f), r - width * 0.25f, 0, body)
@@ -55,7 +52,6 @@ internal abstract class Bloom(val ring: Ripples.Ring, camera: Vec3, now: Long, p
         fx.band(cx, cy + lift + 0.002f, cz, r, r + width * 0.6f, rim, 0)
     }
 
-    /** The flash of the impact, gone in the first quarter. */
     protected fun flash(fx: Fx, c: Int) {
         val f = (1f - age / 0.25f).coerceIn(0f, 1f)
         if (f <= 0f) return
@@ -82,7 +78,6 @@ internal abstract class Bloom(val ring: Ripples.Ring, camera: Vec3, now: Long, p
     }
 }
 
-/** A crown of crystal shards breaking out of the ground, rings and a light wall, and sparks thrown up. */
 private class ShardBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float) : Bloom(ring, camera, now, time) {
     private val spin = Quaternionf()
 
@@ -100,7 +95,6 @@ private class ShardBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Floa
             val r = front * (0.78f + h(i, 3) * 0.12f)
             val tall = (0.14f + h(i, 4) * 0.12f) * scale
             val wide = tall * (0.32f + h(i, 5) * 0.1f)
-            // Lean outward, with a slight twist so no two catch the light alike.
             spin.identity().rotateY(-a).rotateZ(-(0.35f + h(i, 6) * 0.25f)).rotateY(h(i, 7) * TAU)
             fx.crystal(cx + cos(a) * r, cy - tall * 0.9f + tall * 1.25f * grow, cz + sin(a) * r, spin, wide * grow, tall * grow, color(i / SHARDS.toFloat()), 0.9f)
         }
@@ -137,13 +131,11 @@ private class ShardBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Floa
     }
 }
 
-/** A ring of fire racing outward over scorched, glowing ground, throwing embers up into the air. */
 private class FireBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float) : Bloom(ring, camera, now, time) {
 
     override fun lights(fx: Fx) {
         if (fade <= 0.003f) return
         val c = color(age * 0.6f)
-        // Scorch: the ground behind the fire stays warm and dims slowly.
         fx.band(cx, cy, cz, 0f, front, light(fx, Colors.scale(c, 0.6f), fade * 0.18f), light(fx, c, fade * 0.35f))
         groundRing(fx, front, thick, light(fx, WorldFx.hot(c, 0.4f), fade), light(fx, c, fade * 0.4f), 0.001f)
         val tall = 0.55f * scale * (1f - age).pow(0.7f)
@@ -179,11 +171,9 @@ private class FireBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
     }
 }
 
-/** A gold halo rising off the ground as it spreads, rays of light standing round it and feathers thrown out. */
 private class HaloBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float) : Bloom(ring, camera, now, time) {
     private val rot = Quaternionf()
 
-    /** Feather [i]: thrown out and up, then drifting down. */
     private fun feather(i: Int, out: FloatArray) {
         val a = (i + h(i, 30) * 0.5f) / FEATHERS * TAU
         val t = seconds * (0.85f + h(i, 31) * 0.3f)
@@ -217,7 +207,6 @@ private class HaloBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
         val rise = cy + 0.08f + age * 0.7f * scale
         fx.torus(cx, rise, cz, front * 0.92f, 0.03f * scale + thick * 0.08f, WorldFx.hot(c, 0.2f), fade)
         groundRing(fx, front, thick, light(fx, WorldFx.hot(c, 0.4f), fade * 0.7f), light(fx, c, fade * 0.25f))
-        // Rays: upright tongues of light standing round the ring.
         val tall = 1.4f * scale * (1f - age).pow(0.6f)
         for (i in 0 until RAYS) {
             val a = (i + 0.5f) / RAYS * TAU + time * 0.15f
@@ -239,14 +228,12 @@ private class HaloBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
     }
 }
 
-/** The ground goes dark under you and a ring of light closes in on the spot, dragging tendrils with it. */
 private class VoidBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float) : Bloom(ring, camera, now, time) {
 
     override fun lights(fx: Fx) {
         if (fade <= 0.003f) return
         val c = color(age)
         val full = ripple.size * power
-        // The dark spreads fast, then the light closes back in over it.
         val dark = full * (1f - exp(-age * 9f))
         val shadow = fx.light(0x07040C or ((fade * 0.6f * 255f).toInt().coerceIn(0, 255) shl 24), false)
         fx.band(cx, cy, cz, 0f, dark * 0.85f, shadow, shadow)
@@ -254,7 +241,6 @@ private class VoidBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
         val close = full * (1f - ((age - 0.1f) / 0.75f).coerceIn(0f, 1f).let { it * it * (3f - 2f * it) })
         groundRing(fx, close, thick, light(fx, WorldFx.hot(c, 0.35f), fade), light(fx, c, fade * 0.35f), 0.002f)
         fx.wall(cx, cz, close, cy, cy + 0.25f * scale, light(fx, c, fade * 0.35f), 0)
-        // Tendrils spiralling in behind the closing ring.
         for (k in 0 until TENDRILS) {
             val a0 = k / TENDRILS.toFloat() * TAU + h(k, 1)
             var lx = 0f
@@ -273,7 +259,6 @@ private class VoidBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
                 lz = z
             }
         }
-        // When it closes, a small hard flare.
         val pinch = (1f - abs(age - 0.85f) / 0.12f).coerceIn(0f, 1f)
         if (pinch > 0f) {
             fx.star(cx, cy + 0.2f, cz, 0.7f * scale * pinch, light(fx, WorldFx.hot(c, 0.7f), pinch * power))
@@ -286,7 +271,6 @@ private class VoidBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
     }
 }
 
-/** Shooting stars flung out across the ground, a ring of starlight and a constellation drawn round it. */
 private class StarBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float) : Bloom(ring, camera, now, time) {
 
     override fun lights(fx: Fx) {
@@ -308,7 +292,6 @@ private class StarBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
             fx.line(x - cos(a) * tail, y - 0.02f, z - sin(a) * tail, x, y, z, 0.002f, 0.02f * scale, 0, head)
             fx.star(x, y, z, 0.12f * scale, head)
         }
-        // Seven stars on the ring, joined up.
         var lx = 0f
         var ly = 0f
         var lz = 0f
@@ -335,7 +318,6 @@ private class StarBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float
     }
 }
 
-/** A flower opening where you land: petals unfold flat from the middle, pollen lifting off. */
 private class PetalBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Float) : Bloom(ring, camera, now, time) {
     private val rot = Quaternionf()
 
@@ -348,7 +330,6 @@ private class PetalBloom(ring: Ripples.Ring, camera: Vec3, now: Long, time: Floa
             for (i in 0 until count) {
                 val a = (i + layer * 0.5f) / count * TAU + age * 0.6f
                 val len = (if (layer == 0) 0.55f else 0.35f) * scale * (0.85f + 0.3f * h(i + layer * 20, 1)) * shrink
-                // Upright while closed, lying nearly flat once open.
                 val lift = 1.35f - open * (if (layer == 0) 1.2f else 0.9f)
                 rot.rotationY(-a).rotateZ(lift)
                 val c = color(h(i + layer * 20, 2))

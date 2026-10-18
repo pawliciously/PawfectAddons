@@ -33,24 +33,8 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/**
- * Draws a drop's celebration over everything, the chest you opened included:
- *
- * - the wind up (rarer drops): the screen darkens, the heart thumps, and streaks of light are
- *   pulled into a point,
- * - the impact frames: hard black and white frames with speed lines, a spiked burst and, for the
- *   rarest, lightning, the item caught at a hard angle in each,
- * - the reveal: a flash and shockwaves as the 3D item spins in and settles, light rays turning
- *   behind it, sparks, confetti cannons, the rarity slammed in a letter at a time with a second
- *   impact as the last lands, then the item turning on show while fireworks go off,
- * - the outro: it spins up and shrinks into a point, and the light goes with it.
- *
- * An item's [Signature] adds its own moment on top. The GUI batches each layer by kind and loses
- * the order things were drawn in, so each kind goes on a layer of its own.
- */
 object DropCelebrationOverlay {
 
-    /** From the HUD, when no screen's open; a screen draws it itself over its own contents. */
     fun renderHud() {
         if (McCompat.screen != null) return
         draw(RenderContext.graphics)
@@ -81,14 +65,11 @@ object DropCelebrationOverlay {
         when {
             t < show.impactAt -> windup(frame, t)
             t < show.revealAt -> impact(frame, ((t - show.impactAt) / DropCelebration.IMPACT_MS).toInt())
-            // The second hit, as the last letter lands.
             after && DropCelebration.impactFrames() -> impact(frame, ((t - show.aftershockAt) / DropCelebration.IMPACT_MS).toInt() + 1)
             else -> reveal(frame, t - show.revealAt, t)
         }
         pose.popMatrix()
     }
-
-    // ------------------------------------------------------------------ wind up
 
     private fun windup(fr: DropFrame, t: Float) {
         val g = fr.g
@@ -96,9 +77,7 @@ object DropCelebrationOverlay {
         val kick = DropCelebration.heartbeatKick(fr.show, t)
         full(fr, argb(0x000000, 0.55f * p))
         vignette(fr, 0x000000, 0.6f * p)
-        // Each heartbeat flushes the edges and sends a ring out.
         if (kick > 0f) vignette(fr, fr.color, 0.45f * kick)
-        // Light dragged in toward the point it's about to burst from, faster as it builds.
         for (i in 0 until 40) {
             val angle = WorldFx.hash(fr.seed, i, 0) * WorldFx.TAU
             val phase = (p * p * (2.4f + WorldFx.hash(fr.seed, i, 1) * 1.6f) + WorldFx.hash(fr.seed, i, 2)) % 1f
@@ -121,8 +100,6 @@ object DropCelebrationOverlay {
             item(fr, it)
         }
     }
-
-    // ------------------------------------------------------------------ impact frames
 
     private fun impact(fr: DropFrame, index: Int) {
         val g = fr.g
@@ -148,7 +125,6 @@ object DropCelebrationOverlay {
         g.nextStratum()
         Shapes.circle(g, fr.cx, fr.cy, 38f * fr.size, argb(ink, 1f))
         g.nextStratum()
-        // Caught at a hard angle, different each frame.
         val pose = DropSignatures.impactPose(fr, index) ?: ItemPose(
             0f, 0f, 1.35f,
             (WorldFx.hash(seed, 0, 7) - 0.5f) * 2.2f,
@@ -158,14 +134,11 @@ object DropCelebrationOverlay {
         item(fr, pose)
     }
 
-    // ------------------------------------------------------------------ reveal
-
     private fun reveal(fr: DropFrame, r: Float, t: Float) {
         val g = fr.g
         val f = fr.f
         val show = fr.show
         val appear = min(1f, r / 180f)
-        // The outro: everything draws back into the item, and the item into a point.
         val o = ((t - show.outroAt) / DropCelebration.OUTRO_MS).coerceIn(0f, 1f)
         val out = 1f - smooth(o)
 
@@ -201,11 +174,9 @@ object DropCelebrationOverlay {
         fireworks(fr, r, out)
         sparks(fr, r, out)
         for (wave in 0 until f.waves) confetti(fr, r - wave * 1500f, out, fr.seed + wave * 1009)
-        // The far side of the ring goes behind the item, the near side over it.
         orbit(fr, r, appear * out, front = false)
 
         g.nextStratum()
-        // Spins in fast and settles, then turns slowly on show; spins away and shrinks at the end.
         val pop = elasticOut(min(1f, r / 800f))
         val settle = 4f * PI.toFloat() * (1f - easeOutCubic(min(1f, r / 1400f)))
         val base = ItemPose(
@@ -235,7 +206,6 @@ object DropCelebrationOverlay {
         if (f.rays <= 0 || strength <= 0f) return
         val layers = if (fr.show.tier == Tier.INSANE) 2 else 1
         val pulse = 0.85f + 0.15f * sin(r / 1000f * 3f)
-        // They shoot out on the reveal and pull back in at the end.
         val extent = easeOutCubic(min(1f, r / 500f)) * out
         for (layer in 0 until layers) {
             val spin = r / 1000f * (if (layer == 0) 0.35f else -0.22f)
@@ -249,7 +219,6 @@ object DropCelebrationOverlay {
         }
     }
 
-    /** Thrown out from the item, slowing in the air and falling as they fade. */
     private fun sparks(fr: DropFrame, r: Float, out: Float) {
         val seed = fr.seed
         val time = r / 1000f
@@ -276,7 +245,6 @@ object DropCelebrationOverlay {
         }
     }
 
-    /** Fired up from the bottom corners, slowing at the top and fluttering down. */
     private fun confetti(fr: DropFrame, r: Float, out: Float, seed: Int) {
         if (r < 0f) return
         val time = r / 1000f
@@ -295,7 +263,6 @@ object DropCelebrationOverlay {
             val y = fr.h + 10f + dirY * speed * carried + 0.5f * fr.h * 0.9f * tt * tt
             x += sin(tt * 6f + i) * 6f * min(1f, tt)
             val a = out * min(1f, (life - tt) / 0.4f)
-            // A dye's confetti is shades of the dye.
             val tone = if (fr.show.signature == Signature.DYE) {
                 Theme.mix(fr.color, if (i % 2 == 0) 0xFFFFFF else 0x000000, WorldFx.hash(seed, i, 24) * 0.45f)
             } else {
@@ -305,14 +272,12 @@ object DropCelebrationOverlay {
             pose.pushMatrix()
             pose.translate(x, y)
             pose.rotate(spin)
-            // Turning over as it falls.
             pose.scale(1f, max(0.15f, abs(cos(tt * 8f + i))))
             fr.g.rect(-1.5f, -3f, 3f, 6f, argb(tone, a))
             pose.popMatrix()
         }
     }
 
-    /** Shot up from below, bursting into a ring of sparks that droop and twinkle out. */
     private fun fireworks(fr: DropFrame, r: Float, out: Float) {
         val seed = fr.seed
         for (k in 0 until fr.f.fireworks) {
@@ -353,10 +318,6 @@ object DropCelebrationOverlay {
         }
     }
 
-    /**
-     * Glints circling the item, as if on a ring tilted toward you: the lower half of the ring is
-     * the near side, drawn when [front], and the upper half the far side, drawn when not.
-     */
     private fun orbit(fr: DropFrame, r: Float, strength: Float, front: Boolean) {
         if (strength <= 0f || fr.show.signature == Signature.RECOMB) return
         val count = 6 + fr.show.tier.ordinal * 3
@@ -374,7 +335,6 @@ object DropCelebrationOverlay {
         }
     }
 
-    /** Jagged bolts striking in from the edges to the item. */
     private fun lightning(fr: DropFrame, seed: Int, color: Int, width: Float) {
         val glow = argb(color, ((color ushr 24) / 255f) * 0.25f)
         for (b in 0 until 5) {
@@ -399,8 +359,6 @@ object DropCelebrationOverlay {
         }
     }
 
-    // ------------------------------------------------------------------ text
-
     private fun label(fr: DropFrame, r: Float, out: Float, y: Float) {
         val text = DropColors.label(fr.show.tier)
         val font = McCompat.font
@@ -409,7 +367,6 @@ object DropCelebrationOverlay {
         val total = widths.sum()
         var x = fr.cx - total / 2f
         val split = fr.show.tier >= Tier.CRAZY_RARE
-        // A shine passing over the letters every so often, once they've all landed.
         val landed = DropCelebration.LETTERS_START + text.length * f.letterGap + 200f
         val sweep = ((r - landed) % 1800f) / 650f
         val shineX = if (r > landed && sweep <= 1f) fr.cx - total / 2f - 20f + sweep * (total + 40f) else Float.NaN
@@ -418,7 +375,6 @@ object DropCelebrationOverlay {
             val q = (r - start) / 110f
             val width = widths[i]
             if (q > 0f && text[i] != ' ') {
-                // Comes in huge and slams down, overshooting a touch.
                 val land = backOut(min(1f, q))
                 val scale = f.letterScale * (1f + 2.4f * (1f - land))
                 val a = min(1f, q * 2.5f) * out
@@ -461,16 +417,12 @@ object DropCelebrationOverlay {
         pose.scale(scale, scale)
         fr.g.text(font, text, 0, 0, argb(0xFFFFFF, a), true)
         pose.popMatrix()
-        // A line opening out underneath.
         val line = width * smooth(q) + 12f
         val lineY = y + 9f * scale + 3f + rise
         fr.g.gradientHorizontal(fr.cx - line / 2f, lineY, line / 2f, 1f, argb(fr.color, 0f), argb(fr.color, a))
         fr.g.gradientHorizontal(fr.cx, lineY, line / 2f, 1f, argb(fr.color, a), argb(fr.color, 0f))
     }
 
-    // ------------------------------------------------------------------ item
-
-    /** The drop as a 3D model. Its box ignores the shake translate, so the shake goes in as an offset. */
     private fun item(fr: DropFrame, pose: ItemPose) {
         val room = max(1.5f, pose.zoom * 0.75f + 0.25f)
         DropItemRenderer.draw(

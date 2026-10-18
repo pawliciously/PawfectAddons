@@ -178,10 +178,6 @@ object Cosmetics {
         Visibility.NONE -> false
     }
 
-    /**
-     * Whether a cosmetic shown to [mode] appears on someone drawn outside any world, like the
-     * menu's walker. With no player in a world, "only me" means the signed-in account.
-     */
     fun showsOffWorld(mode: Visibility, uuid: UUID): Boolean = config.enabled && when (mode) {
         Visibility.ALL -> true
         Visibility.SELF -> uuid == McCompat.mc.user?.profileId
@@ -206,7 +202,6 @@ object Cosmetics {
         return lookup(uuid)?.motes
     }
 
-    /** Wings, halo and horns [uuid] wears, if their owner shows them to you. */
     fun celestialFor(uuid: UUID): List<Pick>? {
         if (!config.enabled) return null
         val visible = when (config.celestial) {

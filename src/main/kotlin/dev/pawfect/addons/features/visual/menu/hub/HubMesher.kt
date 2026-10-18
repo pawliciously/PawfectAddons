@@ -20,7 +20,6 @@ import java.util.concurrent.Executors
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
-/** One worker's share of the scene: a band of sections at a similar distance from the camera. */
 class HubMeshPart(
     val layers: Map<ChunkSectionLayer, MeshData>,
     private val buffers: List<ByteBufferBuilder>,
@@ -50,11 +49,6 @@ object HubMesher {
 
     private const val INITIAL_BYTES = 2 * 1024 * 1024
 
-    /**
-     * Runs Minecraft's own block and fluid renderers over every captured block, split across
-     * a few threads. Sections are handed out by distance from the camera, so each part is a
-     * band and translucent parts can be drawn far to near.
-     */
     fun build(world: HubWorld, originX: Int, originY: Int, originZ: Int, eyeX: Float, eyeY: Float, eyeZ: Float): HubMesh {
         val worldEyeX = originX + eyeX.toDouble()
         val worldEyeY = originY + eyeY.toDouble()

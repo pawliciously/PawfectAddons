@@ -29,10 +29,6 @@ object Skybox {
     private const val UNIFORM_STRIDE = 512
     private const val LUT_INTERVAL_MS = 50L
 
-    // The Milky Way drifts by rotating its lookup per frame, so its LUT only refreshes for the
-    // slow internal motion of the clouds, which moves far less than a texel in this time. Its LUT
-    // is also the largest, so it refreshes a band of rows at a time: the cost is spread evenly
-    // over several frames instead of landing on one.
     private const val GALAXY_LUT_INTERVAL_MS = 100L
     private const val GALAXY_LUT_SLICES = 8
 
@@ -75,14 +71,12 @@ object Skybox {
         return true
     }
 
-    /** A flat sky colour that stands in for the vanilla sky when no shader sky is showing. */
     private fun solidActive(): Boolean {
         if (!config.solidSky || isActive()) return false
         val client = McCompat.mc
         return client.player != null && client.level != null
     }
 
-    /** True when the vanilla sky, sun, moon and stars should give way to this one. */
     @JvmStatic
     fun replacesSky(): Boolean = isActive() || solidActive()
 

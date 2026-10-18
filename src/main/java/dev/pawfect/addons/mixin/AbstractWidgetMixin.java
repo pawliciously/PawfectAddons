@@ -9,7 +9,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.pawfect.addons.features.dev.DevClickSounds;
 
-/** Dev click sounds on vanilla widgets: buttons, checkboxes, cycle buttons and sliders (on release). */
 @Mixin(AbstractWidget.class)
 public abstract class AbstractWidgetMixin {
 

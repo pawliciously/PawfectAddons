@@ -2,16 +2,11 @@ package dev.pawfect.addons.features.drops
 
 import dev.pawfect.addons.config.features.DropCelebrationConfig.Tier
 
-/**
- * The drops worth celebrating and how hard each is to get. Anything else Hypixel calls a RARE
- * REWARD in your dungeon chest counts as [Tier.RARE], and every dye you find is [Tier.INSANE].
- */
 object DropTable {
 
     class Drop(val name: String, val id: String, val tier: Tier, val dungeon: Boolean)
 
     private val drops = listOf(
-        // Dungeon chests.
         Drop("Necron's Handle", "NECRON_HANDLE", Tier.INSANE, true),
         Drop("Shiny Necron's Handle", "NECRON_HANDLE", Tier.INSANE, true),
         Drop("Necron Dye", "NECRON_DYE", Tier.INSANE, true),
@@ -31,7 +26,6 @@ object DropTable {
         Drop("First Master Star", "FIRST_MASTER_STAR", Tier.VERY_RARE, true),
         Drop("Fuming Potato Book", "FUMING_POTATO_BOOK", Tier.RARE, true),
 
-        // Slayer bosses and the like, from their RARE DROP lines.
         Drop("Judgement Core", "JUDGEMENT_CORE", Tier.INSANE, false),
         Drop("Warden Heart", "WARDEN_HEART", Tier.INSANE, false),
         Drop("Overflux Capacitor", "OVERFLUX_CAPACITOR", Tier.INSANE, false),
@@ -65,7 +59,6 @@ object DropTable {
 
     fun findId(id: String): Drop? = byId[id.trim().uppercase()]
 
-    /** What each tier's test plays. */
     fun sample(tier: Tier): Drop = when (tier) {
         Tier.RARE -> byName.getValue("fuming potato book")
         Tier.VERY_RARE -> byName.getValue("recombobulator 3000")

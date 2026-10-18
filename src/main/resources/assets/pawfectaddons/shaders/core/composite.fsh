@@ -129,8 +129,6 @@ vec3 liquid(vec2 uv, float time, vec3 colA, vec3 colB, vec3 colC) {
     return colour;
 }
 
-// Mirage, the media player's backdrop: soft fields of the overlay colours drift under a slow
-// noise warp and melt into each other, with a faint sweep of light.
 float mirageBlob(vec2 p, vec2 centre, float size) {
     vec2 d = p - centre;
     return exp(-dot(d, d) / (size * size));

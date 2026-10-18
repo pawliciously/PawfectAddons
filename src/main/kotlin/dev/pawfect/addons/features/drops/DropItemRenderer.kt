@@ -16,18 +16,12 @@ import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.ItemStack
 import kotlin.math.ceil
 
-/**
- * The drop as a real 3D model, rendered into its own texture at full resolution and laid over
- * the screen, so it can turn every way and stays sharp however big it gets. The box it's drawn
- * into stays put; moving, spinning and zooming all happen inside it.
- */
 class DropItemState(
     val item: ItemStackRenderState,
     private val left: Int,
     private val top: Int,
     private val right: Int,
     private val bottom: Int,
-    /** How many GUI units one block of the model takes. */
     private val unit: Float,
     val offsetX: Float,
     val offsetY: Float,
@@ -35,7 +29,6 @@ class DropItemState(
     val spin: Float,
     val tilt: Float,
     val roll: Float,
-    /** Only what's inside this shows, for a blade sunk into the screen. */
     private val scissor: ScreenRectangle?,
 ) : PictureInPictureRenderState {
     override fun x0(): Int = left
@@ -53,7 +46,6 @@ class DropItemRenderer : PictureInPictureRenderer<DropItemState>() {
 
     override fun renderToTexture(state: DropItemState, pose: PoseStack, collector: SubmitNodeCollector) {
         val unit = state.scale()
-        // Still in screen space here (y down), so the screen offsets go in first.
         pose.translate(state.offsetX / unit, state.offsetY / unit, 0f)
         pose.scale(1f, -1f, -1f)
         pose.mulPose(Axis.ZP.rotation(state.roll))
@@ -65,7 +57,6 @@ class DropItemRenderer : PictureInPictureRenderer<DropItemState>() {
         state.item.submit(pose, collector, FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0)
     }
 
-    /** Centred in its box; the base renderer stands things on the box's bottom edge. */
     override fun getTranslateY(height: Int, guiScale: Int): Float = height / 2f
 
     override fun getTextureLabel(): String = "pawfectaddons drop item"
@@ -73,11 +64,6 @@ class DropItemRenderer : PictureInPictureRenderer<DropItemState>() {
     companion object {
         private const val FULL_BRIGHT = 0xF000F0
 
-        /**
-         * Draws [stack] centred on ([cx], [cy]) with one block of it [unit] GUI units across, in a box
-         * with room for it to move [reach] blocks off centre and still be in frame. Anything below
-         * [clipBelow], a screen y, is hidden.
-         */
         fun draw(
             graphics: GuiGraphicsExtractor, stack: ItemStack, cx: Float, cy: Float, unit: Float, reach: Float,
             offsetX: Float, offsetY: Float, zoom: Float, spin: Float, tilt: Float, roll: Float,

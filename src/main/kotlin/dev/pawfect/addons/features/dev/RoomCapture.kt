@@ -28,14 +28,6 @@ import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.Executors
 
-/**
- * Dev only. Saves every dungeon room the world has loaded, unrotated, for the DungeonSim practice
- * server, and keeps a list of the rooms still to get. Nothing shows during the run: captures are
- * held until you leave the dungeon, so it never tells you about rooms you haven't opened.
- *
- * Rooms sit in a 6 by 6 grid of 32 block cells from -200, 31 blocks of room and a 1 block gap.
- * Cells of one room are joined by blocks across that gap; separate rooms only meet at doorways.
- */
 object RoomCapture {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/RoomCapture")
@@ -44,10 +36,6 @@ object RoomCapture {
     private const val CELL = 32
     private const val CELLS = 6
 
-    /**
-     * Cells across this floor's grid; beyond it is boss and lobby build, not rooms. F1 (4x5) and F4 (6x5) get their
-     * longer side both ways.
-     */
     private fun gridFor(floor: String?): Int = when (floor?.drop(1)) {
         "" -> 4
         "1", "2", "3" -> 5
@@ -59,23 +47,13 @@ object RoomCapture {
 
     private var cells = CELLS
 
-    /** Blocks read per tick while copying a room, so a 2x2 takes about a second. */
     private const val READ_BUDGET = 60_000
 
-    /**
-     * A room matches when under 5% of its matchable blocks disagree with the data (blown walls, broken blocks,
-     * puzzle layouts: a water board is 1.4% off its data) and the next best room is well behind.
-     */
     private const val MAX_MISS_RATE = 0.05
     private const val MIN_HITS = 50
 
-    /** The closest two rooms in the data (Banners and Sloth) are 5.5% apart, so the runner up must trail by this, or by the winner's own rate. */
     private const val MIN_LEAD = 0.02
 
-    /**
-     * Wrong rooms are dropped part way once they're clearly off. Kept loose, since the blocks that differ (a
-     * puzzle's layout) can bunch up in a few layers and push a right room's running rate up for a while.
-     */
     private const val DROP_MISS_RATE = 0.2
     private const val DROP_MIN_MISSES = 200
 
@@ -92,10 +70,6 @@ object RoomCapture {
 
     val enabled: Boolean get() = ConfigManager.features.dev.roomCapture
 
-    /**
-     * The real Hypixel, by server address. Practice servers like bloodcamp.net fake Hypixel's location packet
-     * (so HypixelLocation says yes) but their rooms aren't worth saving.
-     */
     fun onHypixel(): Boolean = McCompat.mc.currentServer?.ip?.contains("hypixel", ignoreCase = true) == true
 
     private data class Cell(val cx: Int, val cz: Int) {
@@ -104,17 +78,13 @@ object RoomCapture {
         val key: Pair<Int, Int> get() = x to z
     }
 
-    /** [source] is "dungeondata" for rooms imported by DungeonSim's tools; any real capture replaces those. */
     private class IndexEntry(val clean: Boolean, val floor: String?, val capturedAt: String, val missRate: Double, val source: String? = null)
 
-    /** Saved captures by "shape/room" (water board layouts as "puzzle/water-puzzle#layout-N"). Only touched on [worker]. */
     private var index: MutableMap<String, IndexEntry>? = null
 
-    /** What the last finished run left missing, for /pa dev rooms. */
     @Volatile
     private var lastMissing: List<String>? = null
 
-    // This run
     private var levelKey = 0
     private var inRun = false
     private var absentTicks = 0
@@ -125,10 +95,8 @@ object RoomCapture {
     private var job: ReadJob? = null
     private val results = ArrayList<Result>()
 
-    /** Map room types seen this run by cell, to name the entrance, blood and fairy rooms, which have no data to match. */
     private val mapTypes = HashMap<Pair<Int, Int>, DungeonRoom.Type>()
 
-    /** Set by /pa dev rooms grab: copy everything loaded right now, a whole room per tick, then save straight away. */
     private var grabbing = false
 
     fun grab() {
@@ -146,8 +114,6 @@ object RoomCapture {
         val key = System.identityHashCode(level)
         if (key != levelKey) {
             levelKey = key
-            // The start countdown warps you to another server, so a new world isn't the end of the run.
-            // Only the scoreboard saying you've left the dungeon is.
             job = null
             exists.clear()
             joined.clear()
@@ -206,7 +172,6 @@ object RoomCapture {
         worker.execute { runCatching { save(types, final = false) }.onFailure { logger.error("Saving room captures failed", it) } }
     }
 
-    /** Mort stands in the entrance room from the start, before the map shows anything. */
     private fun findMort(level: ClientLevel) {
         if (DungeonRoom.Type.ENTRANCE in mapTypes.values) return
         for (entity in level.entitiesForRendering()) {
@@ -225,14 +190,11 @@ object RoomCapture {
         }
     }
 
-    // Finding rooms
-
     private fun surveyCells(level: ClientLevel) {
         for (cx in 0 until cells) for (cz in 0 until cells) {
             val cell = Cell(cx, cz)
             if (cell !in exists && loaded(level, cell.x, cell.z, cell.x + 30, cell.z + 30)) exists[cell] = hasRoom(level, cell)
         }
-        // Each gap is read once, from the west or north cell, whether or not the far side has a room
         for (cx in 0 until cells) for (cz in 0 until cells) {
             val cell = Cell(cx, cz)
             for (eastward in booleanArrayOf(true, false)) {
@@ -246,7 +208,6 @@ object RoomCapture {
         }
     }
 
-    /** A room with every cell found and every edge checked, not copied yet. */
     private fun nextRoom(): Set<Cell>? {
         val seen = HashSet<Cell>()
         for ((cell, present) in exists) {
@@ -285,7 +246,6 @@ object RoomCapture {
     private fun joinedBetween(a: Cell, b: Cell): Boolean? =
         if (a.cx < b.cx || a.cz < b.cz) joined[a to b] else joined[b to a]
 
-    /** ClientLevel.hasChunksAt always says yes, and unarrived chunks read as air; the chunk cache knows what has arrived. */
     private fun loaded(level: ClientLevel, minX: Int, minZ: Int, maxX: Int, maxZ: Int): Boolean {
         for (cx in (minX shr 4)..(maxX shr 4)) for (cz in (minZ shr 4)..(maxZ shr 4)) {
             if (!level.chunkSource.hasChunk(cx, cz)) return false
@@ -298,7 +258,6 @@ object RoomCapture {
         return spots.any { dx -> spots.any { dz -> columnHasBlocks(level, cell.x + dx, cell.z + dz) } }
     }
 
-    /** Joined cells have room across the gap away from the doorway; separate rooms only meet in it. */
     private fun isJoined(level: ClientLevel, cell: Cell, eastward: Boolean): Boolean =
         intArrayOf(4, 26).all { along ->
             if (eastward) columnHasBlocks(level, cell.x + 31, cell.z + along)
@@ -311,9 +270,6 @@ object RoomCapture {
         return false
     }
 
-    // Copying a room
-
-    /** Reads a room's blocks a slice at a time on the client thread, or holds a saved unmatched room to match again. */
     private class ReadJob(val cells: Set<Cell>, val minY: Int, val maxY: Int) {
         constructor(cells: Set<Cell>, level: ClientLevel) : this(cells, maxOf(level.minY, 0), minOf(level.maxY, 255))
 
@@ -330,7 +286,6 @@ object RoomCapture {
         private var y = minY
         val finished: Boolean get() = y > maxY
 
-        /** Reads up to the budget; false when part of the room has unloaded. */
         fun step(level: ClientLevel, budget: Int): Boolean {
             if (!loaded(level, minX, minZ, maxX, maxZ)) return false
             val air = Blocks.AIR.defaultBlockState()
@@ -340,7 +295,6 @@ object RoomCapture {
                 for (dz in 0 until sizeZ) for (dx in 0 until sizeX) {
                     val x = minX + dx
                     val z = minZ + dz
-                    // The empty corner of an L shape belongs to another room
                     val inRoom = (Math.floorDiv(x - GRID, CELL) * CELL + GRID to Math.floorDiv(z - GRID, CELL) * CELL + GRID) in cellKeys
                     val state = if (inRoom) level.getBlockState(pos.set(x, y, z)) else air
                     states[index(dx, y - minY, dz)] = state
@@ -375,7 +329,6 @@ object RoomCapture {
 
     private class Match(val room: String, val shape: String, val facing: DungeonRoom.Facing, val missRate: Double)
 
-    /** Matches, unrotates and packs a copied room. Runs on [worker]. */
     private fun process(job: ReadJob, floor: String?, opened: Boolean): Result? {
         val shape = shapeOf(job.cells)
         val match = match(job, shape)
@@ -383,7 +336,6 @@ object RoomCapture {
         val corner = if (match != null) cornerFor(facing, job.cells) else Vector2i(job.minX, job.minZ)
         val rotation = rotationFor(facing)
 
-        // Where the room's blocks land once unrotated
         val corners = listOf(job.minX to job.minZ, job.maxX to job.minZ, job.minX to job.maxZ, job.maxX to job.maxZ)
             .map { (x, z) -> DungeonMapUtils.actualToRelative(facing.vanilla(), corner, BlockPos(x, 0, z)) }
         val relMinX = corners.minOf { it.x }
@@ -391,7 +343,6 @@ object RoomCapture {
         val relSizeX = corners.maxOf { it.x } - relMinX + 1
         val relSizeZ = corners.maxOf { it.z } - relMinZ + 1
 
-        // Trim empty layers top and bottom
         var low = job.sizeY
         var high = -1
         for (dy in 0 until job.sizeY) {
@@ -452,10 +403,6 @@ object RoomCapture {
         return result
     }
 
-    /**
-     * Matches the saved unmatched rooms again, for when the matcher has improved since. Rooms that match now are
-     * returned with the files they came from, to delete once they're saved properly. Runs on [worker].
-     */
     private fun rematchUnknowns(): List<Pair<Result, Path>> {
         val folder = dir.resolve("unknown")
         if (!Files.isDirectory(folder)) return emptyList()
@@ -470,7 +417,6 @@ object RoomCapture {
                 val origin = json.getAsJsonArray("origin").map { it.asInt }
                 val size = json.getAsJsonArray("size").map { it.asInt }
                 val job = ReadJob(cells, origin[1], origin[1] + size[1] - 1)
-                // Unmatched rooms are saved the way they lay in the world, from the room's north west corner
                 if (origin[0] != 0 || origin[2] != 0 || size[0] != job.sizeX || size[2] != job.sizeZ) return@runCatching
 
                 val palette = json.getAsJsonArray("palette").map {
@@ -505,7 +451,6 @@ object RoomCapture {
         }
     }
 
-    /** Same facings and corners [DungeonRoom] tries, so captures share its coordinates with the secret data. */
     private fun facingsFor(shape: String, cells: Set<Cell>): List<DungeonRoom.Facing> {
         val xs = cells.map { it.x }.distinct().sorted()
         val zs = cells.map { it.z }.distinct().sorted()
@@ -538,7 +483,6 @@ object RoomCapture {
         }
     }
 
-    /** Turns block states the same way [DungeonMapUtils.actualToRelative] turns positions. */
     private fun rotationFor(facing: DungeonRoom.Facing): Rotation = when (facing) {
         DungeonRoom.Facing.NW -> Rotation.NONE
         DungeonRoom.Facing.NE -> Rotation.COUNTERCLOCKWISE_90
@@ -553,7 +497,6 @@ object RoomCapture {
         val missRate: Double get() = if (hits + misses == 0) 1.0 else misses.toDouble() / (hits + misses)
     }
 
-    /** Checks every matchable block against every room of the shape, the way [DungeonRoom] does a few at a time. */
     private fun match(job: ReadJob, shape: String): Match? {
         val pools = if (shape == "1x1") ONE_BY_ONE_POOLS else listOf(shape)
         val candidates = ArrayList<Candidate>()
@@ -594,7 +537,6 @@ object RoomCapture {
         return Match(best.room, best.shape, best.facing, best.missRate)
     }
 
-    /** Doorways change with the neighbours, so matching skips them like [DungeonRoom] does. */
     private fun notInDoorway(pos: BlockPos): Boolean {
         if (pos.y < 66 || pos.y > 73) return true
         val x = Math.floorMod(pos.x - 8, 32)
@@ -602,10 +544,6 @@ object RoomCapture {
         return (x < 13 || x > 17 || z > 2 && z < 28) && (z < 13 || z > 17 || x > 2 && x < 28)
     }
 
-    /**
-     * The water board's four layouts each put a different pair of lever blocks at the top of the board,
-     * as Skyblocker's solver reads them (room coordinates 14 to 16, 77 to 78, 26 to 27).
-     */
     private fun waterBoardLayout(
         palette: Map<String, Int>, data: IntArray, originX: Int, originY: Int, originZ: Int, sizeX: Int, sizeZ: Int, sizeY: Int,
     ): String {
@@ -628,8 +566,6 @@ object RoomCapture {
         return if (layout == 0) "layout-unknown-${found.sorted().joinToString("-")}" else "layout-$layout"
     }
 
-    // Saving and the missing list
-
     private fun finishRun() {
         if (!inRun) return
         inRun = false
@@ -637,7 +573,6 @@ object RoomCapture {
         job = null
         val types = HashMap(mapTypes)
         reset()
-        // Queued behind any rooms still being processed
         worker.execute { runCatching { save(types, final = true) }.onFailure { logger.error("Saving room captures failed", it) } }
     }
 
@@ -649,12 +584,7 @@ object RoomCapture {
         ticks = 0
     }
 
-    /**
-     * Writes what's been copied. Before the run ends ([final] false, from a grab) rooms that didn't match are held
-     * back, since the map may still turn out to show them as the blood or fairy room.
-     */
     private fun save(types: Map<Pair<Int, Int>, DungeonRoom.Type>, final: Boolean) {
-        // At the end of a run, saved unmatched rooms get another go at matching
         val rematched = if (final) rematchUnknowns() else emptyList()
         val captured = synchronized(results) { results.toList().also { results.clear() } } + rematched.map { it.first }
         val index = loadIndex()
@@ -699,7 +629,6 @@ object RoomCapture {
         }
         saveIndex(index)
         if (held.isNotEmpty()) synchronized(results) { results.addAll(held) }
-        // Saved properly above, or already had a cleaner copy
         rematched.forEach { (_, file) -> runCatching { Files.deleteIfExists(file) } }
 
         val missing = missing(index)
@@ -762,7 +691,6 @@ object RoomCapture {
         }
     }
 
-    /** Every room we want, as index keys: the room data, all four water board layouts, and the special rooms. */
     private fun catalogue(): List<String> {
         val keys = ArrayList<String>()
         for (shape in SHAPE_ORDER) {
@@ -780,7 +708,6 @@ object RoomCapture {
 
     private fun missingCount(index: Map<String, IndexEntry>): Int = catalogue().count { it !in index }
 
-    /** Chat lines of what's still missing, one per shape. */
     private fun missing(index: Map<String, IndexEntry>): List<String> =
         catalogue().filter { it !in index }
             .groupBy { it.substringBefore('/') }
@@ -809,7 +736,6 @@ object RoomCapture {
         Files.writeString(dir.resolve("index.json"), gson.toJson(index.toSortedMap()))
     }
 
-    /** For /pa dev rooms: the list as of the last finished run, never this one. */
     fun status() {
         SecretRoomData.load()
         worker.execute {

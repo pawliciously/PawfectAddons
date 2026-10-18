@@ -33,13 +33,6 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.sin
 
-/**
- * The click GUI, laid out like NoammAddons: a panel per section that you can drag anywhere, with
- * its modules listed underneath. Clicking a module opens its config in a window beside the
- * panel, so the list never moves. A module lights up in the accent while any of its switches are
- * on. Typing anywhere searches, from the bar along the bottom, and the search reaches into every
- * config: matching settings are listed under their module and open straight to themselves.
- */
 class ClickGuiScreen(
     sections: List<SettingSection>,
     private val initialTab: String? = null,
@@ -51,7 +44,6 @@ class ClickGuiScreen(
         val enabled: Boolean get() = ModuleSwitch.enabled(category.id)
     }
 
-    /** A search result inside a module: a group, or one setting in it. */
     private class Hit(val module: Module, val group: SettingGroup, val setting: Setting<*>?) {
         val label: String get() = if (setting == null) group.title else "${group.title} / ${setting.name}"
     }
@@ -64,7 +56,6 @@ class ClickGuiScreen(
 
         val collapsed: Boolean get() = theme.clickPanels[id]?.collapsed == true
 
-        /** The saved entry, made from where the panel is now when it was never saved. */
         fun saved(): ThemeConfig.ClickPanel = theme.clickPanels.getOrPut(id) {
             ThemeConfig.ClickPanel().also { it.x = x; it.y = y }
         }
@@ -74,7 +65,6 @@ class ClickGuiScreen(
         val height: Float get() = if (collapsed) HEADER else HEADER + bodyHeight + BODY_PAD * 2f
     }
 
-    /** One line of a config window, placed from the top of its content. */
     private sealed class Line(val top: Float, val height: Float) {
         class Band(val label: String, top: Float) : Line(top, BAND)
         class Label(val group: SettingGroup, top: Float) : Line(top, GROUP_LABEL)
@@ -153,7 +143,6 @@ class ClickGuiScreen(
             dragHeld(mx, my)
             dragged?.mouseDragged(mx, my)
 
-            // Panels drop in from just above their spot as the menu opens.
             val open = Anim.easeOutCubic(openAnim.update(1f).toDouble()).toFloat()
             graphics.pose().pushMatrix()
             graphics.pose().translate(0f, (1f - open) * -8f)
@@ -163,7 +152,6 @@ class ClickGuiScreen(
             val overWindow = window != null && Draw.inside(mx, my, window.x, window.y, window.width, window.height)
             val top = if (overWindow) null else topmostAt(mx, my)
             ordered().forEach { panel ->
-                // Only the panel on top reacts to the mouse.
                 val px = if (panel === top) mx else OFF
                 val py = if (panel === top) my else OFF
                 drawAround(graphics, window) { drawPanel(graphics, panel, px, py) }
@@ -179,10 +167,6 @@ class ClickGuiScreen(
         }
     }
 
-    /**
-     * Draws [draw] everywhere except under the config window, so its see-through background shows
-     * the game behind it rather than the panels. It runs once for each side of the window.
-     */
     private inline fun drawAround(graphics: GuiGraphicsExtractor, window: Config?, draw: () -> Unit) {
         if (window == null) { draw(); return }
         val screenW = UiScale.width
@@ -206,7 +190,6 @@ class ClickGuiScreen(
         }
     }
 
-    /** Lays the panels out on the first frame, once the scale for this screen is known. */
     private fun placeOnce() {
         if (placed) return
         placed = true
@@ -221,8 +204,6 @@ class ClickGuiScreen(
         if (module != null && panel != null) openConfig(module, panel, null, quiet = true)
         rememberedModule = null
     }
-
-    // ------------------------------------------------------------------ modules and search
 
     private fun needle(): String = query.trim().lowercase()
 
@@ -256,8 +237,6 @@ class ClickGuiScreen(
     private fun widgetKey(module: Module, group: SettingGroup, setting: Setting<*>?): String =
         if (setting == null) "${module.key}/${group.title}" else "${module.key}/${group.title}/${setting.name}"
 
-    // ------------------------------------------------------------------ panels
-
     private fun ordered(): List<Panel> {
         val order = theme.clickOrder
         val known = order.mapNotNull { byId[it] }
@@ -272,7 +251,6 @@ class ClickGuiScreen(
         order.add(panel.id)
     }
 
-    /** Panels that were never moved sit side by side along the top. */
     private fun placeDefaults() {
         val total = panels.size * PANEL_WIDTH + (panels.size - 1).coerceAtLeast(0) * GAP
         var x = floor(((UiScale.width - total) / 2f).coerceAtLeast(MARGIN))
@@ -339,7 +317,6 @@ class ClickGuiScreen(
         graphics.dropShadow(x, y, w, h, RADIUS, 12f, Theme.withAlpha(0x000000, 110), 4f)
         graphics.roundPanel(x, y, w, h, RADIUS, Theme.surface(Theme.panel, 240), Theme.opaque(Theme.border))
 
-        // The header is the panel's own top, so it follows the corners and stops square.
         Shapes.pushScissor(graphics, x, y, w, HEADER)
         graphics.roundRect(x + 1f, y + 1f, w - 2f, h - 2f, RADIUS - 1f, Theme.surface(Theme.header, 250))
         Shapes.popScissor(graphics)
@@ -361,7 +338,6 @@ class ClickGuiScreen(
 
         if (!panel.collapsed) drawModules(graphics, panel, mouseX, mouseY)
 
-        // A panel with nothing that matches the search fades back.
         if (missed) graphics.roundRect(x, y, w, h, RADIUS, Theme.withAlpha(Theme.background, 165))
     }
 
@@ -418,7 +394,6 @@ class ClickGuiScreen(
         }
     }
 
-    /** A module's switch, the same small switch the settings use. */
     private fun drawSwitch(graphics: GuiGraphicsExtractor, key: String, x: Float, y: Float, on: Boolean) {
         val t = hover.getOrPut("switch/$key") { Anim(140L, if (on) 1f else 0f) }.update(if (on) 1f else 0f)
         graphics.pill(x, y, SWITCH_W, SWITCH_H, Theme.lerp(Theme.withAlpha(Theme.text, 42), Theme.opaque(Theme.accent), t))
@@ -450,7 +425,6 @@ class ClickGuiScreen(
         graphics.string(shown, textX, textY, Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), h))
     }
 
-    /** The part of [shown] that the search matched, on a soft accent mark. */
     private fun mark(graphics: GuiGraphicsExtractor, shown: String, textX: Float, textY: Float) {
         val needle = query.trim()
         if (needle.isEmpty()) return
@@ -460,8 +434,6 @@ class ClickGuiScreen(
         val markW = Draw.width(shown.substring(at, (at + needle.length).coerceAtMost(shown.length)))
         graphics.roundRect(markX - 1f, textY - 1f, markW + 2f, Draw.LINE_HEIGHT + 1f, 2f, Theme.withAlpha(Theme.accent, 90))
     }
-
-    // ------------------------------------------------------------------ config window
 
     private fun openConfig(module: Module, panel: Panel, jumpTo: String?, quiet: Boolean = false) {
         dropFocus()
@@ -499,14 +471,12 @@ class ClickGuiScreen(
         is Line.Band -> null
     }
 
-    /** Places every line of the window and sizes it to the screen. */
     private fun layoutConfig(window: Config) {
         val lines = ArrayList<Line>()
         var y = 0f
         var section: String? = null
         val title = window.module.category.title
         window.module.category.groups.forEachIndexed { index, group ->
-            // A merged category marks where each of its parts begins.
             val wanted = group.section ?: section
             if (wanted != null && wanted != section && !(index == 0 && wanted.equals(title, ignoreCase = true))) {
                 if (index > 0) y += GROUP_GAP
@@ -542,7 +512,6 @@ class ClickGuiScreen(
 
     private fun foldKey(module: Module, group: SettingGroup): String = "${module.key}/${group.title}"
 
-    /** Groups start folded; the ones you open are saved, so they stay how you left them. */
     private fun folded(module: Module, group: SettingGroup): Boolean = foldKey(module, group) !in theme.clickExpanded
 
     private fun setFolded(module: Module, group: SettingGroup, fold: Boolean) {
@@ -556,7 +525,6 @@ class ClickGuiScreen(
     private fun configBody(window: Config): Float = window.y + HEADER + CONFIG_PAD
 
     private fun closeBounds(window: Config): FloatArray {
-        // Centred on the header above its accent line, with the same gap above, below and right.
         val size = 14f
         val gap = (HEADER - ACCENT_LINE - size) / 2f
         return floatArrayOf(window.x + window.width - size - gap - 1f, window.y + gap, size, size)
@@ -594,7 +562,6 @@ class ClickGuiScreen(
         val closeHovered = Draw.inside(mouseX, mouseY, c[0], c[1], c[2], c[3])
         val ch = hover.getOrPut("config/close") { Anim(120L) }.update(if (closeHovered) 1f else 0f)
         if (ch > 0.01f) graphics.roundRect(c[0], c[1], c[2], c[3], 3f, Theme.withAlpha(Theme.text, (20 * ch).toInt()))
-        // Centred on its ink, since the glyph sits off centre in its own advance.
         graphics.iconCentered(Icons.CLOSE, c[0] + c[2] / 2f, c[1] + c[3] / 2f, CLOSE_SCALE,
             Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), ch))
 
@@ -654,7 +621,6 @@ class ClickGuiScreen(
                     widget.y = y
                     widget.width = inner
                     if (visible) {
-                        // Settings the search found keep a mark beside them.
                         if (settingMatches(widget.setting)) {
                             graphics.roundRect(left - 4f, y - 1f, inner + 8f, widget.height + 2f, 3f, Theme.withAlpha(Theme.accent, 22))
                             graphics.rect(left - 4f, y + 1f, 1.5f, (widget.height - 2f).coerceAtLeast(1f), Theme.opaque(Theme.accent))
@@ -691,8 +657,6 @@ class ClickGuiScreen(
         window.scroll = if (room > 0f) ((mouseY - barGrab - b[1]) / room).coerceIn(0f, 1f) * maxScroll(window) else 0f
     }
 
-    // ------------------------------------------------------------------ search and links
-
     private fun searchBounds(): FloatArray =
         floatArrayOf(floor((UiScale.width - SEARCH_WIDTH) / 2f), UiScale.height - SEARCH_HEIGHT - 12f, SEARCH_WIDTH, SEARCH_HEIGHT)
 
@@ -715,7 +679,6 @@ class ClickGuiScreen(
         } else {
             val caret = if ((System.currentTimeMillis() / 500) % 2 == 0L) "_" else ""
             val text = query + caret
-            // Long searches keep their end in view.
             var start = 0
             while (start < text.length && Draw.width(text.substring(start)) > room) start++
             graphics.string(text.substring(start), left, textY, Theme.opaque(Theme.text))
@@ -764,8 +727,6 @@ class ClickGuiScreen(
         graphics.string(link.label, tipX + 6f, tipY + (14f - Draw.LINE_HEIGHT) / 2f, Theme.withAlpha(Theme.text, alpha))
     }
 
-    // ------------------------------------------------------------------ input
-
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         val mx = UiScale.mouseX(click.x())
         val my = UiScale.mouseY(click.y())
@@ -795,7 +756,6 @@ class ClickGuiScreen(
 
         if (Draw.inside(mx, my, panel.x, panel.y, panel.width, HEADER)) {
             dropFocus()
-            // Dragging moves the panel; a click that doesn't move folds it.
             pressedPanel = panel
             draggingPanel = false
             pressX = mx
@@ -927,7 +887,6 @@ class ClickGuiScreen(
         if (!Draw.inside(mx, my, window.x, window.y, window.width, window.height)) return true
         val amount = verticalAmount.toFloat() * SCROLL_STEP
 
-        // A list under the cursor scrolls before the window does.
         for (line in window.lines) {
             if (line !is Line.Row) continue
             val widget = line.widget
@@ -962,7 +921,6 @@ class ClickGuiScreen(
             query += clipboard.lineSequence().firstOrNull().orEmpty()
             return true
         }
-        // An open dropdown, list or field gets keys first, so Esc closes it before anything else.
         focused?.let { if (it.keyPressed(key)) return true }
         when (key) {
             KEY_BACKSPACE -> { if (query.isNotEmpty()) query = query.dropLast(1); return true }
@@ -981,7 +939,6 @@ class ClickGuiScreen(
     override fun charTyped(event: CharacterEvent): Boolean {
         val character = event.codepoint().toChar()
         focused?.let { if (it.charTyped(character)) return true }
-        // Like Odin, typing anywhere goes to the search bar.
         if (character.code >= 32) query += character
         return true
     }
@@ -992,7 +949,6 @@ class ClickGuiScreen(
     }
 
     override fun removed() {
-        // Kept for a reopen, like when the theme changes; closing the menu clears them.
         rememberedModule = config?.module?.key
         rememberedQuery = query
         super.removed()
@@ -1014,7 +970,6 @@ class ClickGuiScreen(
         private var rememberedModule: String? = null
         private var rememberedQuery = ""
 
-        /** Once a config window is dragged, the next ones open where it was left. */
         private var movedConfig = false
 
         private val LINKS = listOf(
@@ -1023,7 +978,6 @@ class ClickGuiScreen(
             Link("github", "GitHub", "https://github.com/pawliciously/PawfectAddons"),
         )
 
-        /** Saved even for players who don't see them, so a dev's layout survives an account switch. */
         private val DEV_PANELS = setOf("dev")
 
         private const val OFF = -1000f

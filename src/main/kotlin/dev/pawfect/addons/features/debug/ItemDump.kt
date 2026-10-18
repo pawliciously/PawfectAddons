@@ -17,11 +17,6 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/**
- * Dev dumps of items, for reading how SkyBlock shows something: the held item with /pa dev item,
- * or every slot of the open menu (your inventory with none open) with the dump keybind. Each goes
- * to a file in config/pawfectaddons/dev and to the game log.
- */
 object ItemDump {
 
     private val logger = LoggerFactory.getLogger("PawfectAddons/Dump")
@@ -69,7 +64,6 @@ object ItemDump {
         ChatUtils.chat("§fDumped §r$title §7(${menu.slots.size} slots) to §f$file")
     }
 
-    /** Everything about a stack: its names, lore with colour codes kept, and all its data as SNBT. */
     fun describe(stack: ItemStack): String = buildString {
         appendLine("name: ${stack.hoverName.string}")
         appendLine("item: ${BuiltInRegistries.ITEM.getKey(stack.item)} x${stack.count}")

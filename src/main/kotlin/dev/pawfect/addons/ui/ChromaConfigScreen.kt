@@ -27,12 +27,6 @@ import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.network.chat.Component
 
-/**
- * The Chroma settings menu: an icon column of tabs, a moving gradient along the top edge, and
- * two columns of group boxes split by labelled dividers that can be folded away. Everything is
- * drawn in the theme's colours. Any setting can be starred into Favourites. It's now the classic
- * menu, kept for devs behind the Classic Menu switch; the click GUI is what everyone else opens.
- */
 class ChromaConfigScreen(
     sections: List<SettingSection>,
     initialTab: String? = null,
@@ -46,7 +40,6 @@ class ChromaConfigScreen(
         val pinKey = Chroma.pinKey(category, groupTitle, widget.setting)
     }
 
-    /** A labelled divider across both columns. Its boxes hide while it's folded. */
     private class Band(val key: String, val label: String, val y: Float)
 
     private class Box(val key: String, val title: String, val entries: List<Entry>, val band: String?) {
@@ -119,7 +112,6 @@ class ChromaConfigScreen(
             dragged?.mouseDragged(mx, my)
             boxes = buildBoxes()
 
-            // Opens with a small rise and grow from the centre.
             val open = Anim.easeOutCubic(openAnim.update(1f).toDouble()).toFloat()
             val cx = windowX + WINDOW_WIDTH / 2f
             val cy = windowY + WINDOW_HEIGHT / 2f
@@ -143,15 +135,12 @@ class ChromaConfigScreen(
 
     private fun hoverFor(id: String): Anim = hover.getOrPut(id) { Anim(160L) }
 
-    // ------------------------------------------------------------------ tabs and content
-
     private fun buildTabs(): List<Tab> {
         val placed = HashSet<String>()
         val built = Chroma.TABS.mapNotNull { def ->
             val cats = def.categories.mapNotNull { byId[it] }.onEach { placed += it.id }
             if (def.id != Chroma.FAVOURITES && cats.isEmpty()) null else Tab(def, cats)
         }.toMutableList()
-        // Anything the tab list doesn't name yet still gets shown, under Misc.
         val rest = categories.filter { it.id !in placed }
         if (rest.isNotEmpty()) {
             val misc = built.indexOfFirst { it.id == "misc" }
@@ -178,10 +167,6 @@ class ChromaConfigScreen(
         return widgets[key] ?: WidgetFactory.create(setting)?.also { widgets[key] = it }
     }
 
-    /**
-     * Every group and every setting is listed, the colour pickers included: nothing is hidden
-     * because a switch elsewhere is off.
-     */
     private fun buildBoxes(): List<Box> {
         val query = searchQuery.trim().lowercase()
         if (query.isNotEmpty()) {
@@ -204,7 +189,6 @@ class ChromaConfigScreen(
         }
         val multi = tab.categories.size > 1
         return tab.categories.flatMap { category ->
-            // A group without a section stays in the section above it.
             var section: String? = null
             category.groups.map { group ->
                 section = group.section ?: section
@@ -213,10 +197,6 @@ class ChromaConfigScreen(
         }
     }
 
-    /**
-     * A merged tab splits by category, and a category splits by its sections. In a merged tab a
-     * section named after its own category adds nothing, so it isn't repeated.
-     */
     private fun bandLabel(category: SettingCategory, section: String?, multi: Boolean): String? {
         val own = section?.takeUnless { it.equals(category.title, ignoreCase = true) }
         return when {
@@ -233,7 +213,6 @@ class ChromaConfigScreen(
 
     private fun tabCategories(t: Tab): List<SettingCategory> = if (t.id == Chroma.FAVOURITES) categories else t.categories
 
-    /** Switches on in a tab, and how many there are. Favourites counts only starred ones. */
     private fun counts(t: Tab): Pair<Int, Int> {
         val wanted = Chroma.pins.toSet()
         val toggles = tabCategories(t).flatMap { category ->
@@ -262,8 +241,6 @@ class ChromaConfigScreen(
 
     private fun bandCollapsed(key: String): Boolean = ConfigManager.features.theme.collapsedSections.contains(key)
 
-    // ------------------------------------------------------------------ window
-
     private fun updateWindowPosition(mouseX: Float, mouseY: Float) {
         val theme = ConfigManager.features.theme
         if (draggingWindow) {
@@ -279,7 +256,6 @@ class ChromaConfigScreen(
         val margin = 6f
         windowX = windowX.coerceIn(margin, (UiScale.width - WINDOW_WIDTH - margin).coerceAtLeast(margin))
         windowY = windowY.coerceIn(margin, (UiScale.height - WINDOW_HEIGHT - margin).coerceAtLeast(margin))
-        // Whole units keep the column, divider and text on the same pixels.
         windowX = kotlin.math.floor(windowX)
         windowY = kotlin.math.floor(windowY)
     }
@@ -287,8 +263,6 @@ class ChromaConfigScreen(
     private fun drawWindow(graphics: GuiGraphicsExtractor) {
         graphics.dropShadow(windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, 24f, Theme.withAlpha(0x000000, 160), 6f)
         graphics.roundPanel(windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_RADIUS, Theme.surface(Theme.background), Theme.opaque(Theme.border))
-        // The icon column is the window's own left side, so it follows the window's corners and
-        // stops square at the divider.
         Shapes.pushScissor(graphics, windowX, windowY, ICON_COLUMN, WINDOW_HEIGHT)
         graphics.roundRect(windowX + 1f, windowY + 1f, WINDOW_WIDTH - 2f, WINDOW_HEIGHT - 2f, WINDOW_RADIUS - 1f, Theme.surface(Theme.header, 240))
         Shapes.popScissor(graphics)
@@ -304,7 +278,6 @@ class ChromaConfigScreen(
         val target = iconY(activeIndex) - windowY
         if (!indicatorReady || draggingWindow) { indicatorAnim.set(target); indicatorReady = true }
         val indicator = windowY + indicatorAnim.update(target)
-        // The selected tab: a soft glow in the header's flowing accent, gliding between tabs.
         if (searchQuery.isEmpty()) Chroma.drawGlow(graphics, cellX, indicator, ICON_CELL, 7f)
 
         tooltipIndex = -1
@@ -317,12 +290,10 @@ class ChromaConfigScreen(
             if (h > 0.01f && !active) graphics.roundRect(cellX, y, ICON_CELL, ICON_CELL, 7f, Theme.withAlpha(Theme.text, (14 * h).toInt()))
             val lit = if (active) 1f else h
             val color = if (active) Chroma.onGlow() else Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.text), lit)
-            // Held at the 1.25x the large icon raster is made for; growing it on hover blurred it.
             graphics.iconCentered(t.def.icon, cellX + ICON_CELL / 2f, y + ICON_CELL / 2f, ICON_SCALE, color)
         }
     }
 
-    /** Names the tab under the cursor, with its switch count, beside the icon column. */
     private fun drawTooltip(graphics: GuiGraphicsExtractor) {
         val shown = tooltipAnim.update(if (tooltipIndex >= 0) 1f else 0f)
         if (tooltipIndex >= 0) lastTooltip = tooltipIndex
@@ -342,8 +313,6 @@ class ChromaConfigScreen(
         graphics.string(t.def.title, x + 13f, y + 6f, Theme.withAlpha(Theme.text, alpha), bold = true)
         if (detail.isNotEmpty()) graphics.string(detail, x + 13f, y + 17f, Theme.withAlpha(Theme.textDim, alpha))
     }
-
-    // ------------------------------------------------------------------ header
 
     private class Button(val id: String, val label: String, val x: Float, val y: Float, val width: Float)
 
@@ -400,8 +369,6 @@ class ChromaConfigScreen(
         graphics.roundRect(windowX + ICON_COLUMN + 10f, windowY + EDGE + HEADER_HEIGHT, WINDOW_WIDTH - ICON_COLUMN - 20f, 1f, 0.5f, Theme.withAlpha(Theme.border, 190))
     }
 
-    // ------------------------------------------------------------------ content
-
     private fun contentBounds(): FloatArray {
         val left = windowX + ICON_COLUMN + 1f
         val top = windowY + EDGE + HEADER_HEIGHT + 1f
@@ -414,7 +381,6 @@ class ChromaConfigScreen(
         val right = b[2] - CONTENT_PADDING - 4f
         val columnWidth = (right - left - COLUMN_GAP) / 2f
         val heights = FloatArray(2)
-        // Content slides up into place after a tab change.
         val slide = (1f - Anim.easeOutCubic(contentAnim.update(1f).toDouble()).toFloat()) * 12f
         val marks = ArrayList<Band>()
         var current: String? = null
@@ -422,7 +388,6 @@ class ChromaConfigScreen(
         boxes.forEach { box ->
             val wanted = box.band
             if (wanted != null && wanted != current) {
-                // A new divider starts below everything so far, across both columns.
                 current = wanted
                 val key = bandKey(wanted)
                 folded = bandCollapsed(key)
@@ -445,7 +410,6 @@ class ChromaConfigScreen(
         return heights.max()
     }
 
-    /** Boxes on screen, leaving out the ones inside a folded divider. */
     private fun shownBoxes(): List<Box> = boxes.filter { it.width > 0f }
 
     private fun drawContent(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float) {
@@ -542,8 +506,6 @@ class ChromaConfigScreen(
         }
     }
 
-    // ------------------------------------------------------------------ input
-
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         val mx = UiScale.mouseX(click.x())
         val my = UiScale.mouseY(click.y())
@@ -582,7 +544,6 @@ class ChromaConfigScreen(
         if (Draw.inside(mx, my, b[0], b[1], b[2] - b[0], b[3] - b[1])) {
             for (band in bands) {
                 if (bandHit(band, mx, my)) {
-                    // Folded dividers are saved, so they stay folded next time.
                     val list = ConfigManager.features.theme.collapsedSections
                     if (!list.remove(band.key)) list.add(band.key)
                     dropFocus()
@@ -659,7 +620,6 @@ class ChromaConfigScreen(
                 if (handled) return true
             }
         }
-        // Scrolling over the icon column moves between tabs.
         if (Draw.inside(mx, my, windowX, windowY, ICON_COLUMN, WINDOW_HEIGHT)) {
             val index = tabs.indexOfFirst { it.id == tabId }
             val next = (index + if (verticalAmount < 0) 1 else -1).coerceIn(0, tabs.size - 1)

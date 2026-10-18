@@ -52,8 +52,6 @@ void main() {
         coverage = clamp(0.5 - distance / edge, 0.0, 1.0);
     }
     if (mode == MODE_RIM) {
-        // Only the band along the top: the shape, less a copy of itself lowered by the border
-        // width. It is widest in the middle and thins to nothing down each rounded corner.
         float lowered = roundedBox(local.xy - vec2(0.0, border), halfSize, radius);
         coverage *= 1.0 - clamp(0.5 - lowered / edge, 0.0, 1.0);
     }

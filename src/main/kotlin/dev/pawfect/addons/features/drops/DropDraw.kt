@@ -15,7 +15,6 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** One frame of a celebration: where it's drawn and what's playing. */
 class DropFrame(
     val g: GuiGraphicsExtractor,
     val show: DropCelebration.Show,
@@ -32,14 +31,11 @@ class DropFrame(
     val color get() = show.color
     val glow get() = show.glow
 
-    /** One block of the item, in GUI units. */
     val unit get() = 16f * f.size
 
-    /** Everything else scales with the item. */
     val size get() = f.size / 4f
 }
 
-/** The shapes the celebrations are drawn with. */
 object DropDraw {
 
     fun full(fr: DropFrame, color: Int) {
@@ -47,7 +43,6 @@ object DropDraw {
         fr.g.fill(-60, -60, fr.w.toInt() + 60, fr.h.toInt() + 60, color)
     }
 
-    /** A bar out from a point at an angle, fading from [inner] at its near end to [outer] at its far one. */
     fun ray(g: GuiGraphicsExtractor, cx: Float, cy: Float, angle: Float, from: Float, length: Float, width: Float, inner: Int, outer: Int) {
         if (length <= 0f || width <= 0f) return
         val pose = g.pose()
@@ -70,13 +65,11 @@ object DropDraw {
         g.rect(x - 0.4f, y - arm, 0.8f, arm * 2f, color)
     }
 
-    /** A soft round light, gone at its edge. */
     fun soft(g: GuiGraphicsExtractor, x: Float, y: Float, radius: Float, color: Int) {
         if (radius <= 0f || (color ushr 24) == 0) return
         Shapes.rect(g, x - radius, y - radius, radius * 2f, radius * 2f, radius, color, color, softness = radius * 0.9f)
     }
 
-    /** A crisp round blob, for paint. */
     fun blob(g: GuiGraphicsExtractor, x: Float, y: Float, radius: Float, color: Int) {
         if (radius <= 0f || (color ushr 24) == 0) return
         Shapes.rect(g, x - radius, y - radius, radius * 2f, radius * 2f, radius, color, color, softness = 0.8f)
@@ -102,7 +95,6 @@ object DropDraw {
 
     fun bold(text: String): Component = Component.literal(text).withStyle(ChatFormatting.BOLD)
 
-    /** Bold text centred on [x], its middle on [y]. */
     fun text(g: GuiGraphicsExtractor, text: String, x: Float, y: Float, scale: Float, color: Int, shadow: Boolean = true) {
         if ((color ushr 24) < 6 || scale <= 0f) return
         val font = McCompat.font

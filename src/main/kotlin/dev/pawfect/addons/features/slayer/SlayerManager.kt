@@ -26,11 +26,9 @@ object SlayerManager {
             "Voidgloom Seraph|Inferno Demonlord|Riftstalker Bloodfiend|Bloodfiend)(?:\\s+(V|IV|III|II|I))?",
     )
 
-    // Plates read "4.2M❤", or now "4.2M/10M❤": the first number is what's left, the second the max.
     private const val AMOUNT = "(\\d{1,3}(?:,\\d{3})*(?:\\.\\d+)?[kKmMbB]?)"
     private val healthRegex = Regex("$AMOUNT(?:/$AMOUNT)?\\s*❤")
 
-    // "12 Hits", or "12/60 Hits" in the same style as health.
     private val hitsRegex = Regex("(\\d+)(?:/(\\d+))?\\s*Hits?", RegexOption.IGNORE_CASE)
 
     private val hitsPerTier = listOf(15, 30, 60, 100)
@@ -49,7 +47,6 @@ object SlayerManager {
             return tierHealth.getOrNull(tier.ordinal) ?: tierHealth.last()
         }
 
-        /** The tier whose health is nearest [maxHealth], for plates that don't name one. */
         fun tierFor(bossName: String, maxHealth: Int): SlayerTier? {
             if (bossName.contains("Conjoined Brood") || bossName.contains("Atoned Horror")) return SlayerTier.V
             if (maxHealth <= 0) return null
@@ -103,7 +100,6 @@ object SlayerManager {
             get() {
                 val name = stand.name.string
                 val health = parseHealth(name) ?: return null
-                // The plate's own max beats the tier table when it shows one.
                 parseMaxHealth(name)?.let { maxHealth = it }
                 if (health > maxHealth) maxHealth = health
                 return health
@@ -119,7 +115,6 @@ object SlayerManager {
         var hits: Int? = null
             internal set
 
-        /** The plate's own hit count to break the shield, when it shows one. */
         var shownMaxHits: Int? = null
             internal set
 
@@ -141,8 +136,6 @@ object SlayerManager {
     private var lowAlerted = false
     private var inHitPhase = false
 
-    // Hypixel no longer always names the owner over a boss, so the boss that appears next to you
-    // as your quest turns to "Slay the boss!" is taken as yours, until the quest moves on.
     private var questBossUp = false
     private var questSpawnedAt = 0L
     private var claimedStand = -1
@@ -170,7 +163,6 @@ object SlayerManager {
 
         val current = boss
         if (current != null) updateHits(current)
-        // A boss of someone else's is let go once yours spawns.
         if (current != null && current.alive && matchesTarget(current) && (current.owned || !claimOpen)) {
             checkLowHealth(current)
             checkHitPhase(current)
@@ -190,7 +182,6 @@ object SlayerManager {
         checkHitPhase(found)
     }
 
-    // The Voidgloom's shield is up whenever its plate counts hits instead of health.
     private fun checkHitPhase(current: Boss) {
         val hits = current.hits
         if (hits == null) {
@@ -252,7 +243,6 @@ object SlayerManager {
             val bossName = match.groupValues[1]
             val type = SlayerType.fromBossName(bossName) ?: continue
             val numeral = match.groupValues.getOrNull(2)
-            // New plates show "[Lv377] Name cur/max❤" with no tier, so the max picks it instead.
             val tier = parseMaxHealth(stand.name.string)?.takeIf { numeral.isNullOrEmpty() }
                 ?.let { type.tierFor(bossName, it) }
                 ?: SlayerTier.parse(numeral, bossName)
@@ -271,7 +261,6 @@ object SlayerManager {
         return best
     }
 
-    /** The first boss within reach that is new when your quest's boss spawns. */
     private fun claim(stand: ArmorStand): Boolean {
         if (!claimOpen) return false
         val player = McCompat.player ?: return false
@@ -348,7 +337,6 @@ object SlayerManager {
 
     private const val SLAIN_RANGE_SQ = 900.0
 
-    // Title timings in ticks.
     private const val HIT_PHASE_FADE_IN = 3
     private const val HIT_PHASE_STAY = 30
     private const val HIT_PHASE_FADE_OUT = 8

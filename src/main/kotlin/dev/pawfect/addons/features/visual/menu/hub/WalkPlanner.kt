@@ -9,14 +9,8 @@ import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 
-/**
- * Plans a walk through the captured hub: a path between waypoints that a player could really
- * take, and the floor height and light at every step of it. All of it is worked out once while
- * the scene builds, so the walker needs nothing from the world while it draws.
- */
 internal object WalkPlanner {
 
-    /** Distance between samples along the walk, in blocks. */
     const val STEP = 0.1
 
     private const val STEP_UP = 0.6
@@ -31,13 +25,11 @@ internal object WalkPlanner {
 
     class Waypoint(val x: Double, val y: Double, val z: Double)
 
-    /** The walk sampled every [STEP] blocks: where it goes, the floor under it and its light. */
     class Walk(
         val xs: DoubleArray,
         val zs: DoubleArray,
         val floors: DoubleArray,
         val light: FloatArray,
-        /** How far along the walk each waypoint is reached. */
         val marks: DoubleArray,
     ) {
         val length: Double get() = (xs.size - 1) * STEP
@@ -48,7 +40,6 @@ internal object WalkPlanner {
         val centreZ: Double get() = z + 0.5
     }
 
-    /** Where a straight stride ends up, and whether it needed a jump on the way. */
     private class Stride(val feet: Double, val jumped: Boolean)
 
     fun plan(world: HubWorld, waypoints: List<Waypoint>): Walk? {
@@ -64,9 +55,6 @@ internal object WalkPlanner {
         return sample(world, corners, cornerOf)
     }
 
-    // A* over block columns, moving between their centres. Every move is checked as a real
-    // stride, so stairs and slabs are walked in their half steps, a full block costs a jump and
-    // anything that would put the body through a block is out.
     private fun search(world: HubWorld, from: Waypoint, to: Waypoint): List<Cell>? {
         val startX = floor(from.x).toInt()
         val startZ = floor(from.z).toInt()
@@ -107,8 +95,6 @@ internal object WalkPlanner {
         return null
     }
 
-    // Keeps only the corners of the path: each one runs straight to the furthest later cell it
-    // can reach without a jump, so the walk only turns where it has to.
     private fun pull(world: HubWorld, cells: List<Cell>): List<Cell> {
         val kept = arrayListOf(cells.first())
         var at = 0
@@ -142,8 +128,6 @@ internal object WalkPlanner {
         return Stride(height, jumped)
     }
 
-    // Lays samples evenly along the corners, then walks them once the way a player's feet
-    // would, so the floor rises in the real increments of every stair and slab.
     private fun sample(world: HubWorld, corners: List<Cell>, cornerOf: IntArray): Walk {
         val xs = ArrayList<Double>()
         val zs = ArrayList<Double>()
@@ -177,8 +161,6 @@ internal object WalkPlanner {
         return Walk(xs.toDoubleArray(), zs.toDoubleArray(), floors, light, DoubleArray(cornerOf.size) { reachedAt[cornerOf[it]] })
     }
 
-    // The highest surface under the player's footprint within a jump of [feet], or null when
-    // there is nothing to stand on within a fall's reach.
     private fun support(world: HubWorld, x: Double, z: Double, feet: Double): Double? {
         var top = Double.NEGATIVE_INFINITY
         val base = floor(feet).toInt()
@@ -222,9 +204,6 @@ internal object WalkPlanner {
     private fun overlaps(min: Double, max: Double, centre: Double): Boolean =
         max > centre - HALF_WIDTH + EPSILON && min < centre + HALF_WIDTH - EPSILON
 
-    // The scene's lighting at a point, blended over the eight nearest block centres so it
-    // changes smoothly as the walker passes a lantern. Solid blocks carry no light, so they are
-    // left out of the blend instead of darkening it.
     private fun lightAt(world: HubWorld, x: Double, y: Double, z: Double, into: FloatArray, at: Int) {
         val fx = x - 0.5
         val fy = y - 0.5

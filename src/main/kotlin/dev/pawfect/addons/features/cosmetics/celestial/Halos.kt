@@ -14,13 +14,8 @@ import kotlin.math.sin
 private const val TAU = Motion.TAU
 private const val PI_F = PI.toFloat()
 
-/** How far round the halo radius sits from the head's centre line. */
 private const val R = 0.21f
 
-/**
- * A halo floating over the head, or standing behind it when [behind]. Segment 0 holds still,
- * segments 1 and 2 turn so rings and lights can drift against each other.
- */
 abstract class HaloStyle(id: String, private val behind: Boolean = false) : Piece(id, Anchor.HEAD, 1) {
 
     override fun matrices(state: AvatarRenderState, motion: Motion, t: Float, size: Float): Array<Matrix4f> {
@@ -39,7 +34,6 @@ abstract class HaloStyle(id: String, private val behind: Boolean = false) : Piec
     protected fun ring(radius: Float, thickness: Float, rings: Int = 64): Solid.Frames =
         Solid.frames(rings, { thickness }, Vector3f(0f, 1f, 0f)) { s -> Vector3f(cos(s * TAU) * radius, 0f, sin(s * TAU) * radius) }
 
-    /** A bright spot running round the ring, at [pos] from 0 to 1 around it. */
     protected fun sweep(pos: Float, speed: Float, t: Float, width: Float = 8f): Float {
         val d = (frac(pos - t * speed) - 0.5f) * width
         return exp(-d * d)
@@ -59,7 +53,6 @@ private const val GOLD = 0xFFFFCF5A.toInt()
 private const val GOLD_DEEP = 0xFFC8861E.toInt()
 private const val GOLD_LIGHT = 0xFFFFE6A0.toInt()
 
-/** Polished gold with a bright glint running round it, a soft bloom and jewels turning inside. */
 object Gilded : HaloStyle("gilded") {
     override val baseHue = 0.11f
 
@@ -101,7 +94,6 @@ object Gilded : HaloStyle("gilded") {
     }
 }
 
-/** A black ring eclipsing its own light: a white corona, flickering rays and a diamond flare. */
 object Eclipse : HaloStyle("eclipse") {
     override val baseHue = 0.1f
 
@@ -124,7 +116,6 @@ object Eclipse : HaloStyle("eclipse") {
         repeat(10) { sparks += Spark(0, 0f, 0f, 0f, rnd.nextFloat()) }
     }
 
-    /** Rays lengthen and shrink, linear in v so each stays one straight spike. */
     override fun displace(kind: Int, u: Float, v: Float, seed: Float, t: Float, p: Vector3f) {
         if (kind != 7) return
         val f = 1f + v * 0.25f * sin(t * 2.5f + seed * 20f)
@@ -161,7 +152,6 @@ object Eclipse : HaloStyle("eclipse") {
     }
 }
 
-/** Rings of starlight crossing like a gyroscope, stars strung on them and planets riding round. */
 object Astral : HaloStyle("astral") {
     override val baseHue = 0.6f
 
@@ -196,7 +186,6 @@ object Astral : HaloStyle("astral") {
         else -> color
     }
 
-    /** Planets run round their ring faster than it turns. x holds the ring's radius. */
     override fun spark(s: Spark, t: Float, out: SparkOut): Boolean {
         val a = s.seed * TAU + t * 1.4f
         out.x = cos(a) * s.x
@@ -208,7 +197,6 @@ object Astral : HaloStyle("astral") {
     }
 }
 
-/** A sunburst standing behind the head: two sets of rays turning against each other round a gold ring. */
 object Radiant : HaloStyle("radiant", behind = true) {
     override val baseHue = 0.11f
 
@@ -262,7 +250,6 @@ object Radiant : HaloStyle("radiant", behind = true) {
     }
 }
 
-/** A crown of fire: a smouldering ring with hot spots crawling round it, flames dancing on top. */
 object Ember : HaloStyle("ember") {
     override val baseHue = 0.06f
 
@@ -312,7 +299,6 @@ object Ember : HaloStyle("ember") {
     }
 }
 
-/** Cut gems orbiting in two rings, catching colour as they turn and bob. */
 object Facet : HaloStyle("prism") {
     override fun build(fill: MeshBuilder, glow: MeshBuilder, sparks: MutableList<Spark>) {
         for ((seg, radius, scale) in listOf(Triple(1, R, 1f), Triple(2, R * 0.72f, 0.55f))) {
@@ -333,7 +319,6 @@ object Facet : HaloStyle("prism") {
         }
     }
 
-    /** Each gem bobs as one piece; its seed is the same on all of its corners. */
     override fun displace(kind: Int, u: Float, v: Float, seed: Float, t: Float, p: Vector3f) {
         if (kind == 40 || kind == 41) p.y += 0.014f * sin(t * 2f + seed * TAU)
     }

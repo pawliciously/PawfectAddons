@@ -24,7 +24,6 @@ object HypixelLocation {
     var mode: String? = null
         private set
 
-    /** The rest of the last location packet (server name like mini123A, map like "The Catacombs"), for dev dumps. */
     @Volatile
     var serverName: String? = null
         private set

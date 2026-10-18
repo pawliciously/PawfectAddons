@@ -8,7 +8,6 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
-/** Runs motes, trails and landings through a recording consumer and checks what comes out. */
 class WorldFxTest {
 
     private class Recorder {
@@ -55,7 +54,6 @@ class WorldFxTest {
     fun trail() {
         val track = Trails.Track()
         var dist = 0f
-        // A curving run, then straight up, then hovering: every frame case the ribbon meets.
         for (i in 0 until 64) {
             val step = when {
                 i < 30 -> Vec3(0.12 * kotlin.math.cos(i * 0.15), 0.0, 0.12 * kotlin.math.sin(i * 0.15))

@@ -27,12 +27,6 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import java.util.EnumMap
 
-/**
- * Timers for the things that save you from dying: Bonzo's Mask, the Spirit Mask and the Phoenix
- * pet. Each one's chat line starts a few seconds of invincibility and then its cooldown, read off
- * the mask's own "Cooldown:" line so starred masks are right. Shown as a HUD and, on the masks,
- * as a cooldown sliding down the item like vanilla's. Leaving the dungeon clears them all.
- */
 object InvincibilityTimers {
 
     enum class Kind(
@@ -55,12 +49,10 @@ object InvincibilityTimers {
     private val procAt = EnumMap<Kind, Long>(Kind::class.java)
     private val cooldown = EnumMap<Kind, Long>(Kind::class.java)
 
-    /** The mask you're wearing, checked every so often rather than every frame. */
     private var equipped: Kind? = null
     private var ticks = 0
     private var wasInDungeon = false
 
-    /** Each kind's icon. The NEU repo only has the Phoenix by rarity ("PHOENIX;8"), so it's looked up. */
     private val icons = EnumMap<Kind, ItemStack>(Kind::class.java)
 
     fun register() {
@@ -84,7 +76,6 @@ object InvincibilityTimers {
         icons[kind]?.let { return it }
         val id = if (kind == Kind.PHOENIX) NeuRepo.allItemIds().filter { it.startsWith("PHOENIX;") }.maxOrNull() else kind.icon
         val stack = id?.let { NeuRepo.itemStack(it) }?.takeIf { !it.isEmpty } ?: ItemStack(Items.PLAYER_HEAD)
-        // Only kept once the repo is in, so an early frame doesn't stick with a plain head.
         if (NeuRepo.isLoaded) icons[kind] = stack
         return stack
     }
@@ -108,14 +99,12 @@ object InvincibilityTimers {
             gui.setTimes(2, 30, 6)
             val text = config.alertText.replace("{item}", kind.label).replace("{time}", (kind.invincibleMs / 1000).toString())
             gui.setSubtitle(Component.literal(text.replace('&', '§')))
-            // The big line stays empty; a subtitle only shows under a title.
             gui.setTitle(Component.empty())
         }
         if (config.sound) SoundCue.play(config.soundId, 1f, 1f)
         if (config.announce) McCompat.mc.connection?.sendCommand("pc ${kind.label} procced!")
     }
 
-    /** The cooldown on the mask that went off: the one you're wearing, else one you carry. */
     private fun maskCooldown(kind: Kind): Long? {
         if (kind.ids.isEmpty()) return null
         val player = McCompat.player ?: return null
@@ -142,9 +131,6 @@ object InvincibilityTimers {
         Kind.PHOENIX -> config.phoenix
     }
 
-    // ------------------------------------------------------------------ item cooldown
-
-    /** Slides the cooldown down a mask in your inventory or hotbar, like vanilla's item cooldowns. */
     @JvmStatic
     fun decorate(graphics: GuiGraphicsExtractor, stack: ItemStack, x: Int, y: Int) {
         if (!config.enabled || !config.onItem || procAt.isEmpty()) return
@@ -156,8 +142,6 @@ object InvincibilityTimers {
         val top = y + Math.round(16f * (1f - fraction))
         graphics.fill(x, top, x + 16, y + 16, ITEM_COOLDOWN)
     }
-
-    // ------------------------------------------------------------------ HUD
 
     private class Row(val kind: Kind, val status: String, val color: Int)
 
@@ -216,9 +200,7 @@ object InvincibilityTimers {
             val top = PAD + i * ROW
             graphics.item(icon(row.kind), PAD.toInt(), top.toInt())
             val textY = top + (ICON - Draw.LINE_HEIGHT) / 2f
-            // The mask you're wearing is the one that'll go off next.
             val nameColor = if (row.kind == equipped) Theme.accent else Theme.text
-            // Without the panel behind it, a shadow keeps the text readable.
             val shadow = !config.background
             graphics.string(row.kind.label, PAD + ICON + 5f, textY, Theme.opaque(nameColor), shadow)
             graphics.stringRight(row.status, WIDTH - PAD, textY, Theme.opaque(row.color), shadow)

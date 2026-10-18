@@ -6,7 +6,6 @@ import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.sin
 
-/** One vertex of a wing, in the space of one of the three wing segments. */
 class Vtx(
     val seg: Int,
     val x: Float,
@@ -19,7 +18,6 @@ class Vtx(
     val seed: Float,
 )
 
-/** A wing's quads, flattened into arrays once so a frame only reads them. */
 class Mesh(verts: List<Vtx>, val glow: Boolean) {
     val size = verts.size
     val seg = ByteArray(size) { verts[it].seg.toByte() }
@@ -32,7 +30,6 @@ class Mesh(verts: List<Vtx>, val glow: Boolean) {
     val kind = ByteArray(size) { verts[it].kind.toByte() }
     val seed = FloatArray(size) { verts[it].seed }
 
-    // Per frame scratch, filled once and drawn for both wings.
     val px = FloatArray(size)
     val py = FloatArray(size)
     val pz = FloatArray(size)
@@ -52,7 +49,6 @@ class MeshBuilder(private val glow: Boolean) {
     fun build() = Mesh(verts, glow)
 }
 
-/** A loose bit of light drawn as a small star, moved by its style every frame. */
 class Spark(val seg: Int, val x: Float, val y: Float, val z: Float, val seed: Float)
 
 class SparkOut {
@@ -63,7 +59,6 @@ class SparkOut {
     var color = 0
 }
 
-/** A feather or blade rooted on a segment, pointing at an angle in that segment's plane. */
 class Feather(
     val row: Int,
     val seg: Int,
@@ -86,7 +81,6 @@ const val DEG = (PI / 180.0).toFloat()
 val SIDES = floatArrayOf(1f, -1f)
 
 object Shapes {
-    /** Pairs of (position along, width) describing an outline from root to tip. */
     val FEATHER = floatArrayOf(0f, 0.22f, 0.45f, 1f, 0.82f, 0.78f, 1f, 0f)
     val SHARD = floatArrayOf(0f, 0.12f, 0.2f, 1f, 0.76f, 1f, 1f, 0f)
     val FLAME = floatArrayOf(0f, 0.3f, 0.35f, 1f, 0.72f, 0.55f, 1f, 0f)
@@ -94,7 +88,6 @@ object Shapes {
     fun vtx(f: Feather, along: Float, side: Float, z: Float, color: Int, kind: Int) =
         Vtx(f.seg, f.px(along, side), f.py(along, side), z, color, f.u, along, kind, f.seed)
 
-    /** Fills a feather's outline. [from] and [to] stretch it along the feather, for flames past the tip. */
     fun blade(
         b: MeshBuilder, f: Feather, profile: FloatArray, z: Float, c0: Int, c1: Int, kind: Int,
         from: Float = 0f, to: Float = 1f, widthMul: Float = 1f,
@@ -112,7 +105,6 @@ object Shapes {
         }
     }
 
-    /** Thin lines tracing both edges of a feather's outline. */
     fun outline(b: MeshBuilder, f: Feather, profile: FloatArray, w: Float, z: Float, color: Int, kind: Int) {
         for (s in SIDES) {
             for (i in 0 until profile.size / 2 - 1) {
@@ -125,7 +117,6 @@ object Shapes {
         }
     }
 
-    /** The shaft down the middle of a feather, broken where the outline bends so it bends with it. */
     fun spine(b: MeshBuilder, f: Feather, profile: FloatArray, w: Float, z: Float, c0: Int, c1: Int, kind: Int, end: Float) {
         var last = 0f
         for (i in 1 until profile.size / 2) {
@@ -161,16 +152,13 @@ object Shapes {
     }
 }
 
-/** Where the feathers of a bird-like wing sit, worked out from the wing's resting pose. */
 object Layout {
     private val Z = floatArrayOf(0f, 0.005f, 0.009f, 0.014f, 0.019f)
 
-    /** How far each row sits off the wing so rows never fight over the same depth. */
     fun z(row: Int) = Z[row]
 
     fun restAngles(rig: Rig) = floatArrayOf(rig.lift, rig.lift + rig.elbowLift, rig.lift + rig.elbowLift + rig.wristLift)
 
-    /** Rows: 0 primaries, 1 secondaries, 2 tertials, 3 coverts, 4 small coverts on the leading edge. */
     fun feathered(rig: Rig, seed: Long, len: Float = 1f, width: Float = 1f): List<Feather> {
         val rnd = java.util.Random(seed)
         val rest = restAngles(rig)
@@ -247,10 +235,6 @@ object Colors {
         return ((r * 255f).toInt() shl 16) or ((g * 255f).toInt() shl 8) or (b * 255f).toInt()
     }
 
-    /**
-     * Premultiplies for the one blend the wings use. Solid parts keep their alpha and darken in
-     * low light; glowing parts add their light on top and cover nothing.
-     */
     fun out(raw: Int, glow: Boolean, shade: Float): Int {
         val color = Paint.active?.let { (raw and 0xFF000000.toInt()) or it.apply(raw) } ?: raw
         val a = color ushr 24

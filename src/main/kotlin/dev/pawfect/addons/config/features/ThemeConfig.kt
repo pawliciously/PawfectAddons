@@ -57,19 +57,15 @@ class ThemeConfig {
     @Expose
     val collapsedGroups: MutableList<String> = mutableListOf()
 
-    /** Dev only: open the Chroma menu instead of the click GUI. */
     @Expose
     var classicMenu: Boolean = false
 
-    /** Where each click GUI panel sits and whether it's folded, by category id. */
     @Expose
     val clickPanels: MutableMap<String, ClickPanel> = mutableMapOf()
 
-    /** Click GUI panels from back to front, so the last one moved stays on top. */
     @Expose
     val clickOrder: MutableList<String> = mutableListOf()
 
-    /** Groups opened in click GUI config windows. Every group starts folded. */
     @Expose
     val clickExpanded: MutableList<String> = mutableListOf()
 

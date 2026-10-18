@@ -250,7 +250,6 @@ object PawfectAddons : ClientModInitializer {
     }
 
     private fun registerChat() {
-        // First, so the recorder sees every line even if something later hides it
         ClientReceiveMessageEvents.ALLOW_GAME.register { message, overlay ->
             runCatching { ChatRecorder.onMessage(message, overlay) }
             true

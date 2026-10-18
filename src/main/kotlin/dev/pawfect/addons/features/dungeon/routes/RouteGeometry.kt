@@ -8,7 +8,6 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** Turning directions between the room's own frame and the world's, as the room is rotated. */
 object RouteGeometry {
 
     fun direction(pitch: Float, yaw: Float): Vec3 {
@@ -17,7 +16,6 @@ object RouteGeometry {
         return Vec3(-sin(y) * cos(p), -sin(p), cos(y) * cos(p))
     }
 
-    /** Pitch and yaw in degrees, the way the game measures them. */
     fun angles(direction: Vec3): FloatArray {
         val length = direction.length().takeIf { it > 1.0e-6 } ?: return floatArrayOf(0f, 0f)
         val d = direction.scale(1.0 / length)

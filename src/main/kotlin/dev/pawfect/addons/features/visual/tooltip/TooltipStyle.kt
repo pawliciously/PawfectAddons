@@ -45,12 +45,6 @@ object TooltipStyle {
         return lines.map { reface(it, face) }
     }
 
-    /**
-     * Text in this colour is turned into a moving rainbow by Aaron's Mod (and Skyblocker through
-     * it). Its rainbow shader reads glyphs as full colour images, but a TTF font's glyphs are
-     * greyscale, so on our font each letter came out in a black box. Those runs keep the game's
-     * font.
-     */
     private const val CHROMA_TRIGGER = 0xAA5500
 
     private fun reface(component: Component, face: FontDescription, inherited: TextColor? = null): Component {
@@ -59,7 +53,6 @@ object TooltipStyle {
         val current = style.font
         val wanted = when {
             current != null && current != FontDescription.DEFAULT -> style
-            // Set outright, so a rainbow run inside restyled text doesn't inherit our font.
             color?.value == CHROMA_TRIGGER -> style.withFont(FontDescription.DEFAULT)
             else -> style.withFont(face)
         }

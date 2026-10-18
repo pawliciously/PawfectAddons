@@ -11,18 +11,12 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
 
-/**
- * Spots recorded in game with /pa dev point, kept in a plain JSON file so they can be turned
- * into new walks for the menu scene. Each one notes where it was taken, since a hub spot only
- * makes sense in the hub.
- */
 object WalkerPoints {
 
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
     val file: Path get() = ConfigManager.configDirectory.resolve("walker_points.json")
 
-    /** Adds the player's spot to the list and returns how many points it now holds. */
     fun add(): Int? {
         val player = McCompat.player ?: return null
         val points = read()
@@ -41,7 +35,6 @@ object WalkerPoints {
         return points.size()
     }
 
-    /** Drops the most recent point, returning how many are left, or null if there were none. */
     fun undo(): Int? {
         val points = read()
         if (points.isEmpty) return null

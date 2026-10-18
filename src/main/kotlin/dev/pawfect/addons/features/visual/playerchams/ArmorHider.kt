@@ -12,7 +12,6 @@ import net.minecraft.client.renderer.entity.state.AvatarRenderState
 import net.minecraft.client.renderer.entity.state.EntityRenderState
 import net.minecraft.world.entity.player.Player
 
-/** Stops armour, helmets, skulls worn as hats and elytra drawing on players. Only you see it. */
 object ArmorHider {
 
     private val config get() = ModuleSwitch.view("chams", ConfigManager.features.playerChams)

@@ -62,7 +62,6 @@ object NeuRepo {
         @field:Expose val items: List<RepoItem>,
         @field:Expose val sackContents: Map<String, List<String>>,
         @field:Expose val armorSets: Map<String, List<String>> = emptyMap(),
-        /** RNG Meter drops and what each needs: a floor ("F7") or slayer boss to drop id to amount. */
         @field:Expose val rngScore: Map<String, Map<String, Long>> = emptyMap(),
     )
 
@@ -95,10 +94,6 @@ object NeuRepo {
 
     fun allItemIds(): Set<String> = items.keys
 
-    /**
-     * The drops an RNG Meter can be set to, with the score or slayer XP each needs. [meter] is a
-     * floor like "F7" or "M3", or a slayer boss like "Voidgloom Seraph".
-     */
     fun rngDrops(meter: String): Map<String, Long> = rngScore[meter].orEmpty()
 
     fun resolve(query: String): RepoItem? {
@@ -407,7 +402,6 @@ object NeuRepo {
         emptyMap()
     }
 
-    /** Floors and slayer bosses together: they never share a name. */
     private fun parseRngScore(zip: ZipInputStream): Map<String, Map<String, Long>> = try {
         val json = JsonParser.parseReader(InputStreamReader(NonClosingStream(zip))).asJsonObject
         val result = HashMap<String, Map<String, Long>>()

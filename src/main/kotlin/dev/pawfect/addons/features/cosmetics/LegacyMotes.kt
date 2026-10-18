@@ -77,7 +77,6 @@ object LegacyMotes {
         submit(poseStack, collector, jobs, camera, time)
     }
 
-    /** Draws the motes of someone walking the menu scene, who has no entity in any world. */
     fun submitShowcase(poseStack: PoseStack, collector: SubmitNodeCollector, uuid: UUID, feet: Vec3, height: Double, camera: Vec3) {
         if (!Cosmetics.showsOffWorld(config.motes, uuid)) return
         val motes = Cosmetics.motesFor(uuid) ?: return

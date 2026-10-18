@@ -10,17 +10,10 @@ import kotlin.math.ln
 import kotlin.math.min
 import kotlin.math.sin
 
-/**
- * The CPU half of the Milky Way sky: where the galaxy sits and how it drifts, and the shooting
- * stars. Both are a few dozen float operations a frame, which spares the shader from working
- * them out again for every pixel.
- */
 internal object MilkyWay {
 
     const val METEOR_SLOTS = 3
 
-    // One full turn every hour of sky time, around a pole tilted 35 degrees from straight up,
-    // the way the real night sky wheels around its celestial pole.
     private const val DRIFT_PERIOD = 3600.0
     private val pole = Vector3f(0f, cos(Math.toRadians(35.0)).toFloat(), sin(Math.toRadians(35.0)).toFloat()).normalize()
 
@@ -68,8 +61,6 @@ internal object MilkyWay {
         updateMeteors(now, frequency)
     }
 
-    // The galactic pole sits 28 degrees above the horizon, so the band crosses the sky on a steep
-    // diagonal. The seed turns where it rises and where along it the bright centre lies.
     private fun placeGalaxy(seed: Int) {
         baseSeed = seed
         val azimuth = Math.toRadians(40.0 + seed * 137.508)
@@ -80,10 +71,6 @@ internal object MilkyWay {
         baseX.cross(baseY, baseZ).normalize()
     }
 
-    /**
-     * The galactic frame as three rows, then the camera's right and up vectors in that frame.
-     * The first row also carries the angle one pixel spans at the centre of the screen.
-     */
     fun writeFrame(buffer: ByteBuffer, right: Vector3f, up: Vector3f, twinkle: Float, quality: Int, pixelAngle: Float) {
         put(buffer, axisX, pixelAngle)
         put(buffer, axisY, 0f)
@@ -92,7 +79,6 @@ internal object MilkyWay {
         buffer.putFloat(up.dot(axisX)).putFloat(up.dot(axisY)).putFloat(up.dot(axisZ)).putFloat(quality.toFloat())
     }
 
-    /** Heads, paths, sides and tints, matching the shader's four meteor arrays. */
     fun writeMeteors(buffer: ByteBuffer) {
         for (m in meteors) put(buffer, m.head, if (m.active) m.shown else 0f)
         for (m in meteors) put(buffer, m.path, m.trail)
@@ -126,8 +112,6 @@ internal object MilkyWay {
                 m.active = false
                 continue
             }
-            // The head travels along a great circle; the trail behind it grows to its full
-            // length, and the whole meteor fades in fast and out slowly.
             val angle = (m.speed * age).toFloat()
             val c = cos(angle)
             val s = sin(angle)
@@ -140,8 +124,6 @@ internal object MilkyWay {
         }
     }
 
-    // Exponential gaps make arrivals a Poisson process: no rhythm to pick up on, and now and then
-    // two arrive close together.
     private fun gap(frequency: Float): Double {
         val rarity = 1.0 - frequency
         val mean = 2.5 + 45.0 * rarity * rarity
@@ -153,8 +135,6 @@ internal object MilkyWay {
         val elevation = Math.toRadians(18.0 + random.nextDouble() * 52.0)
         m.start.set(cos(elevation) * cos(azimuth), sin(elevation), cos(elevation) * sin(azimuth)).normalize()
 
-        // Start from the way down the sky at that point and swing up to 75 degrees either side,
-        // so most meteors fall at a slant and a few run almost level.
         val down = Vector3f(m.start.x * m.start.y, m.start.y * m.start.y - 1f, m.start.z * m.start.y).normalize()
         val across = Vector3f(m.start).cross(down).normalize()
         val swing = Math.toRadians((random.nextDouble() * 2.0 - 1.0) * 75.0).toFloat()

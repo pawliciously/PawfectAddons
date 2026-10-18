@@ -34,25 +34,20 @@ object DungeonScanner {
     private var absentTicks = 0
     private var ticks = 0
 
-    /** How often the map is looked over for newly opened rooms, and how long each far room gets a turn. */
     private const val DISCOVER_EVERY = 10
     private const val PROBE_TURN = 4
 
     var current: DungeonRoom? = null
         private set
 
-    /** You're in the dungeon but outside the room grid: the boss. */
     var inBoss = false
         private set
 
-    /** Lines the dungeon map up with the world: the entrance room's corner in each, and the map's room size. */
     class MapAnchor(val physicalX: Int, val physicalZ: Int, val mapX: Int, val mapZ: Int, val roomSize: Int) {
-        /** Where a world position falls on the map, in map pixels. */
         fun toMap(x: Double, z: Double): Pair<Double, Double> =
             ((x - physicalX) / 32.0 * (roomSize + 4) + mapX) to ((z - physicalZ) / 32.0 * (roomSize + 4) + mapZ)
     }
 
-    /** Every room this run that you've been in or the map shows opened, once each. */
     fun knownRooms(): Collection<DungeonRoom> = rooms.values.distinct()
 
     fun anchor(): MapAnchor? {
@@ -64,7 +59,6 @@ object DungeonScanner {
 
     var status: String = "idle"
         private set(value) {
-            // Logged when it changes, so a log shows why rooms weren't picked up.
             if (value != field && !value.startsWith("matched") && !value.startsWith("matching")) logger.info("Scanner: {}", value)
             field = value
         }
@@ -91,7 +85,6 @@ object DungeonScanner {
         return null
     }
 
-    /** The dungeon map: slot 9 where Hypixel puts it, or wherever else in the hotbar it's ended up. */
     fun mapData(): MapItemSavedData? {
         val player = McCompat.player ?: return null
         val level = McCompat.mc.level ?: return null
@@ -124,8 +117,6 @@ object DungeonScanner {
         val player = McCompat.player ?: return
         if (level == null) return
 
-        // The rooms sit in a 6 by 6 grid of 32 block cells from -200; the boss is somewhere else.
-        // Checked first: the map leaves your hotbar in the boss, and nothing below runs without it.
         inBoss = player.x !in GRID_MIN..GRID_MAX || player.z !in GRID_MIN..GRID_MAX
         if (inBoss) {
             current = null
@@ -144,7 +135,6 @@ object DungeonScanner {
             status = "no dungeon map in the hotbar"
             return
         }
-        // Said once, since what follows ("matching ...") isn't logged and a log would end on the missing map.
         if (status == "no dungeon map in the hotbar") logger.info("Scanner: dungeon map is back")
 
         if (mapEntrance == null || mapRoomSize == 0) {
@@ -217,7 +207,6 @@ object DungeonScanner {
         }
     }
 
-    /** Builds the room at [mapPos] from the map's shape for it, and files it under each of its segments. */
     private fun createRoom(
         map: MapItemSavedData,
         entrance: Pair<Int, Int>,
@@ -242,10 +231,6 @@ object DungeonScanner {
         return room
     }
 
-    /**
-     * Picks up every room the map shows opened, so they can be matched without walking in.
-     * Rooms the map only shows grey (seen, not opened) are left alone.
-     */
     private fun discover(map: MapItemSavedData, entrance: Pair<Int, Int>, physical: Pair<Int, Int>) {
         val step = mapRoomSize + 4
         val nw = DungeonMapUtils.getMapPosForNWMostRoom(Vector2i(entrance.first, entrance.second), mapRoomSize)
@@ -264,7 +249,6 @@ object DungeonScanner {
         rooms.values.distinct().forEach { if (it !== current) checkmarks(map, it) }
     }
 
-    /** Reads the room's checkmark off the map: white or green is cleared, green on a matched room is every secret found. */
     private fun checkmarks(map: MapItemSavedData, room: DungeonRoom) {
         if (room.greenChecked) return
         val colour = checkmarkColour(map, room)
@@ -276,7 +260,6 @@ object DungeonScanner {
         }
     }
 
-    /** Matches one far-off room a little, taking turns between them. */
     private fun probeOne(level: net.minecraft.client.multiplayer.ClientLevel) {
         val waiting = rooms.values.distinct().filter { it !== current && it.type.scan && !it.matched && it.matchState == DungeonRoom.MatchState.MATCHING }
         if (waiting.isEmpty()) return

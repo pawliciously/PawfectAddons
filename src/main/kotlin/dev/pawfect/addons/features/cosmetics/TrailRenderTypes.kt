@@ -14,7 +14,6 @@ import net.minecraft.resources.Identifier
 
 object TrailRenderTypes {
 
-    /** Vanilla's debug quads with a chosen blend, depth tested (26.2 depth runs far = 0). */
     private fun blended(name: String, blend: BlendFunction): RenderPipeline = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
         .withLocation(Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "pipeline/$name"))
         .withColorTargetState(ColorTargetState(blend))
