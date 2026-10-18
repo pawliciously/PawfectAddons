@@ -47,4 +47,7 @@ class DevConfig {
 
     @Expose
     var devClickSounds: Boolean = false
+
+    @Expose
+    var devTypingSounds: Boolean = true
 }

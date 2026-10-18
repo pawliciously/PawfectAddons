@@ -1270,6 +1270,11 @@ object PawfectSettings {
                 "Menu clicks from the sound pack in config/pawfectaddons/dev/sounds: on and off for toggles, open and close for windows, tick for sliders and picks, pluck for groups, tap for the rest. Needs Click Sounds on.",
                 dev::devClickSounds,
             ).onChange { DevClickSounds.reload() },
+            ToggleSetting(
+                "Chat Typing Sounds",
+                "A sound for every character you type in chat, and backspace. Each key always gets the same sound and pitch. Uses type1.ogg, type2.ogg... from the sound pack, or the soft sounds if there are none.",
+                dev::devTypingSounds,
+            ).showIf { dev.devClickSounds },
         ),
         group(
             "Recording",

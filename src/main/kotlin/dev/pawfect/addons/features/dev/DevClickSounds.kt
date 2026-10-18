@@ -6,6 +6,8 @@ import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.gui.components.AbstractSliderButton
 import net.minecraft.client.gui.components.Checkbox
 import net.minecraft.client.gui.components.CycleButton
+import net.minecraft.client.gui.components.EditBox
+import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.sounds.SoundSource
 import org.lwjgl.openal.AL10
 import org.lwjgl.openal.ALC10
@@ -36,13 +38,16 @@ object DevClickSounds {
 
     val active: Boolean get() = ConfigManager.features.dev.devClickSounds && DevAccount.isDev()
 
-    /** Plays a random file of this kind. False if there's none or OpenAL isn't up, so the caller can fall back. */
-    fun play(kind: String): Boolean {
+    /**
+     * Plays a file of this kind, random unless [seed] picks it. False if there's none or OpenAL isn't up, so the
+     * caller can fall back.
+     */
+    fun play(kind: String, seed: Long? = null, pitch: Float = 1f): Boolean {
         if (ALC10.alcGetCurrentContext() == 0L) return false
         val options = clips.getOrPut(kind) { load(kind) }
         if (options.isEmpty()) return false
         cleanup()
-        val clip = options.random()
+        val clip = if (seed == null) options.random() else options[Math.floorMod(seed, options.size.toLong()).toInt()]
         val volume = McCompat.mc.options.getSoundSourceVolume(SoundSource.MASTER) *
             (uiSource?.let { McCompat.mc.options.getSoundSourceVolume(it) } ?: 1f)
         if (volume <= 0f) return true
@@ -53,6 +58,7 @@ object DevClickSounds {
         AL10.alSourcei(source, AL10.AL_SOURCE_RELATIVE, AL10.AL_TRUE)
         AL10.alSource3f(source, AL10.AL_POSITION, 0f, 0f, 0f)
         AL10.alSourcef(source, AL10.AL_GAIN, volume)
+        AL10.alSourcef(source, AL10.AL_PITCH, pitch)
         AL10.alSourcePlay(source)
         if (AL10.alGetError() != AL10.AL_NO_ERROR) {
             AL10.alDeleteSources(source)
@@ -83,6 +89,31 @@ object DevClickSounds {
     /** Any other UI button click (tabs, world list, options keys, crafter slots, other mods): a tap. */
     @JvmStatic
     fun uiClick(): Boolean = active && runCatching { play("tap") }.getOrDefault(false)
+
+    /** Same key, same sound every time: the clip and pitch come from the character, not chance. */
+    private const val TYPING_SEED = 0x2F6B_C1D9_A53E_7741L
+
+    /**
+     * A character landed in the chat box (or backspace, as '\b'). Plays type<n>.ogg, or the soft set if there are
+     * no typing sounds in the pack, picked and pitched by the character so each key keeps its own sound.
+     */
+    @JvmStatic
+    fun chatKey(box: EditBox, codepoint: Int) {
+        if (!active || !ConfigManager.features.dev.devTypingSounds) return
+        val screen = McCompat.screen as? ChatScreen ?: return
+        if (screen.focused !== box) return
+        val hash = mix(codepoint.toLong() xor TYPING_SEED)
+        val pitch = 0.9f + ((hash ushr 40) and 0xFF).toFloat() / 255f * 0.25f
+        if (!play("type", hash, pitch)) play("soft", hash, pitch)
+    }
+
+    /** SplitMix64's finaliser: spreads neighbouring characters far apart. */
+    private fun mix(value: Long): Long {
+        var z = value + -0x61c8864680b583ebL
+        z = (z xor (z ushr 30)) * -0x40a7b892e31b1a47L
+        z = (z xor (z ushr 27)) * -0x6b2fb644ecceee15L
+        return z xor (z ushr 31)
+    }
 
     /** Forgets loaded files, for after swapping them in the folder. */
     fun reload() = clips.clear()
