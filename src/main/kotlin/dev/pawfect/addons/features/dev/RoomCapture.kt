@@ -3,6 +3,7 @@ package dev.pawfect.addons.features.dev
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonWriter
+import dev.pawfect.addons.config.ConfigManager
 import dev.pawfect.addons.data.SkyBlockData
 import dev.pawfect.addons.features.dungeon.rooms.DungeonMapUtils
 import dev.pawfect.addons.features.dungeon.secrets.DungeonRoom
@@ -89,7 +90,13 @@ object RoomCapture {
     private val gson = GsonBuilder().setPrettyPrinting().create()
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "PawfectAddons-RoomCapture").apply { isDaemon = true } }
 
-    var enabled = true
+    val enabled: Boolean get() = ConfigManager.features.dev.roomCapture
+
+    /**
+     * The real Hypixel, by server address. Practice servers like bloodcamp.net fake Hypixel's location packet
+     * (so HypixelLocation says yes) but their rooms aren't worth saving.
+     */
+    fun onHypixel(): Boolean = McCompat.mc.currentServer?.ip?.contains("hypixel", ignoreCase = true) == true
 
     private data class Cell(val cx: Int, val cz: Int) {
         val x: Int get() = GRID + cx * CELL
@@ -134,7 +141,7 @@ object RoomCapture {
     }
 
     fun onTick() {
-        if ((!enabled && !grabbing) || !DevAccount.isDev()) return
+        if (!DevAccount.isDev() || (!grabbing && (!enabled || !onHypixel()))) return
         val level = McCompat.mc.level
         val key = System.identityHashCode(level)
         if (key != levelKey) {
@@ -704,12 +711,6 @@ object RoomCapture {
         val importedNote = if (imported == 0) "" else " §8($imported imported)"
 
         McCompat.mc.execute {
-            if (final) {
-                val gui = McCompat.mc.gui.hud
-                gui.setTimes(10, 80, 20)
-                gui.setSubtitle(Component.literal("§f$have§7/§f$total §7rooms saved$importedNote, §a${added.size} new§7, §b${replaced.size} replaced §7this run"))
-                gui.setTitle(Component.literal("§d§l${have * 100 / total.coerceAtLeast(1)}% §7of rooms"))
-            }
             ChatUtils.chat("§dRoom capture§7: §f${captured.size} §7rooms copied this run, §a${added.size} new§7, §b${replaced.size} §7replaced imported copies, §f${improved.size} §7cleaner, §f$unknown §7unmatched${if (held.isEmpty()) "" else ", §f${held.size} §7held until the run ends"}. §f$have§7/§f$total §7rooms saved$importedNote§7.")
             if (rematched.isNotEmpty()) ChatUtils.chat("§7Matched §f${rematched.size} §7saved unknown rooms again: §f${rematched.joinToString(", ") { SecretRoomData.displayName(it.first.room ?: "?") }}")
             if (added.isNotEmpty()) ChatUtils.chat("§aNew: §f${added.joinToString(", ")}")

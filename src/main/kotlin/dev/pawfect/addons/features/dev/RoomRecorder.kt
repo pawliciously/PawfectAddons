@@ -82,7 +82,7 @@ object RoomRecorder {
     private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "PawfectAddons-RoomRecorder").apply { isDaemon = true } }
 
-    val enabled: Boolean get() = ConfigManager.features.dev.roomRecording && DevAccount.isDev()
+    val enabled: Boolean get() = ConfigManager.features.dev.roomRecording && DevAccount.isDev() && RoomCapture.onHypixel()
 
     private class Mob(
         var id: Int,

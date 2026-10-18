@@ -1290,10 +1290,15 @@ object PawfectSettings {
             ).showIf { dev.recordingMode },
         ),
         group(
-            "DungeonSim",
+            "Bloodcamp",
+            ToggleSetting(
+                "Capture Rooms",
+                "Copies every dungeon room's blocks for Bloodcamp and tells you in chat what's still missing at the end of a run. Only on Hypixel, never on practice servers. /pa dev rooms lists what's left.",
+                dev::roomCapture,
+            ),
             ToggleSetting(
                 "Record Mobs And Levers",
-                "Saves every dungeon mob you see (Fels, minibosses and the keys they drop too) and what each lever opens, per room, for DungeonSim. Chat tells you when the room you walk into still needs recording. /pa dev record lists what's left.",
+                "Saves every dungeon mob you see (Fels, minibosses and the keys they drop too) and what each lever opens, per room, for Bloodcamp. Chat tells you when the room you walk into still needs recording. Only on Hypixel. /pa dev record lists what's left.",
                 dev::roomRecording,
             ),
         ),

@@ -46,6 +46,9 @@ class DevConfig {
     var roomRecording: Boolean = false
 
     @Expose
+    var roomCapture: Boolean = true
+
+    @Expose
     var devClickSounds: Boolean = false
 
     @Expose

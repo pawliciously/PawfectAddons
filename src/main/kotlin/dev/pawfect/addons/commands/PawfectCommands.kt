@@ -275,14 +275,16 @@ object PawfectCommands {
             )
             .then(
                 ClientCommands.literal("on").executes {
-                    RoomCapture.enabled = true
+                    ConfigManager.features.dev.roomCapture = true
+                    ConfigManager.save(ConfigFileType.FEATURES, "room capture on")
                     ChatUtils.chat("§aRoom capture on.")
                     SUCCESS
                 },
             )
             .then(
                 ClientCommands.literal("off").executes {
-                    RoomCapture.enabled = false
+                    ConfigManager.features.dev.roomCapture = false
+                    ConfigManager.save(ConfigFileType.FEATURES, "room capture off")
                     ChatUtils.chat("§7Room capture off.")
                     SUCCESS
                 },
