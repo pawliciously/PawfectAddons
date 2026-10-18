@@ -2,7 +2,7 @@
 
 ## 0.83.0 (Minecraft 26.2)
 - PawfectAddons now runs on Minecraft 26.2. This build won't load on 26.1.2.
-- New settings menu. Each category is a panel you can drag around, every module has its own switch, and right click opens its settings in place. There's a search bar at the bottom.
+- New settings menu. Each category is a panel you can drag around, every module has its own switch, and right click opens its settings in place. There's a search bar at the bottom. Prefer a list? Click Classic menu in the bottom left, or turn on Classic Menu under Theme.
 - Secret routes. Each dungeon room's secrets in order: where to walk, etherwarp, stonk, superboom and flip levers. Pick the Secret Routes Mod, FlameOfWar or Stella route set, and PawfectAddons fills in rooms they get wrong. You can record your own too.
 - Dungeon map on screen, drawn from your hotbar map with room names, secret counts and player heads. It shows in the leap menu too.
 - Room info shows the room you're in, how many of its secrets you've found and whether it's cleared.
