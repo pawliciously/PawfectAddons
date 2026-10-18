@@ -1190,6 +1190,11 @@ object PawfectSettings {
                 group(
                     "Preset",
                     DropdownSetting("Theme", "Colour preset for this menu.", theme::preset, ThemePreset.entries.toList()),
+                    ToggleSetting(
+                        "Classic Menu",
+                        "Use the list-style menu with a sidebar of tabs instead of the panels. The classic menu has a New menu button to come back.",
+                        theme::classicMenu,
+                    ).onChange { PawfectAddons.queueScreen { ConfigGuiManager.open("theme") } },
                 ),
                 group(
                     "Watermark",
@@ -1256,11 +1261,6 @@ object PawfectSettings {
         "0.47.0",
         group(
             "Menu",
-            ToggleSetting(
-                "Classic Menu",
-                "Open the Chroma menu instead of the click GUI. Turn it off to go back to the click GUI.",
-                ConfigManager.features.theme::classicMenu,
-            ).onChange { PawfectAddons.queueScreen { ConfigGuiManager.open("dev") } },
             ToggleSetting(
                 "Dev Click Sounds",
                 "Menu clicks from the sound pack in config/pawfectaddons/dev/sounds: on and off for toggles, open and close for windows, tick for sliders and picks, pluck for groups, tap for the rest. Needs Click Sounds on.",

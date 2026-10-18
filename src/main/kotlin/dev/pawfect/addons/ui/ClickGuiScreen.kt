@@ -161,6 +161,7 @@ class ClickGuiScreen(
 
             drawSearch(graphics, mx, my)
             drawLinks(graphics, mx, my)
+            drawClassic(graphics, mx, my)
             Notifications.renderScaled(graphics)
         } finally {
             UiScale.pop(graphics)
@@ -685,6 +686,21 @@ class ClickGuiScreen(
         }
     }
 
+    private fun classicBounds(): FloatArray =
+        floatArrayOf(MARGIN, UiScale.height - MARGIN - LINK_SIZE, Draw.width(CLASSIC_LABEL) + 16f, LINK_SIZE)
+
+    private fun drawClassic(graphics: GuiGraphicsExtractor, mouseX: Float, mouseY: Float) {
+        val c = classicBounds()
+        val h = hover.getOrPut("classic") { Anim(140L) }.update(if (Draw.inside(mouseX, mouseY, c[0], c[1], c[2], c[3])) 1f else 0f)
+        graphics.roundPanel(
+            c[0], c[1], c[2], c[3], RADIUS,
+            Theme.lerp(Theme.surface(Theme.panel, 240), Theme.mix(Theme.panel, Theme.accent, 0.12f), h),
+            Theme.lerp(Theme.opaque(Theme.border), Theme.opaque(Theme.accent), h),
+        )
+        graphics.string(CLASSIC_LABEL, c[0] + 8f, c[1] + (c[3] - Draw.LINE_HEIGHT) / 2f,
+            Theme.lerp(Theme.opaque(Theme.textDim), Theme.opaque(Theme.accent), h))
+    }
+
     private class Link(val id: String, val label: String, val url: String) {
         val texture: Identifier = Identifier.fromNamespaceAndPath(PawfectAddons.MOD_ID, "textures/gui/links/$id.png")
     }
@@ -731,6 +747,15 @@ class ClickGuiScreen(
         val mx = UiScale.mouseX(click.x())
         val my = UiScale.mouseY(click.y())
         val button = click.button()
+
+        val c = classicBounds()
+        if (button == 0 && Draw.inside(mx, my, c[0], c[1], c[2], c[3])) {
+            UiSound.click()
+            theme.classicMenu = true
+            ConfigManager.save(ConfigFileType.FEATURES, "switched to the classic menu")
+            PawfectAddons.queueScreen { dev.pawfect.addons.config.ConfigGuiManager.open() }
+            return true
+        }
 
         val ly = linkY()
         LINKS.forEachIndexed { index, link ->
@@ -979,6 +1004,7 @@ class ClickGuiScreen(
         )
 
         private val DEV_PANELS = setOf("dev")
+        private const val CLASSIC_LABEL = "Classic menu"
 
         private const val OFF = -1000f
         private const val MIN_WIDTH = 820f
