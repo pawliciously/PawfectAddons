@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.83.0 (Minecraft 26.2)
+- PawfectAddons now runs on Minecraft 26.2. This build won't load on 26.1.2.
+- New settings menu. Each category is a panel you can drag around, every module has its own switch, and right click opens its settings in place. There's a search bar at the bottom.
+- Secret routes. Each dungeon room's secrets in order: where to walk, etherwarp, stonk, superboom and flip levers. Pick the Secret Routes Mod, FlameOfWar or Stella route set, and PawfectAddons fills in rooms they get wrong. You can record your own too.
+- Dungeon map on screen, drawn from your hotbar map with room names, secret counts and player heads. It shows in the leap menu too.
+- Room info shows the room you're in, how many of its secrets you've found and whether it's cleared.
+- Leap menu. Spirit Leap becomes four boxes, one per corner of the screen, with classes in fixed corners. Click a quarter or press its key to leap.
+- Invincibility timers for Bonzo's Mask, the Spirit Mask and the Phoenix pet.
+- RNG Meter on screen for dungeons and slayers, in its own tab.
+- Healer box outline on Floor 7 and Master Mode 7.
+- Voidgloom Seraph: glow and a tracer line for Nukekubi heads thrown by your own boss, plus an on-screen alert for the hits phase.
+- Slayer bosses read the new health plates, and the boss that spawns next to you counts as yours.
+- Drop celebration. Rare drops land with impact frames, light, confetti and the item itself in 3D, bigger the rarer the drop.
+- Celestial wings, halos and horns, plus Hide Armor so your skin and cosmetics show.
+- Motes, trails and landing ripples got rebuilt, with themes. The old ones are still there.
+- Ambient motes: little lights that lift off nearby blocks and drift around.
+- 3D main menu backgrounds. The SkyBlock Hub and The End, captured when you visit them, behind the title screen. A random one shows each launch, and a Background button switches.
+- Menu Image. Put a picture or gif in every menu, from a link or the menu-images folder, then move and resize it.
+- PawfectAddons loading screen in place of Mojang's.
+- The watermark can show FPS, TPS, ping and more.
+- Scoreboard background colour option.
+- New Mirage background style for the media player, and it no longer stalls.
+- You can paste into text and colour fields.
+- The session tracker was removed.
+
 ## 0.82.0
 - Profile viewer. `/pa pv <player>` opens anyone's SkyBlock profile: skills, slayers, dungeons, inventory, storage, accessories and pets, with real item models, networth and SkyBlock level XP. PawfectAddons users show up with their name colours, badges and emoji.
 - Profile descriptions. Open your own profile with `/pa pv` and write up to four lines about yourself, emoji included. Anyone with PawfectAddons who views your profile sees them.
