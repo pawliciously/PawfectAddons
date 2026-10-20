@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.83.1 (Minecraft 26.2)
+- Menu Image no longer cuts white out of your own gifs and pictures. Turn on Remove White Background if you want a plain white background cleared, and its edges now fade out instead of leaving a jagged white rim. The default Zelda gif still gets hers cleared.
+- Classic Menu toggle under Theme, and a Classic menu button in the settings menu.
+
 ## 0.83.0 (Minecraft 26.2)
 - PawfectAddons now runs on Minecraft 26.2. This build won't load on 26.1.2.
 - New settings menu. Each category is a panel you can drag around, every module has its own switch, and right click opens its settings in place. There's a search bar at the bottom. Prefer a list? Click Classic menu in the bottom left, or turn on Classic Menu under Theme.

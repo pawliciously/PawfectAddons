@@ -47,7 +47,7 @@ class MenuConfig {
     var imageSource: String = ""
 
     @Expose
-    var imageCutWhite: Boolean = true
+    var imageCutBackground: Boolean = false
 
     @Expose
     var imageOpacity: Float = 1f

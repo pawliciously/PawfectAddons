@@ -117,14 +117,16 @@ object MenuImage {
         release()
         loading = wanted
         status = "Loading..."
-        val cut = config.imageCutWhite
+        val cut = cutFor(source)
         worker.execute { load(wanted, source, cut) }
     }
+
+    private fun cutFor(source: String) = source.isEmpty() || config.imageCutBackground
 
     private fun wantedKey(source: String): String {
         val local = localFile(source)
         val stamp = local?.let { runCatching { Files.getLastModifiedTime(it).toMillis() }.getOrDefault(0L) } ?: 0L
-        return "$source|${config.imageCutWhite}|$stamp"
+        return "$source|${cutFor(source)}|$stamp"
     }
 
     private fun localFile(source: String): Path? {
@@ -292,6 +294,20 @@ object MenuImage {
             if (x < w - 1) stack.add(i + 1)
             if (y > 0) stack.add(i - w)
             if (y < h - 1) stack.add(i + w)
+        }
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val i = y * w + x
+                if (seen[i]) continue
+                val cleared = (x > 0 && seen[i - 1]) || (x < w - 1 && seen[i + 1]) || (y > 0 && seen[i - w]) || (y < h - 1 && seen[i + w])
+                if (!cleared) continue
+                val argb = image.getRGB(x, y)
+                val light = minOf(argb shr 16 and 0xFF, argb shr 8 and 0xFF, argb and 0xFF)
+                if (light <= 160) continue
+                val keep = ((235 - light).coerceAtLeast(0) / 75f).coerceIn(0.25f, 1f)
+                val alpha = ((argb ushr 24) * keep).toInt()
+                image.setRGB(x, y, (alpha shl 24) or (argb and 0xFFFFFF))
+            }
         }
     }
 

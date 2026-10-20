@@ -1132,7 +1132,7 @@ object PawfectSettings {
                 "menu",
                 "Main Menu",
                 Icons.SPARKLE,
-                "0.83.0",
+                "0.83.1",
                 group(
                     "Core",
                     ToggleSetting("Custom Main Menu", "Replace the vanilla menu backdrop with an animated shader.", menu::enabled),
@@ -1173,8 +1173,8 @@ object PawfectSettings {
                     ButtonSetting("Back To Zelda", "Go back to the default gif.", "Reset") {
                         menu.imageSource = ""
                     }.showIf { menu.imageEnabled && menu.imageSource.isNotBlank() },
-                    ToggleSetting("Cut Out Background", "Clear a plain white background around the picture, and a stray line along its top.", menu::imageCutWhite)
-                        .showIf { menu.imageEnabled },
+                    ToggleSetting("Remove White Background", "Clear a plain white background around your picture. Leave it off if your gif has white near its edges.", menu::imageCutBackground)
+                        .showIf { menu.imageEnabled && menu.imageSource.isNotBlank() },
                     FloatSliderSetting("Opacity", "How solid the picture is.", menu::imageOpacity, 0.05f, 1f, 0.05f)
                         .showIf { menu.imageEnabled },
                     PositionSetting("Image Position", "Drag it to move, scroll on it to resize.", menu.imagePosition) {
